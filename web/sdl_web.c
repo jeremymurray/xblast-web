@@ -78,8 +78,10 @@ SDL_SetVideoMode (int width, int height, int bpp, Uint32 flags)
 
 	webScreen = SDL_CreateRGBSurfaceWithFormat (0, width, height, 32, SDL_PIXELFORMAT_ARGB8888);
 	if (!webScreen) {
+		fprintf (stderr, "xb: screen surface creation failed\n");
 		return NULL;
 	}
+	fprintf (stderr, "xb: window %dx%d created\n", width, height);
 
 	webVideoInfo.hw_available = 0;
 	webVideoInfo.wm_available = 1;
@@ -111,8 +113,12 @@ SDL_GetVideoInfo (void)
 void
 XBWeb_Present (SDL_Surface *surface)
 {
+	static int presentCount = 0;
 	if (!surface || !webTexture || surface != webScreen) {
 		return;
+	}
+	if (presentCount++ == 0) {
+		fprintf (stderr, "xb: first present %dx%d\n", surface->w, surface->h);
 	}
 	SDL_UpdateTexture (webTexture, NULL, surface->pixels, surface->pitch);
 	SDL_RenderClear (webRenderer);

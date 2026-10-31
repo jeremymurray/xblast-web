@@ -23,12 +23,14 @@
     printErr: (...args) => console.error(...args),
     onAbort: (what) => { statusEl.textContent = 'abort: ' + what; statusEl.className = 'error'; },
     setStatus: (text) => { if (text) statusEl.textContent = text; },
-    onRuntimeInitialized: () => { statusEl.textContent = ''; }
+    onRuntimeInitialized: () => { console.log('xb: runtime ready'); statusEl.textContent = ''; }
   };
   window.addEventListener('error', (e) => {
     statusEl.textContent = 'error: ' + e.message;
     statusEl.className = 'error';
+    console.error('xb: window error', e.message);
   });
+  console.log('xb: page script loaded');
 </script>
 <script async src="xblast.js"></script>
 </body>

@@ -29,7 +29,7 @@ SelectSockets (struct timeval *timeout)
 	else {
 		/* Yield to the browser event loop; without this the render loop
 		   would spin and freeze the tab. */
-		emscripten_sleep (1);
+		emscripten_sleep (16);
 	}
 #endif
 }

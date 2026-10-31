@@ -75,7 +75,8 @@ LDFLAGS=(
 	-sFORCE_FILESYSTEM=1
 	-sEXIT_RUNTIME=0
 	-sSTACK_SIZE=1048576
-	--preload-file "$ROOT/data@/data"
+	--preload-file "$ROOT/data/image@/data/image"
+	--preload-file "$ROOT/data/level@/data/level"
 	--preload-file "$ROOT/data/Vera.ttf@/Vera.ttf"
 )
 
