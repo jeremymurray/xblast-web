@@ -1,0 +1,60 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: xblast-tnt
+Source: https://xblast.sourceforge.net/
+
+Files: *
+Copyright: 2004 Oliver Vogel & others
+                Fernando Benites <iskywalker@users.sourceforge.net>
+                Kruno Sever <lodott@users.sourceforge.net>
+                Rhonda D'Vine <rhonda@deb.at>
+License: GPL-2+
+
+Files: bot.*
+Copyright: 1993-1996 Oliver Vogel <vogel@ikp.uni-koeln.de>
+                     Didier PLANTET <plantet@info.enserb.u-bordeaux.fr>
+		     Grégoire ROBERT <robert@info.enserb.u-bordeaux.fr>
+License: GPL
+
+Files: xbsndsrv.c
+Copyright: 1993-1997 Oliver Vogel <vogel@ikp.uni-koeln.de>
+           1996 Norbert Nicolay <nicolay@ikp.uni-koeln.de>
+License: GPL
+
+Files: sdl_ppm.c
+       SDL_vkeys.h
+Copyright: 1997-2002  Sam Lantinga
+License: LGPL-2+
+ This library is free software; you can redistribute it and/or
+ modify it under the terms of the GNU Library General Public
+ License as published by the Free Software Foundation; either
+ version 2 of the License, or (at your option) any later version.
+ .
+ This library is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ Library General Public License for more details.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU Lesser
+ General Public License can be found in "/usr/share/common-licenses/LGPL-2".
+
+Files: debian/*
+Copyright: 2004-2016 Rhonda D'Vine <rhonda@debian.org>
+License: GPL-2+
+
+License: GPL
+ On Debian GNU/Linux systems, the complete text of the GNU General
+ Public License can be found in "/usr/share/common-licenses/GPL".
+
+License: GPL-2+
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published
+ by the Free Software Foundation; either version 2; or (at your option)
+ any later version
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ On Debian GNU/Linux systems, the complete text of the GNU General
+ Public License can be found in "/usr/share/common-licenses/GPL-2".
