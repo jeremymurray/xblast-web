@@ -1,0 +1,12 @@
+# build artefacts
+web/dist/
+build/out/
+*.o
+*.wasm
+*.wasm.map
+
+# downloaded upstream/data packages
+.downloads/
+
+# OS noise
+.DS_Store
