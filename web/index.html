@@ -30,11 +30,28 @@
   #landing { z-index: 20; }
   #overlay { z-index: 30; text-align: center; }
   #overlay button { margin-top: 1em; }
+
+  #keyhints { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 10; }
+  #keyhints.show { display: block; }
+  .keyhint {
+    position: absolute; top: 50%; transform: translateY(-50%); width: 116px;
+    opacity: 1; transition: opacity 0.8s ease;
+  }
+  .keyhint.idle { opacity: 0; }
+  #kh-left { left: max(10px, calc(50% - 620px)); }
+  #kh-right { right: max(10px, calc(50% - 620px)); }
+  .keyhint svg { width: 100%; height: auto; display: block; }
+  @media (max-width: 1180px) { #keyhints { display: none !important; } }
 </style>
 </head>
 <body>
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="status">ready</div>
+
+<div id="keyhints">
+  <div class="keyhint" id="kh-left"></div>
+  <div class="keyhint" id="kh-right"></div>
+</div>
 
 <div id="landing" class="screen show">
   <div class="panel">
@@ -43,7 +60,7 @@
        peer-to-peer multiplayer planned, no game server.</p>
     <dl>
       <dt>Menus</dt><dd>Tab / arrows to move, Space or Return to select</dd>
-      <dt>Left player</dt><dd>F H T B to move, Space to bomb</dd>
+      <dt>Left player</dt><dd>A S D F to move, Space to bomb, Shift to stop, Tab to kick</dd>
       <dt>Right player</dt><dd>Arrow keys to move, Return to bomb</dd>
       <dt>During a match</dt><dd>Esc leaves the match</dd>
     </dl>
@@ -155,6 +172,89 @@
   window.addEventListener('pointerdown', unlockAudio);
   window.addEventListener('keydown', unlockAudio);
   window.addEventListener('touchend', unlockAudio);
+
+  /* Key overlay: rendered from the engine's control.cfg so it follows rebinds. */
+  const hintsEl = document.getElementById('keyhints');
+  const khLeft = document.getElementById('kh-left');
+  const khRight = document.getElementById('kh-right');
+  const PRETTY = {
+    space: 'Space', Return: 'Enter', BackSpace: 'Del', Escape: 'Esc',
+    Up: '\u2191', Down: '\u2193', Left: '\u2190', Right: '\u2192',
+    Shift_L: 'SftL', Shift_R: 'SftR', Tab: 'Tab', Control: 'Ctrl'
+  };
+  const pretty = k => PRETTY[k] || (k && k.startsWith('KP_') ? k.slice(3) : (k || '\u2014'));
+
+  function parseIni(text) {
+    const out = {};
+    let section = null;
+    for (const raw of text.split('\n')) {
+      const line = raw.trim();
+      if (!line || line.startsWith(';') || line.startsWith('#')) continue;
+      const sec = line.match(/^\[(.+)\]$/);
+      if (sec) { section = sec[1]; out[section] = {}; continue; }
+      const kv = line.match(/^([^=]+)=(.*)$/);
+      if (kv && section) out[section][kv[1].trim()] = kv[2].trim();
+    }
+    return out;
+  }
+
+  function readControlCfg() {
+    if (!Module.FS) return null;
+    try {
+      return Module.FS.readFile(CFG_ROOT + '/config/control.cfg', { encoding: 'utf8' });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function cap(x, y, w, label) {
+    const text = String(pretty(label)).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    const size = text.length > 3 ? 9 : 11;
+    return `<g><rect x="${x}" y="${y}" width="${w}" height="28" rx="5" fill="#ffd400" stroke="#8a7400"/>` +
+      `<text x="${x + w / 2}" y="${y + 18}" text-anchor="middle" font-family="monospace" font-size="${size}" fill="#111">${text}</text></g>`;
+  }
+
+  function hintSvg(title, b) {
+    return `<svg viewBox="0 0 120 218" xmlns="http://www.w3.org/2000/svg">` +
+      `<text x="60" y="11" text-anchor="middle" font-family="monospace" font-size="10" fill="#ffd400">${title}</text>` +
+      cap(43, 20, 34, b.keyUp) +
+      cap(5, 52, 34, b.keyLeft) + cap(43, 52, 34, b.keyStop) + cap(81, 52, 34, b.keyRight) +
+      cap(43, 84, 34, b.keyDown) +
+      cap(5, 120, 110, b.keyBomb) +
+      cap(5, 152, 52, b.keyAbort) + cap(63, 152, 52, b.keyAbortCancel) +
+      cap(5, 184, 52, b.keySpecial) + cap(63, 184, 52, b.keyPause) +
+      `</svg>`;
+  }
+
+  let lastControl = null;
+  function renderHints() {
+    const text = readControlCfg();
+    if (!text || text === lastControl) return;
+    lastControl = text;
+    const cfg = parseIni(text);
+    const left = cfg.leftKeyboard || {};
+    const right = cfg.rightKeyboard || {};
+    khLeft.innerHTML = hintSvg('P1 \u00b7 LEFT', left);
+    khRight.innerHTML = hintSvg('P2 \u00b7 RIGHT', right);
+    hintsEl.classList.add('show');
+    pokeHints();
+  }
+
+  let idleTimer = null;
+  function pokeHints() {
+    if (!hintsEl.classList.contains('show')) return;
+    khLeft.classList.remove('idle');
+    khRight.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      khLeft.classList.add('idle');
+      khRight.classList.add('idle');
+    }, 2600);
+  }
+  window.addEventListener('pointermove', pokeHints);
+  window.addEventListener('keydown', pokeHints);
+  window.addEventListener('touchstart', pokeHints);
+  setInterval(renderHints, 1500);
 
   setInterval(saveConfig, 30000);
   window.addEventListener('visibilitychange', () => {

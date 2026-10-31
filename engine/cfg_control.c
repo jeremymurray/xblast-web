@@ -30,6 +30,59 @@
 #define NUM_XBLAST_KEYS    3
 
 /*
+ * default key names
+ *
+ * web port: laptops have no keypad, so the right player uses the arrows and
+ * the left player uses the A/S/D/F home-row cluster. Native defaults are kept
+ * in the #else branch.
+ */
+#ifdef __EMSCRIPTEN__
+#define DEF_RIGHT_UP        "Up"
+#define DEF_RIGHT_LEFT      "Left"
+#define DEF_RIGHT_DOWN      "Down"
+#define DEF_RIGHT_RIGHT     "Right"
+#define DEF_RIGHT_STOP      "BackSpace"
+#define DEF_RIGHT_BOMB      "Return"
+#define DEF_RIGHT_SPECIAL   "Tab"
+#define DEF_RIGHT_PAUSE     "P"
+#define DEF_RIGHT_ABORT     "/"
+#define DEF_RIGHT_CANCEL    "."
+
+#define DEF_LEFT_UP         "F"
+#define DEF_LEFT_LEFT       "A"
+#define DEF_LEFT_DOWN       "S"
+#define DEF_LEFT_RIGHT      "D"
+#define DEF_LEFT_STOP       "Shift_L"
+#define DEF_LEFT_BOMB       "space"
+#define DEF_LEFT_SPECIAL    "Tab"
+#define DEF_LEFT_PAUSE      "P"
+#define DEF_LEFT_ABORT      "Q"
+#define DEF_LEFT_CANCEL     "Z"
+#else
+#define DEF_RIGHT_UP        "KP_8"
+#define DEF_RIGHT_LEFT      "KP_4"
+#define DEF_RIGHT_DOWN      "KP_2"
+#define DEF_RIGHT_RIGHT     "KP_6"
+#define DEF_RIGHT_STOP      "KP_5"
+#define DEF_RIGHT_BOMB      "KP_0"
+#define DEF_RIGHT_SPECIAL   "Return"
+#define DEF_RIGHT_PAUSE     "KP_Subtract"
+#define DEF_RIGHT_ABORT     "KP_Multiply"
+#define DEF_RIGHT_CANCEL    "KP_Divide"
+
+#define DEF_LEFT_UP         "T"
+#define DEF_LEFT_LEFT       "F"
+#define DEF_LEFT_DOWN       "B"
+#define DEF_LEFT_RIGHT      "H"
+#define DEF_LEFT_STOP       "G"
+#define DEF_LEFT_BOMB       "space"
+#define DEF_LEFT_SPECIAL    "Tab"
+#define DEF_LEFT_PAUSE      "P"
+#define DEF_LEFT_ABORT      "A"
+#define DEF_LEFT_CANCEL     "Z"
+#endif
+
+/*
  * local variables
  */
 static DBRoot *dbControl = NULL;
@@ -76,16 +129,16 @@ SetDefaultLeftKeyboard (CFGControlKeyboard * cfg)
 {
 	assert (NULL != cfg);
 
-	cfg->keyUp = GUI_StringToAtom ("T");
-	cfg->keyLeft = GUI_StringToAtom ("F");
-	cfg->keyDown = GUI_StringToAtom ("B");
-	cfg->keyRight = GUI_StringToAtom ("H");
-	cfg->keyStop = GUI_StringToAtom ("G");
-	cfg->keyBomb = GUI_StringToAtom ("space");
-	cfg->keySpecial = GUI_StringToAtom ("Tab");
-	cfg->keyPause = GUI_StringToAtom ("P");
-	cfg->keyAbort = GUI_StringToAtom ("A");
-	cfg->keyAbortCancel = GUI_StringToAtom ("Z");
+	cfg->keyUp = GUI_StringToAtom (DEF_LEFT_UP);
+	cfg->keyLeft = GUI_StringToAtom (DEF_LEFT_LEFT);
+	cfg->keyDown = GUI_StringToAtom (DEF_LEFT_DOWN);
+	cfg->keyRight = GUI_StringToAtom (DEF_LEFT_RIGHT);
+	cfg->keyStop = GUI_StringToAtom (DEF_LEFT_STOP);
+	cfg->keyBomb = GUI_StringToAtom (DEF_LEFT_BOMB);
+	cfg->keySpecial = GUI_StringToAtom (DEF_LEFT_SPECIAL);
+	cfg->keyPause = GUI_StringToAtom (DEF_LEFT_PAUSE);
+	cfg->keyAbort = GUI_StringToAtom (DEF_LEFT_ABORT);
+	cfg->keyAbortCancel = GUI_StringToAtom (DEF_LEFT_CANCEL);
 	/* Skywalker */
 	cfg->keyLaola = GUI_StringToAtom ("1");
 	cfg->keyLooser = GUI_StringToAtom ("2");
@@ -105,30 +158,16 @@ SetDefaultRightKeyboard (CFGControlKeyboard * cfg)
 {
 	assert (NULL != cfg);
 
-#ifdef __EMSCRIPTEN__
-	/* web port: laptops rarely have a keypad, use the arrow keys */
-	cfg->keyUp = GUI_StringToAtom ("Up");
-	cfg->keyLeft = GUI_StringToAtom ("Left");
-	cfg->keyDown = GUI_StringToAtom ("Down");
-	cfg->keyRight = GUI_StringToAtom ("Right");
-	cfg->keyStop = GUI_StringToAtom ("BackSpace");
-	cfg->keyBomb = GUI_StringToAtom ("Return");
-	cfg->keySpecial = GUI_StringToAtom ("Tab");
-	cfg->keyPause = GUI_StringToAtom ("P");
-	cfg->keyAbort = GUI_StringToAtom ("Delete");
-	cfg->keyAbortCancel = GUI_StringToAtom ("Insert");
-#else
-	cfg->keyUp = GUI_StringToAtom ("KP_8");
-	cfg->keyLeft = GUI_StringToAtom ("KP_4");
-	cfg->keyDown = GUI_StringToAtom ("KP_2");
-	cfg->keyRight = GUI_StringToAtom ("KP_6");
-	cfg->keyStop = GUI_StringToAtom ("KP_5");
-	cfg->keyBomb = GUI_StringToAtom ("KP_0");
-	cfg->keySpecial = GUI_StringToAtom ("Return");
-	cfg->keyPause = GUI_StringToAtom ("KP_Subtract");
-	cfg->keyAbort = GUI_StringToAtom ("KP_Multiply");
-	cfg->keyAbortCancel = GUI_StringToAtom ("KP_Divide");
-#endif
+	cfg->keyUp = GUI_StringToAtom (DEF_RIGHT_UP);
+	cfg->keyLeft = GUI_StringToAtom (DEF_RIGHT_LEFT);
+	cfg->keyDown = GUI_StringToAtom (DEF_RIGHT_DOWN);
+	cfg->keyRight = GUI_StringToAtom (DEF_RIGHT_RIGHT);
+	cfg->keyStop = GUI_StringToAtom (DEF_RIGHT_STOP);
+	cfg->keyBomb = GUI_StringToAtom (DEF_RIGHT_BOMB);
+	cfg->keySpecial = GUI_StringToAtom (DEF_RIGHT_SPECIAL);
+	cfg->keyPause = GUI_StringToAtom (DEF_RIGHT_PAUSE);
+	cfg->keyAbort = GUI_StringToAtom (DEF_RIGHT_ABORT);
+	cfg->keyAbortCancel = GUI_StringToAtom (DEF_RIGHT_CANCEL);
 	/* Skywalker */
 	cfg->keyLaola = GUI_StringToAtom ("F3");
 	cfg->keyLooser = GUI_StringToAtom ("F4");
@@ -279,9 +318,30 @@ MigrateControlKeyboard (XBEventCode type)
 {
 	CFGControlKeyboard cfg;
 	XBAtom escape = GUI_StringToAtom ("Escape");
+	XBAtom del = GUI_StringToAtom ("Delete");
+	XBAtom slash = GUI_StringToAtom ("/");
+	int changed = 0;
 
-	if (RetrieveControlKeyboard (type, &cfg) && cfg.keyAbort == escape) {
-		cfg.keyAbort = GUI_StringToAtom ("Delete");
+	if (!RetrieveControlKeyboard (type, &cfg)) {
+		return;
+	}
+	if (cfg.keyAbort == escape || cfg.keyAbort == del) {
+		cfg.keyAbort = slash;
+		changed = 1;
+	}
+	/* Move the left player from the old T/F/H/B cluster to A/S/D/F. */
+	if (type == XBE_KEYB_2 && cfg.keyUp == GUI_StringToAtom ("T")
+		&& cfg.keyLeft == GUI_StringToAtom ("F") && cfg.keyDown == GUI_StringToAtom ("B")
+		&& cfg.keyRight == GUI_StringToAtom ("H")) {
+		cfg.keyUp = GUI_StringToAtom ("F");
+		cfg.keyLeft = GUI_StringToAtom ("A");
+		cfg.keyDown = GUI_StringToAtom ("S");
+		cfg.keyRight = GUI_StringToAtom ("D");
+		cfg.keyStop = GUI_StringToAtom ("Shift_L");
+		cfg.keyAbort = GUI_StringToAtom ("Q");
+		changed = 1;
+	}
+	if (changed) {
 		StoreControlKeyboard (type, &cfg);
 	}
 }

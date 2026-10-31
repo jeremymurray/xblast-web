@@ -113,6 +113,10 @@ main (int argc, char *argv[])
 #endif
 	/* init new configuration */
 	InitConfig ();
+#ifdef __EMSCRIPTEN__
+	/* web port: write key bindings so the page can render its key overlay */
+	SaveControlConfig ();
+#endif
 	/* initialize network */
 	if (!Socket_Init ()) {
 		return -1;
