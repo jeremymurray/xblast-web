@@ -41,7 +41,15 @@
   #kh-left { left: max(10px, calc(50% - 620px)); }
   #kh-right { right: max(10px, calc(50% - 620px)); }
   .keyhint svg { width: 100%; height: auto; display: block; }
-  @media (max-width: 1180px) { #keyhints { display: none !important; } }
+
+  @media (max-width: 1180px) {
+    canvas { max-height: calc(100% - 104px); }
+    #keyhints.show { display: flex; }
+    #keyhints {
+      inset: auto 0 2px 0; justify-content: center; align-items: flex-end; gap: 8px;
+    }
+    .keyhint { position: static; transform: none; width: 48vw; max-width: 330px; }
+  }
 </style>
 </head>
 <body>
@@ -60,7 +68,7 @@
        peer-to-peer multiplayer planned, no game server.</p>
     <dl>
       <dt>Menus</dt><dd>Tab / arrows to move, Space or Return to select</dd>
-      <dt>Left player</dt><dd>A S D F to move, Space to bomb, Shift to stop, Tab to kick</dd>
+      <dt>Left player</dt><dd>W A S D to move, Space to bomb, Shift to stop, Tab to kick</dd>
       <dt>Right player</dt><dd>Arrow keys to move, Return to bomb</dd>
       <dt>During a match</dt><dd>Esc leaves the match</dd>
     </dl>
@@ -207,38 +215,60 @@
     }
   }
 
-  function cap(x, y, w, label) {
+  function cap(x, y, w, label, caption, h) {
     const text = String(pretty(label)).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-    const size = text.length > 3 ? 9 : 11;
-    return `<g><rect x="${x}" y="${y}" width="${w}" height="28" rx="5" fill="#ffd400" stroke="#8a7400"/>` +
-      `<text x="${x + w / 2}" y="${y + 18}" text-anchor="middle" font-family="monospace" font-size="${size}" fill="#111">${text}</text></g>`;
+    const size = text.length > 3 ? 9 : (w < 30 ? 10 : 11);
+    const height = h || 28;
+    let out = `<g><rect x="${x}" y="${y}" width="${w}" height="${height}" rx="5" fill="#ffd400" stroke="#8a7400"/>` +
+      `<text x="${x + w / 2}" y="${y + height / 2 + 4}" text-anchor="middle" font-family="monospace" font-size="${size}" fill="#111">${text}</text>`;
+    if (caption) {
+      out += `<text x="${x + w / 2}" y="${y + height + 9}" text-anchor="middle" font-family="monospace" font-size="8" fill="#ffd400">${caption}</text>`;
+    }
+    return out + '</g>';
   }
 
-  function hintSvg(title, b) {
-    return `<svg viewBox="0 0 120 218" xmlns="http://www.w3.org/2000/svg">` +
+  function hintSvg(title, b, compact) {
+    if (compact) {
+      return `<svg viewBox="0 0 300 86" xmlns="http://www.w3.org/2000/svg">` +
+        `<text x="4" y="10" font-family="monospace" font-size="9" fill="#ffd400">${title}</text>` +
+        cap(8, 14, 32, b.keyUp, '', 22) + cap(44, 14, 32, b.keyLeft, '', 22) +
+        cap(80, 14, 32, b.keyDown, '', 22) + cap(116, 14, 32, b.keyRight, '', 22) +
+        cap(152, 14, 64, b.keyBomb, 'Bomb', 22) + cap(220, 14, 32, b.keyStop, 'Stop', 22) +
+        cap(256, 14, 36, b.keySpecial, 'Kick', 22) +
+        cap(8, 50, 32, b.keyAbort, 'Abort', 22) + cap(44, 50, 32, b.keyAbortCancel, 'Cancel', 22) +
+        cap(80, 50, 32, b.keyPause, 'Pause', 22) +
+        `</svg>`;
+    }
+    return `<svg viewBox="0 0 120 248" xmlns="http://www.w3.org/2000/svg">` +
       `<text x="60" y="11" text-anchor="middle" font-family="monospace" font-size="10" fill="#ffd400">${title}</text>` +
-      cap(43, 20, 34, b.keyUp) +
-      cap(5, 52, 34, b.keyLeft) + cap(43, 52, 34, b.keyStop) + cap(81, 52, 34, b.keyRight) +
-      cap(43, 84, 34, b.keyDown) +
-      cap(5, 120, 110, b.keyBomb) +
-      cap(5, 152, 52, b.keyAbort) + cap(63, 152, 52, b.keyAbortCancel) +
-      cap(5, 184, 52, b.keySpecial) + cap(63, 184, 52, b.keyPause) +
+      cap(43, 18, 34, b.keyUp) +
+      cap(5, 50, 34, b.keyLeft) + cap(43, 50, 34, b.keyStop, 'Stop') + cap(81, 50, 34, b.keyRight) +
+      cap(43, 90, 34, b.keyDown) +
+      cap(5, 128, 110, b.keyBomb, 'Bomb') +
+      cap(5, 166, 52, b.keySpecial, 'Kick') + cap(63, 166, 52, b.keyAbort, 'Abort') +
+      cap(5, 204, 52, b.keyAbortCancel, 'Cancel') + cap(63, 204, 52, b.keyPause, 'Pause') +
       `</svg>`;
   }
 
   let lastControl = null;
+  let lastCompact = null;
   function renderHints() {
     const text = readControlCfg();
-    if (!text || text === lastControl) return;
+    if (!text) return;
+    const compact = window.innerWidth < 1180;
+    if (text === lastControl && compact === lastCompact) return;
     lastControl = text;
+    lastCompact = compact;
     const cfg = parseIni(text);
     const left = cfg.leftKeyboard || {};
     const right = cfg.rightKeyboard || {};
-    khLeft.innerHTML = hintSvg('P1 \u00b7 LEFT', left);
-    khRight.innerHTML = hintSvg('P2 \u00b7 RIGHT', right);
+    khLeft.innerHTML = hintSvg(compact ? 'P1' : 'P1 \u00b7 LEFT', left, compact);
+    khRight.innerHTML = hintSvg(compact ? 'P2' : 'P2 \u00b7 RIGHT', right, compact);
     hintsEl.classList.add('show');
     pokeHints();
   }
+
+  window.addEventListener('resize', renderHints);
 
   let idleTimer = null;
   function pokeHints() {

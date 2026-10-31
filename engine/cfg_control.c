@@ -48,7 +48,7 @@
 #define DEF_RIGHT_ABORT     "/"
 #define DEF_RIGHT_CANCEL    "."
 
-#define DEF_LEFT_UP         "F"
+#define DEF_LEFT_UP         "W"
 #define DEF_LEFT_LEFT       "A"
 #define DEF_LEFT_DOWN       "S"
 #define DEF_LEFT_RIGHT      "D"
@@ -329,11 +329,15 @@ MigrateControlKeyboard (XBEventCode type)
 		cfg.keyAbort = slash;
 		changed = 1;
 	}
-	/* Move the left player from the old T/F/H/B cluster to A/S/D/F. */
-	if (type == XBE_KEYB_2 && cfg.keyUp == GUI_StringToAtom ("T")
-		&& cfg.keyLeft == GUI_StringToAtom ("F") && cfg.keyDown == GUI_StringToAtom ("B")
-		&& cfg.keyRight == GUI_StringToAtom ("H")) {
-		cfg.keyUp = GUI_StringToAtom ("F");
+	/* Move the left player from T/F/H/B (upstream) or A/S/D/F (earlier web
+	   build) to W/A/S/D. */
+	if (type == XBE_KEYB_2
+		&& ((cfg.keyUp == GUI_StringToAtom ("T") && cfg.keyLeft == GUI_StringToAtom ("F")
+			 && cfg.keyDown == GUI_StringToAtom ("B") && cfg.keyRight == GUI_StringToAtom ("H"))
+			|| (cfg.keyUp == GUI_StringToAtom ("F") && cfg.keyLeft == GUI_StringToAtom ("A")
+				&& cfg.keyDown == GUI_StringToAtom ("S")
+				&& cfg.keyRight == GUI_StringToAtom ("D")))) {
+		cfg.keyUp = GUI_StringToAtom ("W");
 		cfg.keyLeft = GUI_StringToAtom ("A");
 		cfg.keyDown = GUI_StringToAtom ("S");
 		cfg.keyRight = GUI_StringToAtom ("D");
