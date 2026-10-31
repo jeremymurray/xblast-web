@@ -42,6 +42,11 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - One commit = one logical change. Keep vendored upstream imports separate from port changes.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
+## Versioning
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.1.0** (M0 done).
+- Bump MINOR when a milestone lands (M1 → 0.2.0), PATCH for playtest fixes.
+- Tag annotated releases on `main` after the merge.
+
 ## Progress tracking
 Update `PROGRESS.md` at each milestone and whenever context is about to be compacted: checklist,
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.

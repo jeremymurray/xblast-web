@@ -35,6 +35,54 @@
   const statusEl = document.getElementById('status');
   const overlayEl = document.getElementById('overlay');
   document.getElementById('again').addEventListener('click', () => location.reload());
+
+  const CFG_ROOT = '/home/web_user/.xblast_tnt';
+  const CFG_KEY = 'xblast:config:v1';
+
+  function cfgWalk(dir, out) {
+    let entries;
+    try { entries = Module.FS.readdir(dir); } catch (e) { return out; }
+    for (const name of entries) {
+      if (name === '.' || name === '..') continue;
+      const path = dir + '/' + name;
+      const st = Module.FS.stat(path);
+      if (Module.FS.isDir(st.mode)) cfgWalk(path, out);
+      else out.push(path);
+    }
+    return out;
+  }
+
+  function saveConfig() {
+    if (!Module.FS) return;
+    try {
+      const files = {};
+      for (const path of cfgWalk(CFG_ROOT, [])) {
+        files[path] = Module.FS.readFile(path, { encoding: 'utf8' });
+      }
+      localStorage.setItem(CFG_KEY, JSON.stringify(files));
+    } catch (e) {
+      console.warn('xb: config save failed', e);
+    }
+  }
+
+  function restoreConfig() {
+    if (!Module.FS) return;
+    let files = null;
+    try { files = JSON.parse(localStorage.getItem(CFG_KEY) || 'null'); } catch (e) { files = null; }
+    if (!files) return;
+    let n = 0;
+    for (const path of Object.keys(files)) {
+      try {
+        Module.FS.mkdirTree(path.slice(0, path.lastIndexOf('/')));
+        Module.FS.writeFile(path, files[path], { encoding: 'utf8' });
+        n++;
+      } catch (e) {
+        console.warn('xb: config restore failed for', path, e);
+      }
+    }
+    console.log('xb: config restored', n, 'files');
+  }
+
   window.Module = {
     canvas: document.getElementById('canvas'),
     print: (...args) => console.log(...args),
@@ -47,11 +95,13 @@
     setStatus: (text) => { if (text) statusEl.textContent = text; },
     onRuntimeInitialized: () => {
       console.log('xb: runtime ready');
+      restoreConfig();
       statusEl.textContent = '';
       overlayEl.classList.remove('show');
     },
     onExit: (code) => {
       console.log('xb: exit', code);
+      saveConfig();
       overlayEl.classList.add('show');
     }
   };
@@ -61,6 +111,24 @@
     console.error('xb: window error', e.message);
   });
   console.log('xb: page script loaded');
+
+  /* WebAudio starts suspended until a user gesture. Resume it on the first
+     interaction so SDL_mixer can actually output sound. */
+  function unlockAudio() {
+    const ac = window.SDL2 && window.SDL2.audioContext;
+    if (ac && ac.state === 'suspended') {
+      ac.resume().catch(() => {});
+    }
+  }
+  window.addEventListener('pointerdown', unlockAudio);
+  window.addEventListener('keydown', unlockAudio);
+  window.addEventListener('touchend', unlockAudio);
+
+  /* Keep settings across reloads: sync the engine's config dir to localStorage. */
+  setInterval(saveConfig, 30000);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveConfig();
+  });
 </script>
 <script async src="xblast.js"></script>
 </body>
