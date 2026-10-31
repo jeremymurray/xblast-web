@@ -1,0 +1,405 @@
+.TH xblast-tnt 6x "Release 2.10.0 (February 27th 2005)"
+.SH NAME
+XBlast (TNT) \- Multi-player "Blast the Others" game
+.PP
+
+
+.SH SYNOPSIS
+.B xblast-tnt \fI [options]
+.PP
+
+
+.SH DESCRIPTION
+.PP
+XBlast is a multi-player arcade game for X11R5/R6. The game can be played
+with at least two players and up to six players. It was inspired by
+the video/computer game Bomberman/Dynablaster which was to my
+knowledge first programmed for NEC's PC Engine/Turbo Grafx. Other
+(commercial) versions of the original game exist for IBM-PC, Atari ST,
+Amiga, NES, GameBoy and Super NES.
+.PP
+
+
+.SH
+Actualized information you can obtain on the web page:
+http://xblast.sourceforge.net/
+Follow the link Player-Tutorials
+
+
+.SH LAUNCHING XBLAST
+Just type xblast-tnt in an xconsole.
+.PP
+
+
+.SH SOUND OPTIONS
+This option is only valid when \fIXBlast\fP was compiled with the
+optional sound support. Freebsd, Linux and Sun should be supported.
+.TP
+.B \-ns
+This disables the sound support.
+.PP
+
+
+.SH OTHER OPTIONS
+The program \fIXBlast\fP supports the following command-line options:
+.TP
+.B \-central
+This option starts the program as central server.
+.TP
+.B \-check
+This option verifies if all levels are loadable.
+.PP
+
+
+.SH PLAYING XBLAST
+The idea of the game is quite simple: "There can be only one ...".  So
+the aim is to blast away all the other players. Use your bombs to
+blast away the other players and certain blocks (e.g.\& the ?-Blocks
+in the 1st level). Below some of these blocks there are extras.
+.PP
+The program \fIXBlast\fP can be played locally or in network.
+After you started \fIXBlast\fP it will display an intro. The
+next step will show you the "Main Menu". In the "Main Menu"
+you can decide if you want to start a local game, join a
+network game or host a network game. For detailed information
+please go to the web site.
+
+
+.SH CONTROLS
+.PP
+The following will explain the default bindings.
+These keys control the first (right) player at your display:
+.TP
+.IR KP_8 , \ KP_Up
+Player starts walking up.
+.TP
+.IR KP_2 , \ KP_Down
+Player starts walking down.
+.TP
+.IR KP_4 , \ KP_Left
+Player starts walking to the left.
+.TP
+.IR KP_6 , \ KP_Right
+Player starts walking to the right.
+.TP
+.IR KP_5
+Player stops (in the center of the next block).
+.TP
+.IR KP_0 , \ KP_Insert
+Player drops a bomb (in the center of the current block).
+.TP
+.IR Return , \ KP_Add
+Player uses special function (e.g.\& remote control, special bombs).
+.TP
+.IR KP_Subtract
+Pause of level in Local Game.
+.TP
+.IR KP_Multiply
+Request to abort the level.
+.TP
+.IR KP_Divide
+Cancel abort request.
+.PP
+The following keys control the second (left) player at your display:
+.TP
+.IR T
+Player starts walking up.
+.TP
+.IR V , \ B
+Player starts walking down.
+.TP
+.IR F
+Player starts walking to the left.
+.TP
+.IR H
+Player starts walking to the right.
+.TP
+.IR G
+Player stops (in the center of the next block).
+.TP
+.IR Space
+Player drops a bomb (in the center of the current block).
+.TP
+.IR Tab
+Player uses special function (e.g.\& remote control, special bombs).
+.TP
+.IR P
+Pause of level in Local Game.
+.TP
+.IR A
+Request to abort of level.
+.TP
+.IR Z
+cancel abort request.
+.PP
+A single player can use both key sets for playing.
+Furthermore the following keys effect all players:
+.TP
+.IR P
+pause game, resume game after pause.
+.TP
+.IR Escape
+Go to previous menu.
+.PP
+Please note that since \fIXBlast 2.7.x\fP the keybindings can be customised
+via Options Menu Controls (see also \fChttps://blast.sf.net/ \fP).
+.PP
+
+
+.SH EXTRA SYMBOLS
+There are many extras to be found in xblast. Most of the time
+they can be found under blastable blocks, sometimes they are
+just lying around. The following extras can be found in nearly
+any level. You will keep these extras until you have lost all
+your lives or the level ends. See the web site for actualized information.
+.TP
+.B Bomb \fP(red frame)
+This extra increases the number of bombs you can drop by one.
+.TP
+.B Flame \fP(yellow flame)
+This extra increases the range of your bombs by one field.
+.PP
+Furthermore in several levels the following symbol can be found:
+.TP
+.B Skull \fP(cyan frame)
+This is not really an extra, but you will be infected with an random illness
+when picking it up. You will be healed automatically after a certain time,
+or if you loose one life. Additionally you can infect other players
+while being ill by running past them.
+.PP
+In many levels there is also a special extra. There will always be
+only one type of special extra per level and you will loose
+it if you loose a life. The following special extras can be found:
+.TP
+.B Kick extra \fP(moving bomb in blue frame)
+This extra enables you to kick bombs by running into them.
+.TP
+.B Invincibility \fP(star in golden frame)
+This extra makes you invincible for some time. You are not killed by
+explosions, stunned by moving bombs, nor infected by skulls.
+.TP
+.B Global Detonator \fP(button in deep pink frame)
+Picking up this extra ignites all bombs on the map. Use with care.
+.TP
+.B Construction Bombs \fP(bricks and bombs in firebrick frame)
+This extra gives you construction bombs as special bombs.  These bombs
+create a blastable block when exploding. Use the special key to drop
+them.
+.TP
+.B Remote Control \fP(button box in spring green frame)
+This extra enables you to ignite all your bombs by pressing the
+special key.
+.TP
+.B Teleport Extra \fP(beaming player in orchid frame)
+This extra enables you to beam away to a random location. You
+must be in the center of a block to activate it. Use the special
+key to teleport.
+.TP
+.B Airpump \fP(clouds in sky blue frame)
+This extra enables you to blow away (not to blast away) bombs
+within a range of 2 fields. It also works when your are trapped
+between two bombs. Use the special key to activate it.
+.TP
+.B Napalm Bombs \fP(burning bombs in orange red frame)
+This extra allows you to drop a high powered napalm bomb using the
+special key. This bomb has a much larger explosion than normal, and is
+bigger if you have more Flames. If the bomb is struck with an
+explosion, it will explode as a normal bomb. For the large explosion
+to occur, it must explode on its own.
+.TP
+.B Firecrackers \fP(firecrackers in orange frame)
+This extra allows you to drop firecracker bombs with the special key.
+Firecracker bombs set off a series of explosions that can clear away a
+small area. One in ten firecracker bombs is high powered and clears
+away a much larger area. There is no way to tell if a firecracker is
+high powered or not until it explodes. Unlike napalm bombs there is
+no way to stop the firecracker explosion, although it is blocked by
+walls and other solid objects.
+.TP
+.B Pyro bombs \fP(firecrackers in orange frame)
+This extra allows you to drop pyro bombs with the special key. Pyro
+bombs explode with a series of small explosions that dance around the
+level. These explosions are blocked by walls and other bombs but are
+able to travel through corridors with ease. They explode randomly and
+cannot be controlled. Pyro bombs have the same range irrespective of
+how many flame extras you have. Even if the bomb is struck with an
+explosion it will still explode as pyro bomb.
+.TP
+.B Junkie Virus \fP(syringe in yellow green frame)
+This extra infects you with the junkie virus. Whilst you have the
+junkie virus you are randomly infected with illnesses (as if you were
+picking up skulls). You MUST touch other players to pass on the
+illness within a certain time limit or you will lose a life. Any
+touched players are given the junkie virus as well. There is currently
+no way to get rid of the junkie virus (but look for a rehabilitation
+centre in the next release). :)
+.TP
+.B Poison \fP(black skull in steel blue frame)\fI
+This extra?! cost you one of your lives. So avoid to step on it. At least
+if you are not currently invincible.
+.TP
+.B Spinner \fP(looks like normal floor)\fI
+When picking up this extra you will be stunned for some time. Your opponents
+might want to blast you while you are spinning.
+.TP
+.B Speed \fP(moving head in light blue frame)\fI
+This extra enables you too run twice as fast as normal. Try to overtake other
+players and catch them between bombs.
+.TP
+.B Mayhem \fP(moving head and bomb in blue frame)\fI
+This extra gives you speed and kicking. Make the best of it.
+.TP
+.B Holy Grail \fP(a grail with blue light in white frame)\fI
+This extras transfers life energy to you from your opponents.
+Be sure you are the one to get there first.
+.TP
+.B Life \fP(head and first aid kit in red frame)
+This extra increases your number of lives by one. Comes in handy
+while in "hot" environments.
+.TP
+.B Random \fP(question mark in light blue frame)\fI
+Picking up this extra will give you one of the following extras:
+.IR Speed , \ Poison , \ Invincibility , \ Spinner , \ Air\ Pump \ or\  Life .
+Avoid it if you have only one life left.
+.TP
+.B Cloak \fP(vanishing player in violet frame)\fI
+This extras allows you to cloak yourself using the special key.
+You become invisible for all other players. The extras wears out
+after a certain time of use.
+.TP
+.B Morph \fP(bomb with eyes in green frame)\fI
+Get this extra to morph into a bomb with the special key. You still
+move as a bomb although you cannot alter course while on the run.
+You cannot be harmed by explosions while you are a bomb. Beware not
+to be kicked in the wall while the level shrinks.
+.PP
+
+
+.SH GAME RESOURCES
+These resources define the rest of the game setup of xblast. They will be
+taken from the following sources (in the given order):
+.TP
+.B 1.
+internal defaults
+.TP
+.B 2.
+the directory "~/.xblast_tnt"
+.PP
+
+
+.SH DISPLAY RESOURCES
+These resources are read separately for each display used in xblast.
+They are read only from the following sources (in the given order):
+.TP
+.B 1.
+internal defaults
+.TP
+.B 2.
+the directory "~/.xblast_tnt"
+.TP
+.B 3.
+the server resources of the default display
+(can be set using \fIxrdb\fP).
+.PP
+
+
+.SH BUGS
+.PP
+If you found one go to the web site and tell us.
+
+
+.SH COPYRIGHT
+Copyright (C) 1993-2005, Oliver Vogel.
+.PP
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public Licences as published
+by the Free Software Foundation; either version 2; or (at your option)
+any later version
+.PP
+This program is distributed in the hope that it will be entertaining,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+Public License for more details.
+.PP
+You should have received a copy of the GNU General Public License along
+with this program; if not, write to the Free Software Foundation, Inc.
+59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+.PP
+
+
+.SH AUTHORS
+.TP
+Oliver Vogel \fI(Main Author)
+vogel@ikp.uni-koeln.de
+.TP
+Garth Denley \fI(Coauthor)
+g0denley@teaching.cs.adelaide.edu.au
+.TP
+Norbert Nicolay \fI(Linux Sound Support, optional)
+nicolay@ikp.uni-koeln.de
+.TP
+Koen (central, SMPF, teammode on TNT, bugcatcher)
+.TP
+EPFL
+.TP
+Belgium Guys
+.TP
+Skywalker (epfl port, laola, some game functions, user friendliness, Shapes)
+.TP
+Kruno Sever (Major network review, Chat, bugcatcher)
+.PP
+
+
+.SH CONTRIBUTORS
+.PP
+Xavier Caron \- x-caron@es2.fr
+.br
+Chris Doherty \- cpdohert@teaching.cs.adelaide.edu.au
+.br
+Patrick Durish \- dri@eup.siemens-albis.ch
+.br
+Keith Gillow \- ...@...
+.br
+Rob Hite \- hite@tellabs.com
+.br
+Christophe Kalt \- kalt@hugo.int-evry.fr
+.br
+Joachim Kaltz \- kaltz@essi.fr
+.br
+Laurent Marsan \- mbaye@univ-mlv.fr
+.br
+Pierre Ramet  \- ramet@labri.u-bordeaux.fr
+.br
+Mike Schneider \- schneid@tellabs.com
+.br
+Mark Shepherd \- ...@...
+.br
+Rob, Simon and Tristan \- ...@...
+.br
+Xbresse
+.br
+Rhonda D'Vine
+.br
+Rado
+.br
+Ifi
+.br
+Bombenfutter
+.br
+Galatius
+.br
+Garth Denley
+.br
+Stephan Natschlaeger
+.br
+Amilhastre
+.br
+Fouf
+.br
+ALu
+.br
+Larsl
+.br
+Stefan Stiasny
+.br
+.PP
