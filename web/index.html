@@ -42,7 +42,8 @@
   #kh-right { right: max(10px, calc(50% - 620px)); }
   .keyhint svg { width: 100%; height: auto; display: block; }
 
-  @media (max-width: 1180px) {
+  @media (max-width: 1240px) {
+    body { align-items: flex-start; }
     canvas { max-height: calc(100% - 104px); }
     #keyhints.show { display: flex; }
     #keyhints {
@@ -255,7 +256,7 @@
   function renderHints() {
     const text = readControlCfg();
     if (!text) return;
-    const compact = window.innerWidth < 1180;
+    const compact = window.matchMedia('(max-width: 1240px)').matches;
     if (text === lastControl && compact === lastCompact) return;
     lastControl = text;
     lastCompact = compact;
