@@ -177,6 +177,9 @@ def main():
         ws = WS(target["webSocketDebuggerUrl"])
         ws.call(1, "Page.enable")
         ws.call(2, "Runtime.enable")
+        ws.call(5, "Runtime.evaluate", {
+            "expression": "document.getElementById('play') && document.getElementById('play').click()",
+        })
         time.sleep(wait)
         if len(sys.argv) > 4:
             for token in sys.argv[4].split(","):

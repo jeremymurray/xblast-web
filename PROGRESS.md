@@ -17,6 +17,8 @@ Updated: 2026-10-31 (M1 in progress, release 0.1.0 tagged)
 - [x] Audio: convert the unsigned 8-bit RAW files to S16 for SDL2_mixer
 - [x] Audio: preload `data/sounds` and resume WebAudio on first input
 - [ ] Audio: confirm it is audible in a real browser (needs a human ear)
+- [x] Landing screen: explains the game and controls, Play gates the 20 MB load
+- [x] Esc leaves a match (player abort moved to Delete, with config migration)
 - [x] Scripted playtest can assign a keyboard player and start a local game
 - [ ] Controls: confirm arrows move and space drops a bomb in-game
 - [ ] Level flow: win/lose → next level / scoreboard verified end to end

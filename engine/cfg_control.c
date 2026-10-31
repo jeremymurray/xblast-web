@@ -115,8 +115,8 @@ SetDefaultRightKeyboard (CFGControlKeyboard * cfg)
 	cfg->keyBomb = GUI_StringToAtom ("Return");
 	cfg->keySpecial = GUI_StringToAtom ("Tab");
 	cfg->keyPause = GUI_StringToAtom ("P");
-	cfg->keyAbort = GUI_StringToAtom ("Escape");
-	cfg->keyAbortCancel = GUI_StringToAtom ("BackSpace");
+	cfg->keyAbort = GUI_StringToAtom ("Delete");
+	cfg->keyAbortCancel = GUI_StringToAtom ("Insert");
 #else
 	cfg->keyUp = GUI_StringToAtom ("KP_8");
 	cfg->keyLeft = GUI_StringToAtom ("KP_4");
@@ -271,6 +271,22 @@ RetrieveControlKeyboard (XBEventCode type, CFGControlKeyboard * cfg)
 /*
  * int and load controls config
  */
+#ifdef __EMSCRIPTEN__
+/* web port: Escape is reserved for leaving a match. Earlier web builds saved
+   it as the right player's abort key, which showed "player requested abort". */
+static void
+MigrateControlKeyboard (XBEventCode type)
+{
+	CFGControlKeyboard cfg;
+	XBAtom escape = GUI_StringToAtom ("Escape");
+
+	if (RetrieveControlKeyboard (type, &cfg) && cfg.keyAbort == escape) {
+		cfg.keyAbort = GUI_StringToAtom ("Delete");
+		StoreControlKeyboard (type, &cfg);
+	}
+}
+#endif
+
 void
 LoadControlConfig (void)
 {
@@ -281,6 +297,10 @@ LoadControlConfig (void)
 	/* load from file */
 	Dbg_Config ("loading control configs\n");
 	if (DB_Load (dbControl)) {
+#ifdef __EMSCRIPTEN__
+		MigrateControlKeyboard (XBE_KEYB_1);
+		MigrateControlKeyboard (XBE_KEYB_2);
+#endif
 		return;
 	}
 	Dbg_Config ("failed to load control configs, settting defaults\n");
