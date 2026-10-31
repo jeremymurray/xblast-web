@@ -105,7 +105,8 @@ SetDefaultRightKeyboard (CFGControlKeyboard * cfg)
 {
 	assert (NULL != cfg);
 
-	/* Laptops rarely have a keypad: use the arrow keys instead. */
+#ifdef __EMSCRIPTEN__
+	/* web port: laptops rarely have a keypad, use the arrow keys */
 	cfg->keyUp = GUI_StringToAtom ("Up");
 	cfg->keyLeft = GUI_StringToAtom ("Left");
 	cfg->keyDown = GUI_StringToAtom ("Down");
@@ -116,6 +117,18 @@ SetDefaultRightKeyboard (CFGControlKeyboard * cfg)
 	cfg->keyPause = GUI_StringToAtom ("P");
 	cfg->keyAbort = GUI_StringToAtom ("Escape");
 	cfg->keyAbortCancel = GUI_StringToAtom ("BackSpace");
+#else
+	cfg->keyUp = GUI_StringToAtom ("KP_8");
+	cfg->keyLeft = GUI_StringToAtom ("KP_4");
+	cfg->keyDown = GUI_StringToAtom ("KP_2");
+	cfg->keyRight = GUI_StringToAtom ("KP_6");
+	cfg->keyStop = GUI_StringToAtom ("KP_5");
+	cfg->keyBomb = GUI_StringToAtom ("KP_0");
+	cfg->keySpecial = GUI_StringToAtom ("Return");
+	cfg->keyPause = GUI_StringToAtom ("KP_Subtract");
+	cfg->keyAbort = GUI_StringToAtom ("KP_Multiply");
+	cfg->keyAbortCancel = GUI_StringToAtom ("KP_Divide");
+#endif
 	/* Skywalker */
 	cfg->keyLaola = GUI_StringToAtom ("F3");
 	cfg->keyLooser = GUI_StringToAtom ("F4");

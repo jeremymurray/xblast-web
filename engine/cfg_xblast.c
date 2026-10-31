@@ -32,8 +32,13 @@ static DBRoot *db = NULL;
 
 /* default sound */
 static const CFGSoundSetup defaultSoundSetup = {
-	/* The browser has no terminal bell; use the mixer by default. */
-	XBSM_Waveout, XBTrue,
+#ifdef __EMSCRIPTEN__
+	/* web port: no terminal bell, so default to the mixer */
+	XBSM_Waveout,
+#else
+	XBSM_None,
+#endif
+	XBTrue,
 };
 
 /* conversion tables for sound mode (alphanumeric sort by key) */
