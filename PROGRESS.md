@@ -41,9 +41,11 @@ python3 scripts/playtest.py            # assigns Olaf, starts a game, moves/bomb
 
 ## Known issues / notes
 
-- **Audio**: `SUBSIZE` is 1024 (WebAudio's `ScriptProcessor` rejects 128),
-  the default sound mode is `Waveout`, and `Beep` is routed to the mixer since
-  the browser has no terminal bell. Still needs a human ear check.
+- **Audio**: the build now defines `XBLAST_SOUND` (it was silently compiled
+  out), `SUBSIZE` is 1024 for WebAudio, the default mode is `Waveout`, `Beep`
+  is routed to the mixer, and `Module.SDL2.audioContext` is resumed on the
+  first pointer/key event. Music tracks loop when selected; the default is
+  still `None`. Needs a human ear check.
 - **Right player defaults to arrows + Return** (laptops have no keypad); the
   left player keeps `f/h/t/b` + space. Saved configs override these defaults.
 - **Single-player rounds end instantly** if there is only one player: the last

@@ -53,6 +53,7 @@ for f in $WEB_GLUE; do SOURCES="$SOURCES web/$f"; done
 CFLAGS=(
 	-std=gnu99 -O2
 	-DHAVE_CONFIG_H
+	-DXBLAST_SOUND
 	-I"$ROOT/build/gen"
 	-I"$ROOT/web/compat"
 	-I"$ROOT/engine"

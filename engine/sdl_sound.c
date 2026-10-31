@@ -288,7 +288,8 @@ SND_Play (SND_Id id, int position)
 
 		/* When there is too many bombs on the screen,
 		 * this function will fails. */
-		sound_channel[id] = Mix_PlayChannel (-1, sound_chunk[id], 0);
+		/* Music entries are flagged repeat; loop them. */
+		sound_channel[id] = Mix_PlayChannel (-1, sound_chunk[id], sound_name[id].repeat ? -1 : 0);
 		if (sound_channel[id] != -1) {
 			/* Panning must be after the channel opened,
 			 * since we dont know the channel before */

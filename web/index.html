@@ -115,7 +115,7 @@
   /* WebAudio starts suspended until a user gesture. Resume it on the first
      interaction so SDL_mixer can actually output sound. */
   function unlockAudio() {
-    const ac = window.SDL2 && window.SDL2.audioContext;
+    const ac = Module.SDL2 && Module.SDL2.audioContext;
     if (ac && ac.state === 'suspended') {
       ac.resume().catch(() => {});
     }
