@@ -287,10 +287,10 @@ ReadEpmPixmap (const char *path, const char *filename, int n_colors, const XBCol
 	mask = IMG_Load (absFilename);
 	/* Some epm files dont have a companion mask file */
 	if (NULL != mask) {
-		SDL_SetColorKey (mask, SDL_SRCCOLORKEY, 1);
+		SDL_SetColorKey (mask, SDL_TRUE, 1);
 		SDL_BlitSurface (mask, NULL, bitmap, NULL);
 	}
-	SDL_SetColorKey (bitmap, SDL_SRCCOLORKEY, SDL_MapRGB (bitmap->format, 0xFF, 0xFF, 0xFF));
+	SDL_SetColorKey (bitmap, SDL_TRUE, SDL_MapRGB (bitmap->format, 0xFF, 0xFF, 0xFF));
 	free (tempAbsFilename);
 	free (absFilename);
 	free (epm);

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XBlast TNT</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; max-width: 100%; max-height: 100%; height: auto; }
+  #status { position: fixed; left: 8px; bottom: 8px; color: #888; font: 12px/1.4 monospace; }
+  #status.error { color: #f66; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="status">loading…</div>
+<script>
+  const statusEl = document.getElementById('status');
+  window.Module = {
+    canvas: document.getElementById('canvas'),
+    print: (...args) => console.log(...args),
+    printErr: (...args) => console.error(...args),
+    onAbort: (what) => { statusEl.textContent = 'abort: ' + what; statusEl.className = 'error'; },
+    setStatus: (text) => { if (text) statusEl.textContent = text; },
+    onRuntimeInitialized: () => { console.log('xb: runtime ready'); statusEl.textContent = ''; }
+  };
+  window.addEventListener('error', (e) => {
+    statusEl.textContent = 'error: ' + e.message;
+    statusEl.className = 'error';
+    console.error('xb: window error', e.message);
+  });
+  console.log('xb: page script loaded');
+</script>
+<script async src="xblast.js"></script>
+</body>
+</html>

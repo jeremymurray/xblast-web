@@ -62,7 +62,7 @@ InvertBlackAndWhiteSurface (SDL_Surface * mask)
 			putpixel (mask, x, y, !pixel * 0xffffffff);
 		}
 	}
-	SDL_SetColorKey (mask, SDL_SRCCOLORKEY | SDL_RLEACCEL, 0);
+	SDL_SetColorKey (mask, SDL_TRUE, 0);
 
 	SDL_UpdateRect (mask, 0, 0, 0, 0);
 
@@ -80,28 +80,23 @@ InvertBlackAndWhiteSurface (SDL_Surface * mask)
 static void
 MaskSprite (SDL_Surface * mask, SDL_Surface * sprite, Uint32 sdl_color)
 {
-	SDL_Color colors[2] = { {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0} };
-	SDL_Color dst_colors[2] = { {0, 0, 0, 0}, {0xFF, 0xFF, 0xFF, 0} };
-
-	SDL_Palette palette = { 2, colors };
-
-	SDL_PixelFormat format = {
-		&palette,
-		8,
-		1,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0, 0, 0, 0,
-		0,
-		0
-	};
-
+	SDL_Color colors[2] = { {0, 0, 0, 255}, {0xFF, 0xFF, 0xFF, 255} };
+	SDL_Color dst_colors[2] = { {0, 0, 0, 255}, {0xFF, 0xFF, 0xFF, 255} };
 	SDL_Surface *temp;
 	Uint8 red, green, blue;
 
-	temp = SDL_ConvertSurface (mask, &format, SDL_SRCCOLORKEY);
+	if (!mask || !sprite) {
+		return;
+	}
 
+	/* Build an 8-bit paletted surface holding the mask */
+	temp = SDL_CreateRGBSurfaceWithFormat (0, mask->w, mask->h, 8, SDL_PIXELFORMAT_INDEX8);
 	assert (temp);
+	if (!temp) {
+		return;
+	}
+	SDL_SetPaletteColors (temp->format->palette, colors, 0, 2);
+	SDL_BlitSurface (mask, NULL, temp, NULL);
 
 	SDL_GetRGB (sdl_color, sprite->format, &red, &green, &blue);
 
@@ -110,9 +105,14 @@ MaskSprite (SDL_Surface * mask, SDL_Surface * sprite, Uint32 sdl_color)
 	dst_colors[1].b = blue;
 
 	SDL_SetColors (temp, dst_colors, 0, 2);
-	SDL_SetColorKey (temp, SDL_SRCCOLORKEY | SDL_RLEACCEL, mask->format->colorkey);
+	if (mask->format->palette) {
+		Uint32 maskKey;
+		if (SDL_GetColorKey (mask, &maskKey) == 0) {
+			SDL_SetColorKey (temp, SDL_TRUE, maskKey);
+		}
+	}
 
-	SDL_SetColorKey (sprite, SDL_SRCCOLORKEY | SDL_RLEACCEL, sdl_color);
+	SDL_SetColorKey (sprite, SDL_TRUE, sdl_color);
 	SDL_BlitSurface (temp, NULL, sprite, NULL);
 
 	SDL_FreeSurface (temp);
@@ -139,7 +139,7 @@ MaskBombSprite (SDL_Surface * mask, SDL_Surface * sprite, Uint32 sdl_color)
 			}
 		}
 	}
-	SDL_SetColorKey (sprite, SDL_SRCCOLORKEY | SDL_RLEACCEL, scolor);
+	SDL_SetColorKey (sprite, SDL_TRUE, scolor);
 
 }
 

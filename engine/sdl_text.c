@@ -178,7 +178,7 @@ GUI_DrawSimpleTextbox (const char *text_in, unsigned flags, const BMRectangle * 
 		fprintf (stderr, "Error: could blit!\n" "Reason: %s\n", SDL_GetError ());
 	}
 
-	//  SDL_SetColorKey(surface, SDL_SRCCOLORKEY, SDL_MapRGB(surface->format, 0xf, 0xf, 0xf));
+	//  SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 0xf, 0xf, 0xf));
 	for (y = 0; y < surface->h; y++) {
 		putpixel (surface, 0, y, SDL_MapRGB (surface->format, 0xff, 0xff, 0x0));
 		putpixel (surface, 1, y, SDL_MapRGB (surface->format, 0xff, 0xff, 0x0));
@@ -321,7 +321,7 @@ GUI_DrawTextbox (const char *text, unsigned flags, const BMRectangle * rect)
 		}
 		else {
 			int x, y;
-			SDL_SetColorKey (rect_surface, SDL_SRCCOLORKEY | SDL_RLEACCEL,
+			SDL_SetColorKey (rect_surface, SDL_TRUE,
 							 SDL_MapRGB (rect_surface->format, 0xFF, 0xFF, 0xFF));
 			for (y = 2; y < rect_surface->h - 2; y++) {
 				for (x = 2; x < rect_surface->w - 2; x++) {
@@ -372,7 +372,7 @@ RenderSolidText (TTF_Font * font, const char *text, SDL_Color textColor)
 												 screen->format->Rmask,
 												 screen->format->Gmask, screen->format->Bmask, 0);
 	SDL_BlitSurface (text_surface, NULL, surface, NULL);
-	SDL_SetColorKey (surface, SDL_SRCCOLORKEY | SDL_RLEACCEL, 0);
+	SDL_SetColorKey (surface, SDL_TRUE, 0);
 	SDL_FreeSurface (text_surface);
 
 	// the reason why we create a new blit is to make pallete just like the
@@ -423,7 +423,7 @@ RenderOutlineText (TTF_Font * font, const char *text, SDL_Color textColor,
 	if (ret == -1) {
 		fprintf (stderr, "Error: could blit!\n" "Reason: %s\n", SDL_GetError ());
 	}
-	SDL_SetColorKey (surface, SDL_SRCCOLORKEY, SDL_MapRGB (surface->format, 0xf, 0xf, 0xf));
+	SDL_SetColorKey (surface, SDL_TRUE, SDL_MapRGB (surface->format, 0xf, 0xf, 0xf));
 	SDL_FreeSurface (text_surface);
 	if (length > 0) {
 		Uint32 tcolor = SDL_MapRGB (surface->format, textColor.r, textColor.g, textColor.b);
