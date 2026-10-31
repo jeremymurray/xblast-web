@@ -41,9 +41,11 @@ python3 scripts/playtest.py            # assigns Olaf, starts a game, moves/bomb
 
 ## Known issues / notes
 
-- **Audio not yet heard by a human.** `Mix_OpenAudio` succeeds and sound files
-  load without warnings; the remaining risk is autoplay policy. `index.html`
-  resumes `SDL2.audioContext` on pointerdown/keydown/touchend.
+- **Audio**: `SUBSIZE` is 1024 (WebAudio's `ScriptProcessor` rejects 128),
+  the default sound mode is `Waveout`, and `Beep` is routed to the mixer since
+  the browser has no terminal bell. Still needs a human ear check.
+- **Right player defaults to arrows + Return** (laptops have no keypad); the
+  left player keeps `f/h/t/b` + space. Saved configs override these defaults.
 - **Single-player rounds end instantly** if there is only one player: the last
   player standing wins. Use a second keyboard player or a bot to actually play.
 - **Fades are disabled on the web build** (`__EMSCRIPTEN__` in `sdl_pixmap.c`):
