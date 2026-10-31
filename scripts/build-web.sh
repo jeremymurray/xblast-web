@@ -73,7 +73,7 @@ LDFLAGS=(
 	-sASYNCIFY
 	-sASYNCIFY_STACK_SIZE=131072
 	-sFORCE_FILESYSTEM=1
-	-sEXIT_RUNTIME=0
+	-sEXIT_RUNTIME=1
 	-sSTACK_SIZE=1048576
 	--preload-file "$ROOT/data/image@/data/image"
 	--preload-file "$ROOT/data/level@/data/level"

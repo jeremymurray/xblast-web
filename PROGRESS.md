@@ -23,6 +23,8 @@ Updated: 2026-10-31 (M0 complete)
 - [x] Intro, main menu and local-game screens render
 - [x] Keyboard input works (Space dismisses intro, Tab moves menu focus)
 - [x] Local game starts and runs (level intro → maze, bombs, HUD)
+- [x] Quit shows a "Play again" overlay instead of a dead black canvas
+- [x] Transitions no longer block the browser (fades skipped on web)
 - [x] Screenshot harness without extra dependencies (`scripts/cdp_shot.py`)
 - [x] Remove debug probes
 
@@ -48,9 +50,16 @@ python3 scripts/cdp_shot.py http://localhost:8123/index.html /tmp/shot.png 8
 - **Audio not wired**: `data/sounds` (11 MB) is not preloaded and SDL_mixer is
   asked for `AUDIO_U8`, which SDL2_mixer rejects. Convert U8 → S16 and gate on a
   user gesture before M1.
-- **Mouse in menus** reaches SDL (verified at the event level) but buttons are
-  only activated when they are the focused item; keyboard Tab works. Revisit
-  with a real pointer in M1; not a blocker.
+- **Mouse in menus** works (verified by clicking Options and Quit). Menu items
+  only fire when they are the focused item; the button handler sets focus from
+  the click position, so a normal click is enough.
+- **Fades are disabled on the web build** (`GUI_InitFade`/`GUI_DoFade` return
+  immediately under `__EMSCRIPTEN__`). They are a blocking `SDL_Delay` effect
+  that stalls the Asyncify loop and made transitions feel very slow. Menus and
+  levels still redraw normally; only the wipe/black-hold is gone.
+- **Quit needs `EXIT_RUNTIME=1`**: with `EXIT_RUNTIME=0`, Emscripten keeps the
+  runtime alive and never calls `Module.onExit`, leaving the last frame on
+  screen. The page now shows a "Play again" overlay on exit.
 - `©` in the intro renders as a missing-glyph box. Check UTF-8/Latin-1 handling
   in `sdl_text.c` later.
 - Only `data/image`, `data/level` and `Vera.ttf` are packed into `xblast.data`.

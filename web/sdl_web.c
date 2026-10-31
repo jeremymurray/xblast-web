@@ -142,7 +142,7 @@ SDL_UpdateRect (SDL_Surface *surface, Sint32 x, Sint32 y, Uint32 w, Uint32 h)
 		return;
 	}
 	if (w == 0 || h == 0) {
-		XBWeb_Present (surface);
+		SDL_UpdateTexture (webTexture, NULL, surface->pixels, surface->pitch);
 		return;
 	}
 	rect.x = x;
@@ -152,9 +152,6 @@ SDL_UpdateRect (SDL_Surface *surface, Sint32 x, Sint32 y, Uint32 w, Uint32 h)
 	SDL_UpdateTexture (webTexture, &rect,
 					   (const Uint8 *)surface->pixels + y * surface->pitch +
 					   x * surface->format->BytesPerPixel, surface->pitch);
-	SDL_RenderClear (webRenderer);
-	SDL_RenderCopy (webRenderer, webTexture, NULL, NULL);
-	SDL_RenderPresent (webRenderer);
 }
 
 void
