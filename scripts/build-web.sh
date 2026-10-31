@@ -74,9 +74,11 @@ LDFLAGS=(
 	-sASYNCIFY_STACK_SIZE=131072
 	-sFORCE_FILESYSTEM=1
 	-sEXIT_RUNTIME=1
+	-sEXPORTED_RUNTIME_METHODS=['FS']
 	-sSTACK_SIZE=1048576
 	--preload-file "$ROOT/data/image@/data/image"
 	--preload-file "$ROOT/data/level@/data/level"
+	--preload-file "$ROOT/data/sounds@/data/sounds"
 	--preload-file "$ROOT/data/Vera.ttf@/Vera.ttf"
 )
 

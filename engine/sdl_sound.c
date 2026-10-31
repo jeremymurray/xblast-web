@@ -175,7 +175,7 @@ static int sound_channel[SND_MAX];
 left and right, so we need 2 output channels
 */
 #define SAMPLE_CHANNELS     2
-#define SAMPLE_SIZE         AUDIO_U8
+#define SAMPLE_SIZE         AUDIO_S16SYS
 
 static int mono_mode = XBFalse;
 
@@ -350,48 +350,58 @@ SND_Load (SND_Id id)
 						return (-1);
 					}
 					else {
+						int16_t *conv;
 						read (f, sb, sound_size * sizeof (uint8_t));
 						close (f);
 #if defined(SERVER_STATISTICS)
 						total_loaded++;
 #endif
+						/* The files are unsigned 8-bit RAW. SDL2_mixer only accepts
+						   signed 16-bit, so widen the samples first. */
+						if ((conv = malloc (sound_size * sizeof (int16_t))) == NULL) {
+							free (sb);
+							return (-1);
+						}
+						for (i = 0; i < sound_size; i++) {
+							conv[i] = (int16_t)(((int)sb[i] - 128) << 8);
+						}
+						free (sb);
+						sb = (uint8_t *)conv;
+						sound_size *= sizeof (int16_t);
+
 						/* make sound Stereo although mono... blame SDL_mixer
 						   same problem as the 2 channels issue
 						 */
 						if (mono_mode != XBTrue && sound_name[id].mono == XBTrue) {
-							if ((sb1 = malloc (2 * sound_size * sizeof (uint8_t))) == NULL) {
+							int16_t *src = (int16_t *)sb;
+							int16_t *dst;
+							int samples = sound_size / (int)sizeof (int16_t);
+
+							if ((dst = malloc (2 * sound_size)) == NULL) {
 								free (sb);
 								return (-1);
 							}
-							for (i = 0; i < sound_size; i++) {
-								sb1[2*i] = sb1[2*i + 1] = sb[i];
-
+							for (i = 0; i < samples; i++) {
+								dst[2 * i] = dst[2 * i + 1] = src[i];
 							}
-							/* we free sb afterwards so we need
-							   to pass sb1 to sb */
 							free (sb);
-							sb = sb1;
+							sb = (uint8_t *)dst;
 							sound_size *= 2;
 						}
 						sound_name[id].samples = sb;
 						sound_name[id].length = sound_size;
 						/*
-						 * convert stereo samples to mono if running in mono mode 
+						 * convert stereo samples to mono if running in mono mode
 						 */
-
 						if (mono_mode == XBTrue && sound_name[id].mono == XBFalse) {
-							int i;
-							uint8_t *m, *s;
-							s16 sum;
+							int16_t *src = (int16_t *)sb;
+							int16_t *dst = src;
+							int samples = sound_size / (2 * (int)sizeof (int16_t));
 
-							m = s = sound_name[id].samples;
-
-							sound_name[id].length >>= 1;
-							for (i = 0; i < sound_name[id].length; i++) {
-								sum = *s + *(s + 1);
-								*m++ = sum >> 1;
-								s += 2;
+							for (i = 0; i < samples; i++) {
+								dst[i] = (int16_t)((src[2 * i] + src[2 * i + 1]) / 2);
 							}
+							sound_name[id].length = samples * (int)sizeof (int16_t);
 						}
 						if (!(sound_chunk[id] = Mix_QuickLoad_RAW (sb, sound_name[id].length)))
 							fprintf (stderr, "Warning: Could not open RAW from memory: %s\n",
