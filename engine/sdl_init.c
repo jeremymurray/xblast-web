@@ -240,7 +240,6 @@ InitDisplay (void)
 		fprintf (stderr, "Couldn't initialize SDL: %s\n", SDL_GetError ());
 		exit (1);
 	}
-	fprintf (stderr, "xb: SDL_Init ok\n");
 	atexit (SDL_Quit);
 
 	videoInfo = SDL_GetVideoInfo ();
@@ -309,10 +308,8 @@ InitDisplay (void)
 
 	/* Initialize the display */
 	if (SetVideoMode (w, h) < 0) {
-		fprintf (stderr, "xb: SetVideoMode failed\n");
 		return (1);
 	}
-	fprintf (stderr, "xb: video mode %dx%d bpp %d\n", w, h, video_bpp);
 
 	/* Set the color key. Experimental. */
 	/* TODO: Test effects of SDL_TRUE flag */
@@ -327,11 +324,9 @@ InitDisplay (void)
 XBBool
 GUI_Init (int argc, char *argv[])
 {
-	fprintf (stderr, "xb: GUI_Init enter\n");
 	if (!InitDisplay ()) {
 		return XBFalse;
 	}
-	fprintf (stderr, "xb: display ready\n");
 	/* now setup image loading */
 	/* if (! InitImage () ) {
 	   return XBFalse;
@@ -358,7 +353,6 @@ GUI_Init (int argc, char *argv[])
 		return XBFalse;
 	}
 
-	fprintf (stderr, "xb: tiles ready\n");
 	return XBTrue;
 }
 

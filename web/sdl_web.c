@@ -81,7 +81,6 @@ SDL_SetVideoMode (int width, int height, int bpp, Uint32 flags)
 		fprintf (stderr, "xb: screen surface creation failed\n");
 		return NULL;
 	}
-	fprintf (stderr, "xb: window %dx%d created\n", width, height);
 
 	webVideoInfo.hw_available = 0;
 	webVideoInfo.wm_available = 1;
@@ -107,18 +106,26 @@ SDL_GetVideoSurface (void)
 const SDL_VideoInfo *
 SDL_GetVideoInfo (void)
 {
+	static SDL_PixelFormat fallbackFormat;
+
+	if (!webVideoInfo.vfmt) {
+		SDL_zero (fallbackFormat);
+		fallbackFormat.BitsPerPixel = 32;
+		fallbackFormat.BytesPerPixel = 4;
+		fallbackFormat.Rmask = 0x00FF0000;
+		fallbackFormat.Gmask = 0x0000FF00;
+		fallbackFormat.Bmask = 0x000000FF;
+		fallbackFormat.Amask = 0xFF000000;
+		webVideoInfo.vfmt = &fallbackFormat;
+	}
 	return &webVideoInfo;
 }
 
 void
 XBWeb_Present (SDL_Surface *surface)
 {
-	static int presentCount = 0;
 	if (!surface || !webTexture || surface != webScreen) {
 		return;
-	}
-	if (presentCount++ == 0) {
-		fprintf (stderr, "xb: first present %dx%d\n", surface->w, surface->h);
 	}
 	SDL_UpdateTexture (webTexture, NULL, surface->pixels, surface->pitch);
 	SDL_RenderClear (webRenderer);

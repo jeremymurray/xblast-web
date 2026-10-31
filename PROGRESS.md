@@ -1,13 +1,13 @@
 # Progress
 
-Updated: 2026-10-31 (M0 build spike)
+Updated: 2026-10-31 (M0 complete)
 
 ## Milestones
 
 | Milestone | State |
 |---|---|
-| M0 — engine boots in browser | **in progress** |
-| M1 — single-player playable on web | not started |
+| M0 — engine boots in browser | **done** |
+| M1 — single-player playable on web | next |
 | M2 — 2-player P2P | not started |
 | M3 — 6-player, chat, reconnect | not started |
 | M4 — polish, assets, PWA | not started |
@@ -20,13 +20,13 @@ Updated: 2026-10-31 (M0 build spike)
 - [x] Replace SDL 1.2 with SDL 2 shim + Emscripten ports
       (`web/compat/`, `web/sdl_web.c`, patched `engine/sdl_*.c`)
 - [x] Build to wasm (`scripts/build-web.sh`, 3.5 MB wasm, 9.2 MB data)
-- [x] Boot in headless Chrome: config load, `SDL_Init`, 960x736 window,
-      first present, all init steps through `tiles ready`
-- [ ] Capture a screenshot proving the menu renders
-- [ ] Keyboard/mouse input reaches the engine
-- [ ] Sound (SDL_mixer U8 → S16 conversion, WebAudio autoplay unlock)
-- [ ] Asyncify vs worker loop decision; remove debug instrumentation
-- [ ] M0 write-up and merge to `main`
+- [x] Intro, main menu and local-game screens render
+- [x] Keyboard input works (Space dismisses intro, Tab moves menu focus)
+- [x] Local game starts and runs (level intro → maze, bombs, HUD)
+- [x] Screenshot harness without extra dependencies (`scripts/cdp_shot.py`)
+- [x] Remove debug probes
+
+Evidence: `docs/screenshots/m0-menu.png`, `docs/screenshots/m0-game.png`.
 
 ## How to run (dev)
 
@@ -36,27 +36,26 @@ python3 -m http.server -d web/dist 8123
 # open http://localhost:8123/
 ```
 
-Headless check used during M0:
+Headless screenshot (real time, no virtual-time quirks):
 
 ```sh
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --headless=new --disable-gpu --no-sandbox \
-  --virtual-time-budget=60000 --dump-dom --enable-logging=stderr \
-  http://localhost:8123/index.html
+python3 scripts/cdp_shot.py http://localhost:8123/index.html /tmp/shot.png 8
+# with keys:  ... /tmp/shot.png 8 "space:0,space:3"
 ```
 
 ## Known issues / notes
 
-- `video_bpp` reads 0 because `SDL_GetVideoInfo()` is called before
-  `SDL_SetVideoMode()`; harmless, the shim ignores bpp (always 32-bit ARGB).
-- The game loop yields with `emscripten_sleep(16)` in `SelectSockets`, so
-  Chrome's virtual-time budget never expires while it sleeps. Prefer a real-time
-  CDP screenshot harness for evidence (or reduce idle sleep during tests).
-- Sounds/music are not preloaded yet (`data/sounds` 11 MB); only image + level
-  + font are packed.
+- **Audio not wired**: `data/sounds` (11 MB) is not preloaded and SDL_mixer is
+  asked for `AUDIO_U8`, which SDL2_mixer rejects. Convert U8 → S16 and gate on a
+  user gesture before M1.
+- **Mouse in menus** reaches SDL (verified at the event level) but buttons are
+  only activated when they are the focused item; keyboard Tab works. Revisit
+  with a real pointer in M1; not a blocker.
+- `©` in the intro renders as a missing-glyph box. Check UTF-8/Latin-1 handling
+  in `sdl_text.c` later.
+- Only `data/image`, `data/level` and `Vera.ttf` are packed into `xblast.data`.
 - `web/net_stub.c` fails all socket calls; multiplayer is not wired up.
-- Debug `fprintf(stderr, "xb: ...")` probes in `engine/sdl_init.c` and
-  `web/sdl_web.c` must be removed or gated before M0 is done.
+- Data package is 9.2 MB and uncompressed-ish; revisit asset compression in M4.
 
 ## Decisions
 
@@ -66,3 +65,13 @@ Headless check used during M0:
 - SDL 2 ports used: `SDL2`, `SDL2_image`, `SDL2_ttf`, `SDL2_mixer`, `SDL2_gfx`.
 - Hosting target: static files, including GitHub Pages (see AGENTS.md).
 - Attribution: every commit carries an `Assisted-by:` trailer for the model.
+
+## M1 next tasks
+
+1. Fix audio: preload `data/sounds`, convert U8 raw samples to S16, unlock
+   WebAudio on first input.
+2. Player controls: assign keyboard players in Setup, verify movement/bombs.
+3. Level flow: win/lose, next level, score screen.
+4. Config persistence: keep settings in `localStorage` (the engine writes
+   `config/*.cfg` to MEMFS and loses them on reload).
+5. Replace the dev preload list with a build-time asset manifest.
