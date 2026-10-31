@@ -11,29 +11,60 @@
   canvas { image-rendering: pixelated; max-width: 100%; max-height: 100%; height: auto; }
   #status { position: fixed; left: 8px; bottom: 8px; color: #888; font: 12px/1.4 monospace; }
   #status.error { color: #f66; }
-  #overlay {
+
+  .screen {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
-    background: rgba(0, 0, 0, 0.78); color: #ffd400; font: 20px/1.5 monospace; text-align: center;
+    background: rgba(0, 0, 0, 0.86); color: #ffd400; font: 16px/1.55 monospace;
   }
-  #overlay.show { display: flex; }
-  #overlay button {
-    margin-top: 1em; padding: 0.6em 1.4em; font: inherit; cursor: pointer;
+  .screen.show { display: flex; }
+  .panel { max-width: 640px; padding: 2em; text-align: left; }
+  .panel h1 { margin: 0 0 0.3em; font-size: 2em; letter-spacing: 0.04em; }
+  .panel p { margin: 0.6em 0; color: #ddd; }
+  .panel dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.3em 1.2em; margin: 1em 0; }
+  .panel dt { color: #ffd400; }
+  .panel dd { margin: 0; color: #ccc; }
+  .panel button {
+    margin-top: 1.2em; padding: 0.7em 2em; font: inherit; cursor: pointer;
     color: #111; background: #ffd400; border: 0; border-radius: 4px;
   }
+  #landing { z-index: 20; }
+  #overlay { z-index: 30; text-align: center; }
+  #overlay button { margin-top: 1em; }
 </style>
 </head>
 <body>
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
-<div id="status">loading…</div>
-<div id="overlay">
+<div id="status">ready</div>
+
+<div id="landing" class="screen show">
+  <div class="panel">
+    <h1>XBlast TNT</h1>
+    <p>A browser port of the classic Bomberman-style blast game. GPL-2.0-or-later,
+       peer-to-peer multiplayer planned, no game server.</p>
+    <dl>
+      <dt>Menus</dt><dd>Tab / arrows to move, Space or Return to select</dd>
+      <dt>Left player</dt><dd>F H T B to move, Space to bomb</dd>
+      <dt>Right player</dt><dd>Arrow keys to move, Return to bomb</dd>
+      <dt>During a match</dt><dd>Esc leaves the match</dd>
+    </dl>
+    <p>Click Play to load the game (about 20&nbsp;MB) and enable sound.</p>
+    <button id="play" type="button">Play</button>
+  </div>
+</div>
+
+<div id="overlay" class="screen">
   <div>
     <div>Thanks for playing XBlast TNT.</div>
     <button id="again" type="button">Play again</button>
   </div>
 </div>
+
 <script>
   const statusEl = document.getElementById('status');
   const overlayEl = document.getElementById('overlay');
+  const landingEl = document.getElementById('landing');
+  const playEl = document.getElementById('play');
+
   document.getElementById('again').addEventListener('click', () => location.reload());
 
   const CFG_ROOT = '/home/web_user/.xblast_tnt';
@@ -105,31 +136,36 @@
       overlayEl.classList.add('show');
     }
   };
+
+  function unlockAudio() {
+    const ac = Module.SDL2 && Module.SDL2.audioContext;
+    if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
+  }
+
+  playEl.addEventListener('click', () => {
+    unlockAudio();
+    landingEl.classList.remove('show');
+    statusEl.textContent = 'Loading…';
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'xblast.js';
+    document.body.appendChild(script);
+  });
+
+  window.addEventListener('pointerdown', unlockAudio);
+  window.addEventListener('keydown', unlockAudio);
+  window.addEventListener('touchend', unlockAudio);
+
+  setInterval(saveConfig, 30000);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') saveConfig();
+  });
+
   window.addEventListener('error', (e) => {
     statusEl.textContent = 'error: ' + e.message;
     statusEl.className = 'error';
     console.error('xb: window error', e.message);
   });
-  console.log('xb: page script loaded');
-
-  /* WebAudio starts suspended until a user gesture. Resume it on the first
-     interaction so SDL_mixer can actually output sound. */
-  function unlockAudio() {
-    const ac = Module.SDL2 && Module.SDL2.audioContext;
-    if (ac && ac.state === 'suspended') {
-      ac.resume().catch(() => {});
-    }
-  }
-  window.addEventListener('pointerdown', unlockAudio);
-  window.addEventListener('keydown', unlockAudio);
-  window.addEventListener('touchend', unlockAudio);
-
-  /* Keep settings across reloads: sync the engine's config dir to localStorage. */
-  setInterval(saveConfig, 30000);
-  window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') saveConfig();
-  });
 </script>
-<script async src="xblast.js"></script>
 </body>
 </html>

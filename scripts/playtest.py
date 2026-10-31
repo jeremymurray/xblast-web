@@ -45,7 +45,10 @@ def main():
         ws = cdp.WS(target["webSocketDebuggerUrl"])
         ws.call(1, "Page.enable")
         ws.call(2, "Runtime.enable")
-        time.sleep(9)                      # intro
+        ws.call(5, "Runtime.evaluate", {
+            "expression": "document.getElementById('play') && document.getElementById('play').click()",
+        })
+        time.sleep(9)                      # load + intro
 
         cdp.send_key(ws, "space")          # dismiss intro
         time.sleep(2)
