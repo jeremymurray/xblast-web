@@ -159,6 +159,19 @@ static KeyNameTable keyTable[] = {
 	{SDLK_F13, "F13"},
 	{SDLK_F14, "F14"},
 	{SDLK_F15, "F15"},
+	{SDLK_LSHIFT, "Shift_L"},
+	{SDLK_RSHIFT, "Shift_R"},
+	/* punctuation: useful for right-hand abort keys */
+	{SDLK_SLASH, "/"},
+	{SDLK_PERIOD, "."},
+	{SDLK_COMMA, ","},
+	{SDLK_SEMICOLON, ";"},
+	{SDLK_QUOTE, "'"},
+	{SDLK_LEFTBRACKET, "["},
+	{SDLK_RIGHTBRACKET, "]"},
+	{SDLK_BACKSLASH, "\\"},
+	{SDLK_MINUS, "-"},
+	{SDLK_EQUALS, "="},
 	/* terminator */
 	{0, NULL},
 };

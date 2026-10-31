@@ -18,6 +18,7 @@ Updated: 2026-10-31 (M1 in progress, release 0.1.0 tagged)
 - [x] Audio: preload `data/sounds` and resume WebAudio on first input
 - [ ] Audio: confirm it is audible in a real browser (needs a human ear)
 - [x] Landing screen: explains the game and controls, Play gates the 20 MB load
+- [x] On-screen key hints on both sides, driven by `control.cfg`, fading when idle
 - [x] Esc leaves a match (player abort moved to Delete, with config migration)
 - [x] Scripted playtest can assign a keyboard player and start a local game
 - [ ] Controls: confirm arrows move and space drops a bomb in-game
@@ -48,8 +49,9 @@ python3 scripts/playtest.py            # assigns Olaf, starts a game, moves/bomb
   is routed to the mixer, and `Module.SDL2.audioContext` is resumed on the
   first pointer/key event. Music tracks loop when selected; the default is
   still `None`. Needs a human ear check.
-- **Right player defaults to arrows + Return** (laptops have no keypad); the
-  left player keeps `f/h/t/b` + space. Saved configs override these defaults.
+- **Player defaults**: left = A/S/D/F, Space bomb, Left Shift stop, Tab kick,
+  Q abort; right = arrows, Return bomb, `/` abort, `.` cancel. Saved configs
+  override these, and old left/abort bindings are migrated on load.
 - **Single-player rounds end instantly** if there is only one player: the last
   player standing wins. Use a second keyboard player or a bot to actually play.
 - **Fades are disabled on the web build** (`__EMSCRIPTEN__` in `sdl_pixmap.c`):
