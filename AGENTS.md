@@ -47,6 +47,14 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Bump MINOR when a milestone lands (M1 → 0.2.0), PATCH for playtest fixes.
 - Tag annotated releases on `main` after the merge.
 
+## Engine change conventions
+- Browser-only behaviour changes in `engine/` are wrapped in
+  `#ifdef __EMSCRIPTEN__` with a `/* web port: ... */` comment, keeping the
+  upstream branch in `#else`. This keeps the port's diff separable.
+- Fork-wide changes (SDL 1.2 → SDL 2 API calls) are not guarded.
+- Defaults live in the engine; persistence lives in the wrapper
+  (`web/index.html`), which only mirrors the engine's config directory.
+
 ## Progress tracking
 Update `PROGRESS.md` at each milestone and whenever context is about to be compacted: checklist,
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.

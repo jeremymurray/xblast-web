@@ -167,8 +167,12 @@ static int sound_channel[SND_MAX];
    maybe a better solution should be there, since it is 
    not nice sending all and dont using the buffer.
 */
-/* WebAudio's ScriptProcessor requires 256..16384. */
+#ifdef __EMSCRIPTEN__
+/* web port: WebAudio's ScriptProcessor requires 256..16384 */
 #define SUBSIZE          1024
+#else
+#define SUBSIZE          128
+#endif
 
 #define SOUND_DEVICE "/dev/dsp"
 #define SAMPLE_RATE     22050
@@ -206,9 +210,14 @@ SND_Init (const CFGSoundSetup * setup)
 		break;
 
 	case XBSM_Beep:
-		/* No terminal bell here: use the mixer for beep mode too. */
+#ifdef __EMSCRIPTEN__
+		/* web port: no terminal bell, use the mixer for beep mode too */
 		isActive = XBTrue;
 		break;
+#else
+		isActive = XBTrue;
+		return XBTrue;
+#endif
 
 	case XBSM_None:
 		/* no sound at all */
