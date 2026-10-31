@@ -23,6 +23,11 @@ GPL-2.0-or-later.
   default path.
 - **Licensing:** whole work published as GPL-2.0-or-later with complete corresponding source.
 - No rollback/prediction, no TypeScript rewrite, no central server before M1 ships.
+- **Web build skips screen fades** (`__EMSCRIPTEN__` in `sdl_pixmap.c`): the
+  blocking `SDL_Delay` wipe stalls Asyncify and feels slow. Keep transitions
+  instant until a non-blocking fade is implemented.
+- **`EXIT_RUNTIME=1`** so quitting calls `Module.onExit` and the page can show
+  the "Play again" overlay.
 
 ## Attribution
 This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.1-flash-free`).

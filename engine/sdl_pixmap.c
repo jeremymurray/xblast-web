@@ -266,6 +266,14 @@ GUI_FlushScoreBoard (void)
 void
 GUI_InitFade (XBFadeMode mode, int maxLines)
 {
+#ifdef __EMSCRIPTEN__
+	/* Fades are a blocking effect built on SDL_Delay, which does not mix well
+	   with the Asyncify main loop and makes transitions feel slow. Skip them
+	   in the browser build. */
+	(void)mode;
+	(void)maxLines;
+	return;
+#endif
 	fadeMax = maxLines;
 	fadeStep = FADE_STEP;
 	fadeMode = mode;
@@ -295,6 +303,9 @@ GUI_DoFade (void)
 	int y;
 	SDL_Rect r;
 
+#ifdef __EMSCRIPTEN__
+	return XBFalse;
+#endif
 	if (fadeStep <= 0) {
 		if (fadeMode != XBFM_IN)
 			SDL_FillRect (screen, NULL, fadeColor);
@@ -312,8 +323,9 @@ GUI_DoFade (void)
 		r.y = y;
 		if (fadeMode == XBFM_IN)
 			SDL_UpdateRect (screen, r.x, r.y, r.w, r.h);
-		else					// fade out
+		else {					// fade out
 			SDL_FillRect (screen, &r, fadeColor);
+		}
 	}
 
 	if (fadeMode != XBFM_IN)

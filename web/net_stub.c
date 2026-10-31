@@ -22,14 +22,19 @@ struct _xb_socket
 void
 SelectSockets (struct timeval *timeout)
 {
+#ifdef __EMSCRIPTEN__
+	long usec = timeout ? (long)timeout->tv_sec * 1000000 + timeout->tv_usec : 0;
+	/* Use the Asyncify-aware sleep directly. A zero timeout must still yield,
+	   otherwise the loop starves the browser event loop. */
+	if (usec < 1000) {
+		emscripten_sleep (1);
+	}
+	else {
+		emscripten_sleep ((int)((usec + 999) / 1000));
+	}
+#else
 	if (timeout != NULL) {
 		usleep (timeout->tv_sec * 1000000 + timeout->tv_usec);
-	}
-#ifdef __EMSCRIPTEN__
-	else {
-		/* Yield to the browser event loop; without this the render loop
-		   would spin and freeze the tab. */
-		emscripten_sleep (16);
 	}
 #endif
 }

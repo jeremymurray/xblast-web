@@ -192,7 +192,7 @@ def main():
             send_click(ws, gx, gy)
             time.sleep(3.0)
         state = ws.call(3, "Runtime.evaluate", {
-            "expression": "JSON.stringify({status: document.getElementById('status') && document.getElementById('status').textContent, title: document.title, canvases: [...document.querySelectorAll('canvas')].map(c => [c.id, c.width, c.height, c.getBoundingClientRect().x, c.getBoundingClientRect().y])})",
+            "expression": "JSON.stringify({status: document.getElementById('status') && document.getElementById('status').textContent, title: document.title, overlay: document.getElementById('overlay').className, canvases: [...document.querySelectorAll('canvas')].map(c => [c.id, c.width, c.height, c.getBoundingClientRect().x, c.getBoundingClientRect().y])})",
             "returnByValue": True,
         })
         print("page:", state.get("result", {}).get("value"))

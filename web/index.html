@@ -4,26 +4,56 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>XBlast TNT</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%23111'/><circle cx='8' cy='9' r='4' fill='%23ffd400'/></svg>">
 <style>
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
   body { display: flex; align-items: center; justify-content: center; }
   canvas { image-rendering: pixelated; max-width: 100%; max-height: 100%; height: auto; }
   #status { position: fixed; left: 8px; bottom: 8px; color: #888; font: 12px/1.4 monospace; }
   #status.error { color: #f66; }
+  #overlay {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(0, 0, 0, 0.78); color: #ffd400; font: 20px/1.5 monospace; text-align: center;
+  }
+  #overlay.show { display: flex; }
+  #overlay button {
+    margin-top: 1em; padding: 0.6em 1.4em; font: inherit; cursor: pointer;
+    color: #111; background: #ffd400; border: 0; border-radius: 4px;
+  }
 </style>
 </head>
 <body>
 <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
 <div id="status">loading…</div>
+<div id="overlay">
+  <div>
+    <div>Thanks for playing XBlast TNT.</div>
+    <button id="again" type="button">Play again</button>
+  </div>
+</div>
 <script>
   const statusEl = document.getElementById('status');
+  const overlayEl = document.getElementById('overlay');
+  document.getElementById('again').addEventListener('click', () => location.reload());
   window.Module = {
     canvas: document.getElementById('canvas'),
     print: (...args) => console.log(...args),
     printErr: (...args) => console.error(...args),
-    onAbort: (what) => { statusEl.textContent = 'abort: ' + what; statusEl.className = 'error'; },
+    onAbort: (what) => {
+      statusEl.textContent = 'abort: ' + what;
+      statusEl.className = 'error';
+      console.error('xb: abort', what);
+    },
     setStatus: (text) => { if (text) statusEl.textContent = text; },
-    onRuntimeInitialized: () => { console.log('xb: runtime ready'); statusEl.textContent = ''; }
+    onRuntimeInitialized: () => {
+      console.log('xb: runtime ready');
+      statusEl.textContent = '';
+      overlayEl.classList.remove('show');
+    },
+    onExit: (code) => {
+      console.log('xb: exit', code);
+      overlayEl.classList.add('show');
+    }
   };
   window.addEventListener('error', (e) => {
     statusEl.textContent = 'error: ' + e.message;
