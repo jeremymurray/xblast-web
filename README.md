@@ -27,6 +27,18 @@ python3 -m http.server -d web/dist 8000
 Then open <http://localhost:8000>. Serve over HTTP; the `.wasm` and `.data`
 files will not load from `file://`.
 
+## Hosting
+
+The build is a plain static bundle (`web/dist/`), so it can be served from GitHub Pages
+without any backend. Multiplayer signalling still uses public relays or manual offer/answer
+copy-paste; TURN may be needed for some NAT pairs.
+
+## Attribution
+
+This port is vibecoded with **DeepSeek V4.1 Flash Free**
+(`opencode/deepseek-v4.1-flash-free`). Every commit carries an `Assisted-by:` trailer.
+Upstream XBlast TNT is the work of Oliver Vogel and contributors; this project only ports it.
+
 ## Licence
 
 The whole work is distributed under GPL-2.0-or-later. Upstream code is
