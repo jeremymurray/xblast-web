@@ -48,7 +48,7 @@ LoadIconSurface (char *file, Uint8 ** maskp)
 	}
 
 	/* Set the colorkey */
-	SDL_SetColorKey (icon, SDL_SRCCOLORKEY, *((Uint8 *) icon->pixels));
+	SDL_SetColorKey (icon, SDL_TRUE, *((Uint8 *) icon->pixels));
 
 	/* Create the mask */
 	pixels = (Uint8 *) icon->pixels;
@@ -142,24 +142,27 @@ HotKey_Quit (void)
 }
 
 static int
-FilterEvents (const SDL_Event * event)
+FilterEvents (void *userdata, SDL_Event * event)
 {
+	(void)userdata;
 	switch (event->type) {
 
-	case SDL_ACTIVEEVENT:
-		/* See what happened */
-		Dbg_Out ("App %s ", event->active.gain ? "gained" : "lost");
-		if (event->active.state & SDL_APPACTIVE)
-			Dbg_Out ("active ");
-		if (event->active.state & SDL_APPMOUSEFOCUS)
-			Dbg_Out ("mouse ");
-		if (event->active.state & SDL_APPINPUTFOCUS)
-			Dbg_Out ("input ");
-		Dbg_Out ("focus\n");
-
-		/* See if we are iconified or restored */
-		if (event->active.state & SDL_APPACTIVE) {
-			Dbg_Out ("App has been %s\n", event->active.gain ? "restored" : "iconified");
+	case SDL_WINDOWEVENT:
+		switch (event->window.event) {
+		case SDL_WINDOWEVENT_FOCUS_GAINED:
+			Dbg_Out ("Window gained focus\n");
+			break;
+		case SDL_WINDOWEVENT_FOCUS_LOST:
+			Dbg_Out ("Window lost focus\n");
+			break;
+		case SDL_WINDOWEVENT_MINIMIZED:
+			Dbg_Out ("Window minimized\n");
+			break;
+		case SDL_WINDOWEVENT_RESTORED:
+			Dbg_Out ("Window restored\n");
+			break;
+		default:
+			break;
 		}
 		return (0);
 
@@ -190,7 +193,7 @@ FilterEvents (const SDL_Event * event)
 		return (1);
 
 		/* Pass the video resize event through .. */
-	case SDL_VIDEORESIZE:
+	case SDL_WINDOWEVENT_RESIZED:
 		return (1);
 
 		/* This is important!  Queue it if we want to quit. */
@@ -309,11 +312,11 @@ InitDisplay (void)
 	}
 
 	/* Set the color key. Experimental. */
-	/* TODO: Test effects of SDL_SRCCOLORKEY flag */
-	SDL_SetColorKey (screen, SDL_RLEACCEL, SDL_MapRGB (screen->format, 0xFF, 0xFF, 0xFF));
+	/* TODO: Test effects of SDL_TRUE flag */
+	SDL_SetColorKey (screen, SDL_TRUE, SDL_MapRGB (screen->format, 0xFF, 0xFF, 0xFF));
 
 	/* Set an event filter. */
-	SDL_SetEventFilter(FilterEvents);
+	SDL_SetEventFilter(FilterEvents, NULL);
 
 	return XBTrue;
 }
