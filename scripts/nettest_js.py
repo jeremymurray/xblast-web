@@ -2,13 +2,17 @@
 """Headless test for web/net.js over real WebRTC + public Nostr signalling.
 
 Runs `./scripts/build-web.sh`, copies `web/test/net.html` into `web/dist/test/`,
-serves `web/dist`, and drives two or three headless Chrome pages with the CDP.
+serves `web/dist`, and drives two to seven headless Chrome pages with the CDP.
 
 Scenarios:
   basic      two pages: stream connect/accept, both directions, half-close,
              datagrams, listen-close keeps accepted peers, peer-close keeps room
   multi      host + clients A/B: closing A's accepted stream leaves B working
+  replace    a rejoin with a stable client id replaces the old peer
   wrong-room a lone guest must fail its connect within the configured timeout
+  full       host + five clients fill the room; a sixth is refused, a rejoin
+             replaces while full, a freed slot reopens it, and a match stage
+             outranks the capacity message
 
 Requires internet: the pages use the public Nostr relays Trystero ships with.
 """
@@ -557,7 +561,7 @@ def run_full(base):
             # Seven light pages plus a full Trystero mesh can take longer than
             # the 20 s product default to complete ICE; the capacity checks do
             # not depend on being quick.
-            page.ev("__test.configure({connectTimeoutMs: 90000})")
+            page.ev("__test.configure({connectTimeoutMs: 180000})")
         host_id = host.ev("XBNet.status().selfId")
         guest_ids = [g.ev("XBNet.status().selfId") for g in guests]
         check(len({host_id, *guest_ids}) == 6, "page selfIds are not distinct")
@@ -572,8 +576,8 @@ def run_full(base):
             check(guest.ev(f"__test.open({fd}, 'stream')") is True,
                   f"guest {i + 1} open({fd}) failed")
             guest.ev(f"__test.connect({fd})")
-            wait_connect(guest, fd, timeout=60)
-        host.wait_js("XBNet.status().peers === 5", 90, "host sees five helloed guests")
+            wait_connect(guest, fd, timeout=170)
+        host.wait_js("XBNet.status().peers === 5", 180, "host sees five helloed guests")
 
         print("2. host accepts four; one stays pending", flush=True)
         accepted = {}
@@ -585,7 +589,7 @@ def run_full(base):
         print("3. a sixth guest is refused while one is still pending", flush=True)
         extra = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
         require_net(extra, "guest-6")
-        extra.ev("__test.configure({connectTimeoutMs: 90000})")
+        extra.ev("__test.configure({connectTimeoutMs: 180000})")
         extra.ev("__test.open(301, 'stream')")
         extra.ev("__test.connect(301)")
         extra.wait_js(
@@ -600,6 +604,15 @@ def run_full(base):
               "host peer count changed after the reject")
         check(host.ev("XBNet.status().full") is True,
               "host does not report the room as full")
+        extra.wait_js("__test.recv(301, 64).kind === 'eof'", 15,
+                      "the refused guest's stream ended")
+
+        print("3b. a later Connect on the refused page fails at once", flush=True)
+        check(extra.ev("__test.connect(301)") == -1,
+              "connect after a refusal did not fail immediately")
+        extra.wait_js(
+            "XBNet.status().connectError === 'The room is full (6 players).'",
+            10, "refused guest kept the room-full reason")
 
         print("4. the pending guest is accepted; the room stays full", flush=True)
         pending = set(guest_ids) - set(accepted)
@@ -614,7 +627,7 @@ def run_full(base):
         rejoiner = Page(f"{base}/test/net.html?role=client&room={room}"
                         f"&scenario=full&clientId={joiner_id}")
         require_net(rejoiner, "rejoiner")
-        rejoiner.ev("__test.configure({connectTimeoutMs: 90000})")
+        rejoiner.ev("__test.configure({connectTimeoutMs: 180000})")
         rejoiner.ev("__test.open(401, 'stream')")
         rejoiner.ev("__test.connect(401)")
         wait_connect(rejoiner, 401)
@@ -630,7 +643,7 @@ def run_full(base):
         check(host.ev("XBNet.status().full") is True, "host stopped reporting full")
         late = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
         require_net(late, "late")
-        late.ev("__test.configure({connectTimeoutMs: 90000})")
+        late.ev("__test.configure({connectTimeoutMs: 180000})")
         late.ev("__test.open(501, 'stream')")
         late.ev("__test.connect(501)")
         # Poll like the engine does: the host's hello (and with it the stage)
@@ -643,6 +656,13 @@ def run_full(base):
         check(late.ev("__test.connectState(501)") == -1, "late guest connect did not fail")
         check(host.ev("XBNet.status().peers") == 5,
               "host counted the late guest as a peer")
+
+        print("6b. a hello retransmit cannot evict an accepted guest", flush=True)
+        host_id = host.ev("XBNet.status().selfId")
+        guests[2].ev(f"XBNet.__resendHello({json.dumps(host_id)})")
+        time.sleep(1.0)
+        check(host.ev("XBNet.status().peers") == 5,
+              "a hello retransmit dropped an accepted guest")
 
         print("7. a guest leaving frees the slot", flush=True)
         first = guest_ids[0]
