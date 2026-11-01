@@ -23,6 +23,10 @@
 
 #include "xblast.h"
 
+#ifdef __EMSCRIPTEN__
+#include "net_web.h"
+#endif
+
 /*
  * shared data for all menus
  */
@@ -1241,6 +1245,68 @@ CreateClientWaitMenu (void *par)
 	/* that's all */
 	return XBFalse;
 }								/* CreateClientWaitMenu */
+
+#ifdef __EMSCRIPTEN__
+/****************************
+ * web room-backed entry points *
+ ****************************/
+
+/*
+ * web port: start listening in the page-owned room.
+ *
+ * The lobby joined the WebRTC room before loading the engine, so this only
+ * attaches the engine's listen socket to that room.  The obsolete port,
+ * LAN-browse, NAT and central options are forced off.
+ */
+XBBool
+XBWeb_ServerListen (void *par)
+{
+	XBAtom *atom = par;
+	const char *room;
+
+	assert (atom != NULL);
+	room = XBWeb_RoomCode ();
+	(void)RetrieveGameHost (CT_Local, *atom, &cfgServer);
+	cfgServer.name = (char *)room;
+	cfgServer.port = 16168;
+	cfgServer.game = (char *)room;
+	cfgServer.fixedUdpPort = XBFalse;
+	cfgServer.browseLan = XBFalse;
+	cfgServer.allowNat = XBFalse;
+	cfgServer.central = XBFalse;
+	StoreGameHost (CT_Local, *atom, &cfgServer);
+	if (!Server_StartListen (&cfgServer)) {
+		GUI_ErrorMessage ("Could not host room %s", room);
+		return CreateStartNetGameMenu (par);
+	}
+	return CreateServerWaitMenu (par);
+}								/* XBWeb_ServerListen */
+
+/*
+ * web port: connect to the host in the page-owned room.
+ *
+ * ButtonStartClient has already stored the local game and player config, so
+ * only the host connection data is written here.
+ */
+XBBool
+XBWeb_ClientConnect (void *par)
+{
+	XBAtom *atom = par;
+	const char *room;
+
+	assert (atom != NULL);
+	room = XBWeb_RoomCode ();
+	cfgServer.name = (char *)room;
+	cfgServer.port = 16168;
+	StoreIpHistory (&cfgServer, *atom);
+	StoreGameHost (CT_Local, *atom, &cfgServer);
+	if (!Client_Connect (&cfgServer)) {
+		GUI_ErrorMessage ("Could not join room %s", room);
+		return CreateJoinNetGameMenu (par);
+	}
+	return CreateClientWaitMenu (par);
+}								/* XBWeb_ClientConnect */
+#endif
 
 /*********************
  * server setup menu *

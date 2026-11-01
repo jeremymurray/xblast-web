@@ -23,6 +23,10 @@
 
 #include "xblast.h"
 
+#ifdef __EMSCRIPTEN__
+#include "net_web.h"
+#endif
+
 /*
  * local constants
  */
@@ -405,12 +409,38 @@ DoMenu (XBBool autoCentral)
 	GUI_ClearPixmap ();
 	/* create main menu */
 	setAutoCentral (autoCentral);
+#ifdef __EMSCRIPTEN__
+	/* web port: the lobby chooses host or join before the engine starts. */
+	{
+		static XBBool webIntentHandled = XBFalse;
+		if (!webIntentHandled) {
+			XBWebMode webMode = XBWeb_Mode ();
+			webIntentHandled = XBTrue;
+			if (XBWM_Host == webMode) {
+				gameType = atomServer;
+				(void)CreateStartNetGameMenu (&gameType);
+			}
+			else if (XBWM_Join == webMode) {
+				gameType = atomClient;
+				(void)CreateJoinNetGameMenu (&gameType);
+			}
+			else {
+				(void)CreateMainMenu (NULL);
+			}
+			XBWeb_ClearIntent ();
+		}
+		else {
+			(void)CreateMainMenu (NULL);
+		}
+	}
+#else
 	if (autoCentral) {
 		(void)ButtonStartCentral (NULL);
 	}
 	else {
 		(void)CreateMainMenu (NULL);
 	}
+#endif
 	/* run menu */
 	result = MenuEventLoop ();
 	/* fade out */
