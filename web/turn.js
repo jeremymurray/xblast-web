@@ -42,3 +42,138 @@ export function normalizeTurnConfig(value) {
   }
   return out;
 }
+
+function isLocalHost(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' ||
+    hostname === '::1' || hostname === '[::1]';
+}
+
+function parseCredentialUrl(value, baseUrl) {
+  if (typeof value !== 'string') return null;
+  const text = value.trim();
+  if (!text || text.length > MAX_URL) return null;
+  let url;
+  try {
+    url = new URL(text, baseUrl);
+  } catch (e) {
+    return null;
+  }
+  if (url.username || url.password || url.hash) return null;
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLocalHost(url.hostname))) {
+    return null;
+  }
+  return url.href;
+}
+
+export function parseTurnFile(data, opts = {}) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return { turnConfig: [], credentialsUrl: null, warning: 'TURN configuration is not an object.' };
+  }
+  const turnConfig = normalizeTurnConfig(data.turnConfig);
+  let warning = null;
+  if (data.turnConfig !== undefined && turnConfig.length === 0) {
+    warning = 'TURN configuration has no valid entries.';
+  }
+  let credentialsUrl = null;
+  if (data.credentialsUrl !== undefined) {
+    const baseUrl = opts.baseUrl ||
+      (typeof location !== 'undefined' ? location.href : 'https://localhost/');
+    credentialsUrl = parseCredentialUrl(data.credentialsUrl, baseUrl);
+    if (!credentialsUrl) warning = 'TURN credentials URL is invalid.';
+  }
+  return { turnConfig, credentialsUrl, warning };
+}
+
+export function parseCredentialResponse(data) {
+  if (Array.isArray(data)) {
+    return { turnConfig: normalizeTurnConfig(data), warning: null };
+  }
+  if (!data || typeof data !== 'object') {
+    return { turnConfig: [], warning: 'TURN credential response is not an object.' };
+  }
+  if (Array.isArray(data.turnConfig)) {
+    return { turnConfig: normalizeTurnConfig(data.turnConfig), warning: null };
+  }
+  const turnConfig = normalizeTurnConfig([data]);
+  if (turnConfig.length) return { turnConfig, warning: null };
+  return { turnConfig: [], warning: 'TURN credential response has no valid entries.' };
+}
+
+async function fetchJson(url, fetchImpl, init, timeoutMs) {
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetchImpl(url, {
+      ...init,
+      signal: controller ? controller.signal : undefined,
+    });
+    if (!response || !response.ok) {
+      throw new Error(`HTTP ${response ? response.status : 'ERR'}`);
+    }
+    return await response.json();
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+export async function loadTurnFile(opts = {}) {
+  const fetchImpl = opts.fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  const url = opts.url || './turn.json';
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 3000;
+  if (!fetchImpl) {
+    return { turnConfig: [], credentialsUrl: null, warning: 'fetch is unavailable.' };
+  }
+  try {
+    const data = await fetchJson(url, fetchImpl, { cache: 'no-cache' }, timeoutMs);
+    return parseTurnFile(data);
+  } catch (e) {
+    return {
+      turnConfig: [],
+      credentialsUrl: null,
+      warning: `TURN configuration unavailable: ${e && e.message ? e.message : e}`,
+    };
+  }
+}
+
+export async function fetchCredentials(url, opts = {}) {
+  const fetchImpl = opts.fetchImpl || (typeof fetch === 'function' ? fetch : null);
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 3000;
+  if (!fetchImpl) {
+    return { turnConfig: [], warning: 'fetch is unavailable.' };
+  }
+  try {
+    const data = await fetchJson(url, fetchImpl, {
+      cache: 'no-store',
+      mode: 'cors',
+      credentials: 'omit',
+      headers: { Accept: 'application/json' },
+    }, timeoutMs);
+    return parseCredentialResponse(data);
+  } catch (e) {
+    return {
+      turnConfig: [],
+      warning: `TURN credentials unavailable: ${e && e.message ? e.message : e}`,
+    };
+  }
+}
+
+export async function resolveTurnConfig(opts = {}) {
+  const player = normalizeTurnConfig(opts.playerOverride);
+  if (player.length) {
+    return { turnConfig: player, source: 'player', warning: null };
+  }
+  const file = opts.file || null;
+  const staticConfig = normalizeTurnConfig(file && file.turnConfig);
+  let warning = file && file.warning ? file.warning : null;
+  if (file && file.credentialsUrl) {
+    const endpoint = await fetchCredentials(file.credentialsUrl, opts);
+    if (endpoint.turnConfig.length) {
+      return { turnConfig: endpoint.turnConfig, source: 'endpoint', warning: null };
+    }
+    if (endpoint.warning) warning = endpoint.warning;
+  }
+  if (staticConfig.length) {
+    return { turnConfig: staticConfig, source: 'file', warning };
+  }
+  return { turnConfig: [], source: null, warning };
+}

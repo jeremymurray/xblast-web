@@ -123,6 +123,59 @@
         T.check('drops only invalid entries', turn.normalizeTurnConfig([
           cfg('stun:stun.example.org:3478'), cfg('turn:relay.example.org:3478')]).length === 1);
         T.check('non-array is empty', turn.normalizeTurnConfig('nope').length === 0);
+
+        const fakeFetch = (responses) => async (url) => {
+          const hit = responses[String(url)];
+          if (!hit) return { ok: false, status: 404, json: async () => ({}) };
+          if (hit.throw) throw new Error('network down');
+          return { ok: true, status: 200, json: async () => hit.body };
+        };
+
+        const staticFile = { turnConfig: [cfg('turn:relay.example.org:3478')] };
+        T.check('parses static file', turn.parseTurnFile(staticFile).turnConfig.length === 1);
+        T.check('parses endpoint file', turn.parseTurnFile(
+          { credentialsUrl: '/turn-credentials' }, { baseUrl: 'https://game.example/' }
+        ).credentialsUrl === 'https://game.example/turn-credentials');
+        T.check('rejects http endpoint', turn.parseTurnFile(
+          { credentialsUrl: 'http://evil.example/creds' }, { baseUrl: 'https://game.example/' }
+        ).credentialsUrl === null);
+
+        const missing = await turn.loadTurnFile({
+          fetchImpl: fakeFetch({}), url: '/turn.json', timeoutMs: 50,
+        });
+        T.check('missing file is empty', missing.turnConfig.length === 0 && !!missing.warning);
+        const loaded = await turn.loadTurnFile({
+          fetchImpl: fakeFetch({ '/turn.json': { body: staticFile } }),
+          url: '/turn.json', timeoutMs: 50,
+        });
+        T.check('loads static file', loaded.turnConfig.length === 1);
+
+        const endpoint = await turn.fetchCredentials('https://game.example/creds', {
+          fetchImpl: fakeFetch({
+            'https://game.example/creds': { body: { turnConfig: [cfg('turns:relay.example.org:5349')] } },
+          }), timeoutMs: 50,
+        });
+        T.check('endpoint response', endpoint.turnConfig.length === 1);
+
+        const viaEndpoint = await turn.resolveTurnConfig({
+          file: { turnConfig: [], credentialsUrl: 'https://game.example/creds' },
+          fetchImpl: fakeFetch({
+            'https://game.example/creds': { body: { turnConfig: [cfg('turns:relay.example.org:5349')] } },
+          }), timeoutMs: 50,
+        });
+        T.check('resolves endpoint', viaEndpoint.source === 'endpoint');
+        const fallback = await turn.resolveTurnConfig({
+          file: { turnConfig: [cfg('turn:relay.example.org:3478')],
+                  credentialsUrl: 'https://game.example/creds' },
+          fetchImpl: fakeFetch({ 'https://game.example/creds': { throw: true } }), timeoutMs: 50,
+        });
+        T.check('falls back to file', fallback.source === 'file');
+        const override = await turn.resolveTurnConfig({
+          file: { turnConfig: [cfg('turn:file.example.org:3478')], credentialsUrl: null },
+          playerOverride: [cfg('turn:mine.example.org:3478')], timeoutMs: 50,
+        });
+        T.check('player wins', override.source === 'player');
+
         T.ready = true;
         T.finish(true);
       } catch (e) {
