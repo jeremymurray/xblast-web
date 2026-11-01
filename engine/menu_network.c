@@ -1099,8 +1099,18 @@ CreateServerWaitMenu (void *par)
 	CreatePlayerItems ();
 	/* Title */
 	MenuAddLabel (TITLE_LEFT, TITLE_TOP, TITLE_WIDTH, "Waiting for Clients");
+#ifdef __EMSCRIPTEN__
+	/* web port: show the room code instead of the dead IRC channel. */
+	{
+		static char line[80];
+
+		snprintf (line, sizeof line, "Room %s - waiting for players", XBWeb_RoomCode ());
+		MenuAddLabel1 (10, 79, TITLE_WIDTH + 60, line);
+	}
+#else
 	MenuAddLabel1 (10, 79, TITLE_WIDTH + 60,
 				   "Chat with lamer Rado and others in http://xblast.sf.net/irc/");
+#endif
 	/* build host slots */
 	CreateHostItems (XBTrue);
 	/* Buttons */
