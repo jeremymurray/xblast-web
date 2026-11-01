@@ -84,12 +84,12 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M3: per-round desync hash, TURN fallback, host migration and backgrounding warning.
-Six players landed (five guests + host) with a room-full refusal. A lobby chat UI is
-deliberately deferred (possible future work, see `PROGRESS.md`): the engine's in-game chat
-is adequate and there is no separate web lobby. Mid-match resume/replay is a later item.
-An optional 16-player `-DSMPF` build is a later, M4-era idea (see `PROGRESS.md`); the web
-build stays 6-player until then.
+M3: TURN fallback, host migration and backgrounding warning. Six players landed
+(five guests + host) with a room-full refusal. A lobby chat UI and a per-round desync
+hash are deliberately deferred (possible future work, see `PROGRESS.md`); a two-browser
+diagnostic matched state exactly over 710 frames, and the engine's in-game chat covers
+matches. Mid-match resume/replay is a later item. An optional 16-player `-DSMPF` build
+is a later, M4-era idea (see `PROGRESS.md`); the web build stays 6-player until then.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

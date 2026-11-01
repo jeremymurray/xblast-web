@@ -118,7 +118,9 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
   pages and several minutes.
 - **A full room needs a reload to retry.** A refused guest's channels are closed; the lobby's
   Rejoin after a reload is the way back in once a slot frees.
-- **No per-round desync hash.** Divergence would be silent; M3 adds a state hash.
+- **No per-round desync hash (deferred).** A 710-frame two-browser diagnostic matched exactly;
+  the feature is in possible future work. Divergence with the same winning team would still be
+  silent; the existing winner-team async check catches outcome differences.
 - **The room persists after a match.** Leaving a match returns to the menu but stays in
   the room; use **Leave** or *Multiplayer Lobby* on the main menu, which reloads.
 - **Netplay test needs internet** and the mDNS flag (see above).
@@ -144,12 +146,11 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 
 ## Next tasks (M3)
 
-1. Per-round state hash to detect and report desync.
-2. TURN: optional relay fallback for restrictive NATs.
-3. Host migration and a host-backgrounding warning.
-4. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
+1. TURN: optional relay fallback for restrictive NATs.
+2. Host migration and a host-backgrounding warning.
+3. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
    an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
-5. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
+4. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
    `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
    scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
    `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the
@@ -162,3 +163,10 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 - **Lobby chat UI.** Deferred 2026-11-01: the engine's in-game chat is adequate and there is no
   separate web lobby to host a chat panel. Revisit only if a persistent lobby/social screen
   exists; it would ride `xb.ctl` with host relay.
+- **Per-round desync hash.** Deferred 2026-11-01 after a diagnostic (unmerged branch
+  `spike/desync-hash`, commit `8e4a8ae`). It hashed game time, RNG seed, player state, maze,
+  extras and explosions every 10 frames in a two-browser match: 710 frames / 71 samples
+  matched exactly on host and guest, and the normal netplay test passed. Not covered: packet
+  loss, more than two peers, mixed browsers. The winner-team async check already catches
+  outcome differences. Revisit if a real divergence appears; start with report-only, not
+  round scoring changes.
