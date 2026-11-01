@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace and six-player slices done, 0.3.1)
+Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace, six-player and optional-TURN slices done, 0.3.1)
 
 ## Milestones
 
@@ -9,7 +9,7 @@ Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace and six-player slices 
 | M0 — engine boots in browser | **done** (0.1.0) |
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
-| M3 — 6-player, chat, reconnect | in progress (reconnect/replace and six players done, 0.3.1) |
+| M3 — 6-player, reconnect, TURN, host migration | in progress (reconnect/replace, six players and optional TURN done, 0.3.1) |
 | M4 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
 
 ## M2 checklist
