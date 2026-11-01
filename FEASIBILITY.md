@@ -1,7 +1,7 @@
 # XBlast in the browser with P2P multiplayer — feasibility report
 
 Date: 2026-10-31
-Status: M0 (build spike) in progress
+Status: M2 done (two-player P2P, release 0.3.0)
 Target: a publicly publishable, browser-playable XBlast TNT with peer-to-peer multiplayer
 Source: XBlast TNT 2.10.4 (upstream release + Debian patches), data from the Debian GPL-2+ packages
 
