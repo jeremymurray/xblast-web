@@ -35,6 +35,8 @@ vendored Trystero, and game traffic goes browser-to-browser over WebRTC. The web
 menu is now Solo, Multiplayer Lobby, Options, Quit; the old IRC/central-server screens
 are gone from the web build. Single-player is unchanged from 0.2.0.
 
+Local playtest: Chrome and Firefox on the same machine played a match together.
+
 ## How to run (dev)
 
 ```sh
@@ -67,6 +69,17 @@ python3 scripts/netplaytest.py         # two headless browsers: host/join, then 
   the engine loop is timer-driven. Keep the host tab in the foreground.
 - **No reconnect, host migration or chat UI.** Closing the host tab ends the match; a
   dropped guest is gone.
+- **Refresh/rejoin is not clean (M3).** A refreshed guest gets a new peer id. The host can
+  keep the old client until WebRTC notices the close, and the new page appears as a second
+  client; without a resume/replace token the join or start can stall. Workaround: kick the
+  stale client, or leave/re-host with a fresh room code and reload the guest.
+- **Public Nostr relays can be down.** `nostr.robosats.org` was returning 502 during the
+  playtest; the browser logs the failed WebSocket, but the other default relays carry the
+  room, so it is cosmetic. Signalling is still a public dependency (see TURN/NAT above).
+- **DevTools 404s are harmless.** Chrome probes
+  `/.well-known/appspecific/com.chrome.devtools.json`, and DevTools requests the
+  `*.mjs.map` files we intentionally stripped from the vendored bundle. No normal page
+  load requests either.
 - **Only two players (one host, one guest) have been verified**; 6-player is M3.
 - **No per-round desync hash.** Divergence would be silent; M3 adds a state hash.
 - **The room persists after a match.** Leaving a match returns to the menu but stays in
@@ -94,8 +107,9 @@ python3 scripts/netplaytest.py         # two headless browsers: host/join, then 
 
 ## Next tasks (M3)
 
-1. Six players: accept multiple guests, player slots in the lobby and game setup.
-2. Chat UI over the reliable channel.
-3. Reconnect and host migration; handle host tab backgrounding or warn about it.
+1. Reconnect/replace: stable per-tab client id, host replaces the old peer, refreshed guest
+   resumes; then host migration and a host-backgrounding warning.
+2. Six players: accept multiple guests, player slots in the lobby and game setup.
+3. Chat UI over the reliable channel.
 4. Per-round state hash to detect and report desync.
 5. TURN: optional relay fallback for restrictive NATs.

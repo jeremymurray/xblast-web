@@ -29,6 +29,9 @@ GPL-2.0-or-later.
   reload the lobby. They are not removed from the shared engine source.
 - **Netplay test:** `scripts/netplaytest.py` needs internet (public Nostr relays) and starts
   Chromium with `--disable-features=WebRtcHideLocalIpsWithMdns` so two local pages connect.
+- **M2 playtest:** Chrome + Firefox on one machine played a match. Refresh/rejoin is not clean
+  (new peer id; the host can hold the stale client); that is M3 reconnect/replace. Public-relay
+  502s and DevTools source-map 404s are cosmetic.
 - **Hosting:** plain static files, deployable to GitHub Pages. No server-side code anywhere in the
   default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
   Nostr relays; **TURN is required for some NAT pairs** and is not wired up yet, so those pairs
@@ -74,8 +77,8 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M3: six players, chat UI, reconnect/host migration, per-round desync hash, TURN fallback, and
-handling host tab backgrounding.
+M3: reconnect/replace first (stable per-tab id, host replaces the old peer, host migration and
+backgrounding warning), then six players, chat UI, per-round desync hash and TURN fallback.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.
