@@ -91,11 +91,14 @@
     const XB = globalThis.XBNet;
     if (!XB) throw new Error('XBNet is undefined after importing ../net.js');
 
-    if (T.scenario === 'wrong-room') XB.configure({connectTimeoutMs: 500});
-    XB.enter(T.role, T.room);
     if (T.scenario === 'wrong-room') {
+      XB.configure({connectTimeoutMs: 500});
+      XB.enter(T.role, T.room);
       XB.open(301, 'stream');
+      T.connectAt = performance.now();
       XB.connect(301);
+    } else {
+      XB.enter(T.role, T.room);
     }
     T.ready = true;
     T.log(`session ready: role=${T.role} room=${T.room} self=${XB.status().selfId}`);

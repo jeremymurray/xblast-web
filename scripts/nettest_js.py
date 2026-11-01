@@ -187,6 +187,25 @@ def require_net(page, label):
         raise AssertionError(f"{label}: test page failed: {err}")
 
 
+def finish_pages(pages, ok, error=None):
+    """Mark every driven page complete, then await its done/ok state."""
+    value_ok = "true" if ok else "false"
+    value_error = json.dumps(str(error) if error is not None else None)
+    for label, page in pages:
+        page.ev(f"__test.finish({value_ok}, {value_error})")
+    for label, page in pages:
+        page.wait_js("__test.done === true", 5, f"{label} completion")
+        got = page.ev("__test.ok")
+        check(got is ok, f"{label}: __test.ok is {got!r}, expected {ok!r}")
+
+
+def finish_pages_best_effort(pages, error):
+    try:
+        finish_pages(pages, False, error)
+    except Exception as e:
+        print(f"could not mark test pages finished: {e}", file=sys.stderr)
+
+
 def wait_connect(page, fd, timeout=25):
     end = time.time() + timeout
     while time.time() < end:
@@ -204,6 +223,9 @@ def wait_connect_failure(page, fd, timeout=3.0):
     while time.time() < end:
         state = page.ev(f"__test.connectState({fd})")
         if state == -1:
+            err = page.ev("XBNet.status().error")
+            check(err is None,
+                  f"connectState({fd}) failed with session error {err!r}, not the connect timeout")
             return
         if state == 1:
             raise AssertionError(f"connectState({fd}) connected to a room with no host")
@@ -330,8 +352,10 @@ def run_basic(base):
         state = client.ev("XBNet.status().state")
         check(state == "joined", f"client room state after close(102) is {state!r}, expected 'joined'")
 
+        finish_pages(pages, True)
         print("basic: PASS", flush=True)
-    except Exception:
+    except Exception as e:
+        finish_pages_best_effort(pages, e)
         dump_pages(pages)
         raise
     finally:
@@ -349,8 +373,19 @@ def run_wrong_room(base):
         wait_connect_failure(page, 301, timeout=3.0)
         elapsed = time.time() - started
         check(elapsed < 3.0, f"wrong-room connect took {elapsed:.2f}s (limit 3s)")
-        print(f"wrong-room: PASS (failed after {elapsed:.2f}s)", flush=True)
-    except Exception:
+        # The page configured connectTimeoutMs = 500 and recorded performance.now()
+        # immediately before connect(). A failure before that window would mean an
+        # unrelated error, not the timeout path.
+        failed_after_ms = page.ev("performance.now() - __test.connectAt")
+        check(isinstance(failed_after_ms, (int, float)), "wrong-room page did not record connectAt")
+        check(failed_after_ms >= 450,
+              f"wrong-room connect failed after only {failed_after_ms:.0f}ms; expected the 500ms timeout")
+        check(failed_after_ms < 3000,
+              f"wrong-room connect failed after {failed_after_ms:.0f}ms; limit 3000ms")
+        finish_pages([("guest", page)], True)
+        print(f"wrong-room: PASS (failed after {failed_after_ms:.0f}ms)", flush=True)
+    except Exception as e:
+        finish_pages_best_effort([("guest", page)], e)
         dump_pages([("guest", page)])
         raise
     finally:
@@ -401,8 +436,10 @@ def run_multi(base):
         state = host.ev("XBNet.status().state")
         check(state == "joined", f"host room state after closing A is {state!r}, expected 'joined'")
         check(b.ev("__test.connectState(202)") == 1, "client B connect state is no longer connected")
+        finish_pages(pages, True)
         print("multi: PASS", flush=True)
-    except Exception:
+    except Exception as e:
+        finish_pages_best_effort(pages, e)
         dump_pages(pages)
         raise
     finally:

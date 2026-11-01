@@ -200,8 +200,9 @@ function handleActMessage(s, peer, data) {
   if (data instanceof ArrayBuffer) bytes = new Uint8Array(data);
   else if (ArrayBuffer.isView(data)) bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   else return;
-  // Queue even before the hello is processed: xb.act is a separate ordered
-  // stream and a datagram can be delivered while hello is still in flight.
+  // Queue even before the hello is processed: xb.act is a separate channel
+  // (unordered, unreliable) and a datagram can be delivered while hello is
+  // still in flight.
   peer.actQueue.push(bytes.slice());
   s.stats.actRx += bytes.length;
 }
