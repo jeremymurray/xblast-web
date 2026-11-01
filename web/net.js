@@ -23,13 +23,21 @@ const ACT_ID = 43;
 
 const ROLE_HOST = 1;
 const ROLE_CLIENT = 2;
-const HELLO_VERSION = 1;
+const HELLO_VERSION = 2;
 
 const CTL_HELLO = 1;
 const CTL_DATA = 2;
 const CTL_EOF = 3;
 const CTL_CLOSE = 4;
+const CTL_STATUS = 5;
 
+const STAGE_SETUP = 0;
+const STAGE_LISTENING = 1;
+const STAGE_MATCH = 2;
+const STAGE_IDLE = 3;
+
+const CLIENT_ID_KEY = 'xb:clientId';
+const CLIENT_ID_LEN = 16;
 const PORT = 16168;
 const CTL_BUFFER_LIMIT = 512 * 1024;
 const DEFAULT_CONNECT_TIMEOUT_MS = 20000;
@@ -45,11 +53,46 @@ function localRoleOf(role) {
   return role === 'client' ? ROLE_CLIENT : ROLE_HOST;
 }
 
+function makeClientId() {
+  const bytes = crypto.getRandomValues(new Uint8Array(CLIENT_ID_LEN));
+  return Array.from(bytes, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+/* A tab keeps its id across reloads so a refreshed page can replace the peer
+ * the host still has. Private mode may deny storage; a per-page id still
+ * works, it just cannot replace the old peer after a refresh. */
+function loadClientId() {
+  try {
+    let id = sessionStorage.getItem(CLIENT_ID_KEY);
+    if (!id || !/^[0-9a-f]{32}$/.test(id)) {
+      id = makeClientId();
+      sessionStorage.setItem(CLIENT_ID_KEY, id);
+    }
+    return id;
+  } catch (e) {
+    return makeClientId();
+  }
+}
+
+function clientIdBytes(hex) {
+  const out = new Uint8Array(CLIENT_ID_LEN);
+  for (let i = 0; i < CLIENT_ID_LEN; i++) {
+    out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function bytesToClientId(bytes) {
+  return Array.from(bytes, (x) => x.toString(16).padStart(2, '0')).join('');
+}
+
 function newSession(role, room) {
   return {
     role,
     room,
     localRole: localRoleOf(role),
+    clientId: loadClientId(),
+    hostStage: role === 'host' ? STAGE_SETUP : 0,
     roomObj: null,
     peers: new Map(),      // peerId -> peer record
     pending: [],           // host: clients with a valid hello, not yet accepted
@@ -153,25 +196,81 @@ function clearHelloTimers(peer) {
   peer.helloTimers = null;
 }
 
+function setHostStage(s, stage) {
+  if (!s || s.role !== 'host' || s.hostStage === stage) return;
+  s.hostStage = stage;
+  sendStatus(s);
+}
+
+function sendStatus(s) {
+  if (!s || s.role !== 'host' || session !== s) return;
+  const frame = new Uint8Array([CTL_STATUS, s.hostStage]);
+  for (const peer of activePeers(s)) {
+    if (peer.remoteRole === ROLE_CLIENT && peer.ctlOpen && !peer.closed) {
+      ctlSend(s, peer, frame);
+    }
+  }
+}
+
+/* The engine closes the listen socket at match start and on cancel. Accepted
+ * peers staying open means a match; no accepted peers means idle. */
+function closeListenStage(s) {
+  if (!s || s.role !== 'host') return;
+  const acceptedAlive = activePeers(s).some((peer) => peer.accepted && !peer.closed);
+  setHostStage(s, acceptedAlive ? STAGE_MATCH : STAGE_IDLE);
+}
+
+function refreshHostStage(s) {
+  if (!s || s.role !== 'host' || s.engineListening) return;
+  if (s.hostStage !== STAGE_MATCH) return;
+  const acceptedAlive = activePeers(s).some((peer) => peer.accepted && !peer.closed);
+  if (!acceptedAlive) setHostStage(s, STAGE_IDLE);
+}
+
+/* A refreshed guest keeps its tab id; close the old peer so the engine frees
+ * the stale client slot and the new peer can be accepted. */
+function replaceClientPeer(s, peer, clientId) {
+  if (!s || s.role !== 'host' || !clientId) return;
+  for (const other of s.peers.values()) {
+    if (other === peer || other.clientId !== clientId || other.closed) continue;
+    closePeerChannels(s, other, true);
+    removePending(s, other);
+    other.replacedBy = peer.id;
+  }
+}
+
 function sendHello(s, peer) {
   if (!peer || peer.closed || peer.invalid) return false;
-  return ctlSend(s, peer, new Uint8Array([CTL_HELLO, HELLO_VERSION, s.localRole]));
+  const frame = new Uint8Array(5 + CLIENT_ID_LEN);
+  frame[0] = CTL_HELLO;
+  frame[1] = HELLO_VERSION;
+  frame[2] = s.localRole;
+  frame[3] = CLIENT_ID_LEN;
+  frame.set(clientIdBytes(s.clientId), 4);
+  frame[4 + CLIENT_ID_LEN] = s.role === 'host' ? s.hostStage : 0;
+  return ctlSend(s, peer, frame);
 }
 
 function handleHello(s, peer, bytes) {
   const version = bytes[1];
   const remoteRole = bytes[2];
+  const idLen = bytes[3];
   const validRole = remoteRole === ROLE_HOST || remoteRole === ROLE_CLIENT;
-  if (version !== HELLO_VERSION || !validRole || remoteRole === s.localRole) {
-    // Another host/client in the same room is ignored; its channels are not
-    // used for engine traffic.
+  if (version !== HELLO_VERSION || !validRole || remoteRole === s.localRole ||
+      idLen !== CLIENT_ID_LEN || bytes.length < 4 + idLen + 1) {
+    // Another host/client in the same room or a stale build is ignored; its
+    // channels are not used for engine traffic.
     peer.invalid = true;
     clearHelloTimers(peer);
     return;
   }
+  const remoteClientId = bytesToClientId(bytes.subarray(4, 4 + idLen));
+  const remoteStage = bytes[4 + idLen];
   const firstValid = !peer.helloOk;
   peer.version = version;
   peer.remoteRole = remoteRole;
+  peer.clientId = remoteClientId;
+  peer.hostStage = remoteRole === ROLE_HOST ? remoteStage : 0;
   peer.helloOk = true;
   clearHelloTimers(peer);
   // A valid peer makes an older handshake failure stale.
@@ -183,6 +282,7 @@ function handleHello(s, peer, bytes) {
     sendHello(s, peer);
   }
   if (s.role === 'host' && remoteRole === ROLE_CLIENT) {
+    replaceClientPeer(s, peer, remoteClientId);
     if (!peer.accepted && !s.pending.includes(peer.id)) s.pending.push(peer.id);
   } else if (s.role === 'client' && remoteRole === ROLE_HOST) {
     bindConnectFds(s, peer);
@@ -218,6 +318,12 @@ function handleCtlMessage(s, peer, data) {
       peer.ctlOpen = false;
       clearHelloTimers(peer);
       removePending(s, peer);
+      refreshHostStage(s);
+      break;
+    case CTL_STATUS:
+      if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
+        peer.hostStage = bytes[1];
+      }
       break;
     default:
       break;
@@ -267,6 +373,8 @@ function setupPeer(s, peerId, pc) {
     invalid: false,
     version: 0,
     remoteRole: 0,
+    clientId: null,
+    hostStage: 0,
     ctlQueue: [],
     actQueue: [],
     eof: false,
@@ -297,6 +405,7 @@ function setupPeer(s, peerId, pc) {
     peer.closed = true;
     clearHelloTimers(peer);
     removePending(s, peer);
+    refreshHostStage(s);
   };
   ctl.onerror = (event) => {
     console.warn('xbnet: ctl channel error for', peerId, event);
@@ -354,6 +463,7 @@ function handlePeerLeave(s, peerId) {
   removePending(s, peer);
   // Fds keep a direct peer reference, so bound sockets still observe eof.
   s.peers.delete(peerId);
+  refreshHostStage(s);
 }
 
 function enter(role, room) {
@@ -456,6 +566,7 @@ function listen(fd, room) {
   f.role = 'listen';
   s.listenFd = fd;
   s.engineListening = true;
+  setHostStage(s, STAGE_LISTENING);
   return true;
 }
 
@@ -507,8 +618,18 @@ function connectState(fd) {
       f.peerId = peer.id;
     }
   }
-  if (peer && peer.helloOk && peer.remoteRole === ROLE_HOST && peer.ctlOpen && !peer.closed) {
-    return 1;
+  if (peer && peer.helloOk && peer.remoteRole === ROLE_HOST) {
+    if (peer.hostStage === STAGE_MATCH) {
+      s.connectError = 'The host is already in a match.';
+      s.lastError = s.connectError;
+      return -1;
+    }
+    if (peer.hostStage === STAGE_IDLE) {
+      s.connectError = 'The host is not accepting players.';
+      s.lastError = s.connectError;
+      return -1;
+    }
+    if (peer.ctlOpen && !peer.closed) return 1;
   }
   if (f.connectStarted && Date.now() - f.connectStarted > config.connectTimeoutMs) {
     s.connectTimedOut = true;
@@ -717,6 +838,7 @@ function closePeerChannels(s, peer, sendClose) {
   } catch (e) {
     // already closed
   }
+  refreshHostStage(s);
 }
 
 function close(fd) {
@@ -737,6 +859,7 @@ function close(fd) {
       const peer = s.peers.get(id);
       if (peer && !peer.accepted) closePeerChannels(s, peer, true);
     }
+    closeListenStage(s);
     return;
   }
 
@@ -793,6 +916,8 @@ function status() {
     state: s ? s.state : 'idle',
     peers: s ? activePeers(s).length : 0,
     selfId,
+    clientId: s ? s.clientId : null,
+    hostStage: s ? s.hostStage : null,
     error: s ? s.error : null,
     lastError: s ? s.lastError : null,
     connectError: s ? s.connectError : null,

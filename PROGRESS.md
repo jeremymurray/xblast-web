@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-10-31 (M2 done, release 0.3.0)
+Updated: 2026-10-31 (M2 done, 0.3.0; M3 reconnect/replace slice done, 0.3.1)
 
 ## Milestones
 
@@ -9,7 +9,7 @@ Updated: 2026-10-31 (M2 done, release 0.3.0)
 | M0 — engine boots in browser | **done** (0.1.0) |
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
-| M3 — 6-player, chat, reconnect | not started |
+| M3 — 6-player, chat, reconnect | in progress (reconnect/replace done, 0.3.1) |
 | M4 — polish, assets, PWA | not started |
 
 ## M2 checklist
@@ -37,6 +37,22 @@ are gone from the web build. Single-player is unchanged from 0.2.0.
 
 Local playtest: Chrome and Firefox on the same machine played a match together.
 
+## M3 reconnect/replace (0.3.1)
+
+- [x] Stable per-tab client id in hello v2; guest ids survive a reload via `sessionStorage`
+- [x] Host replaces an old peer with the same id; the old stream EOFs and the engine frees the slot
+- [x] Host stage/status (`setup`/`listening`/`match`/`idle`); mid-match refresh fails clearly
+- [x] Lobby remembers the last room and offers Rejoin/Re-host after a reload
+- [x] Tests: JS replacement, end-to-end refresh/rejoin, mid-match refusal
+- [ ] Mid-match resume/replay (later; needs engine state snapshot)
+
+## Release notes — 0.3.1
+
+A guest who refreshes before the match starts can rejoin the same room; the host replaces the
+stale client instead of keeping a dead slot. A refresh after the match has started now fails
+quickly with a clear "host is already in a match / not accepting players" message instead of
+hanging. Host migration and mid-match resume remain future work.
+
 ## How to run (dev)
 
 ```sh
@@ -55,6 +71,8 @@ Scripted checks:
 python3 scripts/cdp_shot.py http://localhost:8123/index.html /tmp/shot.png 8
 python3 scripts/playtest.py            # solo: assigns Olaf, starts a game, moves/bombs
 python3 scripts/netplaytest.py         # two headless browsers: host/join, then a match
+python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
+python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with
@@ -69,10 +87,10 @@ python3 scripts/netplaytest.py         # two headless browsers: host/join, then 
   the engine loop is timer-driven. Keep the host tab in the foreground.
 - **No reconnect, host migration or chat UI.** Closing the host tab ends the match; a
   dropped guest is gone.
-- **Refresh/rejoin is not clean (M3).** A refreshed guest gets a new peer id. The host can
-  keep the old client until WebRTC notices the close, and the new page appears as a second
-  client; without a resume/replace token the join or start can stall. Workaround: kick the
-  stale client, or leave/re-host with a fresh room code and reload the guest.
+- **Refresh/rejoin:** a guest who refreshes before the match starts gets a Rejoin prompt and
+  the host replaces the old client (0.3.1). A refresh after the match starts fails with a
+  clear message; **mid-match resume/replay is not implemented** and is the remaining reconnect
+  item. A refreshed host restarts the room; guests must rejoin.
 - **Public Nostr relays can be down.** `nostr.robosats.org` was returning 502 during the
   playtest; the browser logs the failed WebSocket, but the other default relays carry the
   room, so it is cosmetic. Signalling is still a public dependency (see TURN/NAT above).
@@ -107,11 +125,10 @@ python3 scripts/netplaytest.py         # two headless browsers: host/join, then 
 
 ## Next tasks (M3)
 
-1. Reconnect/replace: stable per-tab client id, host replaces the old peer, refreshed guest
-   resumes; then host migration and a host-backgrounding warning.
-2. Six players: accept multiple guests, player slots in the lobby and game setup.
-3. Chat UI over the reliable channel.
-4. Per-round state hash to detect and report desync.
-5. TURN: optional relay fallback for restrictive NATs.
+1. Six players: accept multiple guests, player slots in the lobby and game setup.
+2. Chat UI over the reliable channel.
+3. Per-round state hash to detect and report desync.
+4. TURN: optional relay fallback for restrictive NATs.
+5. Host migration and a host-backgrounding warning.
 6. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
    an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.

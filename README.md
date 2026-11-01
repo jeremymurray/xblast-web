@@ -42,6 +42,10 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
   browsers over WebRTC; Trystero only exchanges connection details over public
   Nostr relays. TURN is required for some NAT pairs and is not wired up yet, so
   a few network combinations cannot connect.
+- **Refresh / rejoin** — if the guest reloads before the match starts, the
+  lobby offers **Rejoin** and the host replaces the old client. A reload after
+  the match has started fails with a clear message; resuming a running match is
+  not implemented. Re-hosting after a host reload starts a fresh room.
 - **Leave / change rooms** — use **Leave**, or *Multiplayer Lobby* on the main
   menu, which reloads the page. Leaving a match returns to the menu but keeps
   the room.
@@ -52,6 +56,8 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
 python3 scripts/playtest.py       # solo: start a game, move, drop a bomb
 python3 scripts/nettest_js.py     # transport: real WebRTC pages, two/three peers
 python3 scripts/netplaytest.py    # two headless browsers: host/join, then a match
+python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
+python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
 ```
 
 `scripts/nettest_js.py` and `scripts/netplaytest.py` need internet access to

@@ -16,6 +16,7 @@ import functools
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -143,6 +144,9 @@ class Page:
     def click(self, gx, gy):
         send_click(self.ws, gx, gy)
 
+    def reload(self):
+        self.ws.call(self.id(), "Page.reload", {"ignoreCache": False})
+
     def console_events(self):
         """Return (errors, warnings) collected from Runtime and Log."""
         errors = []
@@ -199,16 +203,27 @@ class Page:
         shutil.rmtree(self.profile, ignore_errors=True)
 
 
-def start_lobby_page(page, button):
+def start_lobby_page(page, button, room=None):
     """Set the room code and click Host or Join."""
+    room = room or ROOM
     return page.ev(f"""(async () => {{
         const room = document.getElementById('room');
         const button = document.getElementById('{button}');
         if (!room || !button) return false;
-        room.value = {json.dumps(ROOM)};
+        room.value = {json.dumps(room)};
         button.click();
         return true;
     }})()""")
+
+
+def click_rejoin(page):
+    """Click the lobby's post-refresh Rejoin button."""
+    return page.ev("""(() => {
+        const button = document.getElementById('rejoin');
+        if (!button) return false;
+        button.click();
+        return true;
+    })()""")
 
 
 def wait_engine(page):
@@ -383,13 +398,233 @@ def run(base, outdir):
             page.close()
 
 
+def run_refresh(base, outdir):
+    """Guest refreshes in the wait screen, rejoins, and the host replaces it."""
+    room = f"m2-refresh-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    guest = Page(f"{base}/", "guest")
+    pages = [host, guest]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                15, f"{page.label} lobby")
+
+        print(f"== refresh room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        if not start_lobby_page(guest, "join", room):
+            raise AssertionError("could not click #join")
+        for page in pages:
+            wait_engine(page)
+        dismiss_intro(host)
+        dismiss_intro(guest)
+
+        # Guest connects while the host is still in setup; host then continues.
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+            40, "guest connected before host Continue")
+        choose_first_player(host)
+        host_ctl_before = host.ev("globalThis.__xbnet ? __xbnet.stats().ctlRx : 0") or 0
+        host.key("return")
+        for page in pages:
+            page.wait_js("globalThis.__xbnet && __xbnet.stats().peers >= 1",
+                         40, f"{page.label} peer")
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 50}",
+            20, "host received guest config")
+        time.sleep(1.0)
+        old_guest = guest.ev("globalThis.__xbnet.status().selfId")
+        if not old_guest:
+            raise AssertionError("guest selfId missing before refresh")
+
+        print("guest reloads; the lobby offers Rejoin", flush=True)
+        guest.reload()
+        guest.wait_js(
+            "document.readyState === 'complete' && !!document.getElementById('rejoin')",
+            20, "guest rejoin banner")
+        prefilled = guest.ev("document.getElementById('room').value")
+        if prefilled != room:
+            raise AssertionError(f"rejoin room prefilled as {prefilled!r}, expected {room!r}")
+        if not click_rejoin(guest):
+            raise AssertionError("could not click #rejoin")
+        wait_engine(guest)
+        dismiss_intro(guest)
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+            40, "guest reconnected after refresh")
+        new_guest = guest.ev("globalThis.__xbnet.status().selfId")
+        if new_guest == old_guest:
+            raise AssertionError("refreshed guest reused the old selfId")
+
+        print("host replaces the old client with the refreshed one", flush=True)
+        host.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 1",
+                     30, "host has one peer after refresh")
+        host.wait_js(
+            "(() => { try { const ids = __xbnet.peerIds(); return ids.length === 1 && ids[0] === "
+            f"{json.dumps(new_guest)}; }} catch (e) {{ return false; }} }})()",
+            30, "host replaced the old guest")
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 100}",
+            20, "host received refreshed guest config")
+        time.sleep(2.0)
+
+        print("starting the match after the refresh", flush=True)
+        act_before = {
+            page.label: page.ev("globalThis.__xbnet ? __xbnet.stats().actTx : 0") or 0
+            for page in pages
+        }
+        host.key("return")
+        time.sleep(3.0)
+        host.key("space")
+        guest.key("space")
+        time.sleep(2.0)
+        for name in ("left", "right", "space"):
+            host.key(name)
+            guest.key(name)
+            time.sleep(0.4)
+        time.sleep(2.0)
+
+        shot(host, os.path.join(outdir, "refresh-host.png"))
+        shot(guest, os.path.join(outdir, "refresh-guest.png"))
+        snapshots = {page.label: page.snapshot() for page in pages}
+        for page in pages:
+            dump_page(page)
+        failures = []
+        for label, snap in snapshots.items():
+            stats = snap.get("stats") or {}
+            if stats.get("peers", 0) != 1:
+                failures.append(f"{label}: peers={stats.get('peers')} (expected 1)")
+            for counter in ("ctlTx", "ctlRx", "actTx", "actRx"):
+                if not stats.get(counter, 0) > 0:
+                    failures.append(f"{label}: {counter}={stats.get(counter)}")
+            delta = stats.get("actTx", 0) - act_before.get(label, 0)
+            if delta < 100:
+                failures.append(f"{label}: actTx delta after Start={delta} (expected >=100)")
+        if failures:
+            raise AssertionError("; ".join(failures))
+        print(f"refresh: PASS (old self={old_guest}, new self={new_guest})", flush=True)
+        return 0
+    except Exception:
+        for page in pages:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        try:
+            shot(host, os.path.join(outdir, "refresh-failure-host.png"))
+            shot(guest, os.path.join(outdir, "refresh-failure-guest.png"))
+        except Exception:
+            pass
+        return 1
+    finally:
+        for page in pages:
+            page.close()
+
+
+def run_midmatch(base, outdir):
+    """A guest who refreshes after the match starts must fail clearly, not hang."""
+    room = f"m2-midmatch-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    guest = Page(f"{base}/", "guest")
+    pages = [host, guest]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                15, f"{page.label} lobby")
+        print(f"== midmatch room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        if not start_lobby_page(guest, "join", room):
+            raise AssertionError("could not click #join")
+        for page in pages:
+            wait_engine(page)
+        dismiss_intro(host)
+        dismiss_intro(guest)
+
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+            40, "guest connected before host Continue")
+        choose_first_player(host)
+        host_ctl_before = host.ev("globalThis.__xbnet ? __xbnet.stats().ctlRx : 0") or 0
+        host.key("return")
+        for page in pages:
+            page.wait_js("globalThis.__xbnet && __xbnet.stats().peers >= 1",
+                         40, f"{page.label} peer")
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 50}",
+            20, "host received guest config")
+        time.sleep(1.5)
+        host.key("return")         # Start
+        time.sleep(3.0)
+        host.key("space")
+        guest.key("space")
+        time.sleep(2.0)
+        print("match running; guest reloads and tries to rejoin", flush=True)
+
+        guest.reload()
+        guest.wait_js(
+            "document.readyState === 'complete' && !!document.getElementById('rejoin')",
+            20, "guest rejoin banner")
+        if not click_rejoin(guest):
+            raise AssertionError("could not click #rejoin")
+        wait_engine(guest)
+        dismiss_intro(guest)
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "(() => { try { const s = __xbnet.status();"
+            " return /already in a match|not accepting players/i.test("
+            "s.connectError || s.lastError || ''); } catch (e) { return false; } })()",
+            20, "guest gets a clear mid-match refusal")
+        if guest.ev("__xbnet.connectState(1000)") != -1:
+            raise AssertionError("mid-match connect did not fail")
+        reason = guest.ev("__xbnet.status().connectError || __xbnet.status().lastError || ''")
+        shot(guest, os.path.join(outdir, "midmatch-guest-error.png"))
+        print(f"midmatch: PASS ({reason})", flush=True)
+        return 0
+    except Exception:
+        for page in pages:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        try:
+            shot(host, os.path.join(outdir, "midmatch-failure-host.png"))
+            shot(guest, os.path.join(outdir, "midmatch-failure-guest.png"))
+        except Exception:
+            pass
+        return 1
+    finally:
+        for page in pages:
+            page.close()
+
+
 def main():
     if os.environ.get("XB_TEST_OFFLINE") == "1":
         print("SKIP: XB_TEST_OFFLINE=1; the netplay test needs internet access "
               "to public Nostr relays.", flush=True)
         return 0
 
-    outdir = sys.argv[1] if len(sys.argv) > 1 else tempfile.gettempdir()
+    args = sys.argv[1:]
+    scenario = "match"
+    if "--scenario" in args:
+        index = args.index("--scenario")
+        try:
+            scenario = args[index + 1]
+        except IndexError:
+            print("--scenario needs a value", file=sys.stderr)
+            return 2
+        del args[index:index + 2]
+    if scenario not in ("match", "refresh", "midmatch"):
+        print(f"unknown scenario: {scenario}", file=sys.stderr)
+        return 2
+    outdir = args[0] if args else tempfile.gettempdir()
     os.makedirs(outdir, exist_ok=True)
 
     print("== building web bundle ==", flush=True)
@@ -397,6 +632,10 @@ def main():
 
     server, base = start_server()
     try:
+        if scenario == "refresh":
+            return run_refresh(base, outdir)
+        if scenario == "midmatch":
+            return run_midmatch(base, outdir)
         return run(base, outdir)
     finally:
         server.shutdown()

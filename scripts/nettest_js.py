@@ -55,6 +55,10 @@ def unique_room(prefix="xbjs"):
     return f"{prefix}-{unique_token()}"
 
 
+def unique_client_id():
+    return "".join(random.choice("0123456789abcdef") for _ in range(32))
+
+
 def check(cond, msg):
     if not cond:
         raise AssertionError(msg)
@@ -474,6 +478,68 @@ def run_multi(base):
             page.close()
 
 
+def run_replace(base):
+    room = unique_room("xbreplace")
+    cid = unique_client_id()
+    print(f"== replace: room {room} clientId {cid} ==", flush=True)
+    host = Page(f"{base}/test/net.html?role=host&room={room}&scenario=replace")
+    a = Page(f"{base}/test/net.html?role=client&room={room}&scenario=replace&clientId={cid}")
+    pages = [("host", host), ("client-a", a)]
+    a2 = None
+    try:
+        for label, page in pages:
+            require_net(page, label)
+        a_id = a.ev("XBNet.status().selfId")
+        check(a.ev("XBNet.status().clientId") == cid,
+              "client A did not use the fixed client id")
+
+        print("1. host listens, client A connects and is accepted", flush=True)
+        check(host.ev("__test.open(101, 'stream')") is True, "host open(101) failed")
+        check(host.ev("__test.listen(101)") is True, "host listen(101) returned false")
+        check(host.ev("XBNet.status().hostStage") == 1, "host stage is not listening")
+        check(a.ev("__test.open(201, 'stream')") is True, "client A open(201) failed")
+        a.ev("__test.connect(201)")
+        wait_connect(a, 201)
+        accepted = wait_accept(host, 101, 102)
+        check(accepted == a_id, f"host accepted {accepted!r}, expected A {a_id!r}")
+        check(host.ev("__test.send(102, [1])") == 1, "host send(102) failed")
+        wait_data(a, 201, 16, [1])
+
+        print("2. a second page with the same client id replaces A", flush=True)
+        a2 = Page(f"{base}/test/net.html?role=client&room={room}&scenario=replace&clientId={cid}")
+        pages.append(("client-a2", a2))
+        require_net(a2, "client-a2")
+        a2_id = a2.ev("XBNet.status().selfId")
+        check(a2_id != a_id, "replacement page reused A's selfId")
+        check(a2.ev("XBNet.status().clientId") == cid, "A2 did not use the fixed client id")
+        check(a2.ev("__test.open(301, 'stream')") is True, "client A2 open(301) failed")
+        a2.ev("__test.connect(301)")
+        wait_connect(a2, 301)
+
+        print("3. host closes the old peer and accepts the new one", flush=True)
+        drained = wait_eof(a, 201)
+        check(drained == [], f"unexpected data before old client eof: {drained}")
+        host.wait_js("XBNet.stats().peers === 1", 20, "host has one active peer")
+        check(host.ev("XBNet.peerIds()") == [a2_id],
+              f"host peers {host.ev('XBNet.peerIds()')!r}, expected [{a2_id!r}]")
+        accepted2 = wait_accept(host, 101, 103)
+        check(accepted2 == a2_id, f"host accepted {accepted2!r}, expected A2 {a2_id!r}")
+        check(host.ev("__test.send(103, [7,7])") == 2, "host send(103) failed")
+        wait_data(a2, 301, 16, [7, 7])
+        check(host.ev("XBNet.status().hostStage") == 1,
+              "host stage changed away from listening after replacement")
+
+        finish_pages(pages, True)
+        print("replace: PASS", flush=True)
+    except Exception as e:
+        finish_pages_best_effort(pages, e)
+        dump_pages(pages)
+        raise
+    finally:
+        for _, page in pages:
+            page.close()
+
+
 def dump_pages(pages):
     for label, page in pages:
         print(f"-- {label} page --", file=sys.stderr)
@@ -490,11 +556,12 @@ SCENARIOS = {
     "basic": run_basic,
     "wrong-room": run_wrong_room,
     "multi": run_multi,
+    "replace": run_replace,
 }
 
 
 def main():
-    wanted = sys.argv[1:] or ["basic", "wrong-room", "multi"]
+    wanted = sys.argv[1:] or ["basic", "wrong-room", "multi", "replace"]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
         print(f"unknown scenario(s): {', '.join(unknown)}", file=sys.stderr)

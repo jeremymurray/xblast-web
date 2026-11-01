@@ -202,14 +202,18 @@ xb_test_run (void)
 		if (stream == NULL || !Socket_Accept (stream, listenSock)) {
 			return Fail ("accept");
 		}
-		Socket_Close (listenSock);
-		Socket_Free (listenSock);
-		listenSock = NULL;
-
 		if (!ReceiveExact (stream, received, sizeof (received)) ||
 			memcmp (received, expected, sizeof (expected)) != 0) {
 			return Fail ("host-recv");
 		}
+		/* Close listen only after the guest's connect has returned and its
+		 * first bytes arrived: the host-stage status treats a closed listen
+		 * with live accepted peers as "match", and the synthetic close must
+		 * not race the guest's connect. */
+		Socket_Close (listenSock);
+		Socket_Free (listenSock);
+		listenSock = NULL;
+
 		if (!SendStream (stream, reply, sizeof (reply))) {
 			return Fail ("host-send");
 		}

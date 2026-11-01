@@ -32,6 +32,12 @@
   const role = params.get('role') === 'client' ? 'client' : 'host';
   const room = params.get('room') || 'test-room';
   const scenario = params.get('scenario') || 'basic';
+  /* Test-only: drive the per-tab id so two pages can simulate one tab's
+     refresh. A real page keeps this value in sessionStorage. */
+  const fixedClientId = params.get('clientId');
+  if (fixedClientId) {
+    try { sessionStorage.setItem('xb:clientId', fixedClientId); } catch (e) { /* private mode */ }
+  }
 
   const T = {
     role, room, scenario,
