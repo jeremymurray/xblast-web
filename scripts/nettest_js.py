@@ -554,6 +554,10 @@ def run_full(base):
     try:
         for label, page in pages:
             require_net(page, label)
+            # Seven light pages plus a full Trystero mesh can take longer than
+            # the 20 s product default to complete ICE; the capacity checks do
+            # not depend on being quick.
+            page.ev("__test.configure({connectTimeoutMs: 90000})")
         host_id = host.ev("XBNet.status().selfId")
         guest_ids = [g.ev("XBNet.status().selfId") for g in guests]
         check(len({host_id, *guest_ids}) == 6, "page selfIds are not distinct")
@@ -568,8 +572,8 @@ def run_full(base):
             check(guest.ev(f"__test.open({fd}, 'stream')") is True,
                   f"guest {i + 1} open({fd}) failed")
             guest.ev(f"__test.connect({fd})")
-            wait_connect(guest, fd)
-        host.wait_js("XBNet.status().peers === 5", 30, "host sees five helloed guests")
+            wait_connect(guest, fd, timeout=60)
+        host.wait_js("XBNet.status().peers === 5", 90, "host sees five helloed guests")
 
         print("2. host accepts four; one stays pending", flush=True)
         accepted = {}
@@ -581,6 +585,7 @@ def run_full(base):
         print("3. a sixth guest is refused while one is still pending", flush=True)
         extra = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
         require_net(extra, "guest-6")
+        extra.ev("__test.configure({connectTimeoutMs: 90000})")
         extra.ev("__test.open(301, 'stream')")
         extra.ev("__test.connect(301)")
         extra.wait_js(
@@ -609,6 +614,7 @@ def run_full(base):
         rejoiner = Page(f"{base}/test/net.html?role=client&room={room}"
                         f"&scenario=full&clientId={joiner_id}")
         require_net(rejoiner, "rejoiner")
+        rejoiner.ev("__test.configure({connectTimeoutMs: 90000})")
         rejoiner.ev("__test.open(401, 'stream')")
         rejoiner.ev("__test.connect(401)")
         wait_connect(rejoiner, 401)
@@ -624,6 +630,7 @@ def run_full(base):
         check(host.ev("XBNet.status().full") is True, "host stopped reporting full")
         late = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
         require_net(late, "late")
+        late.ev("__test.configure({connectTimeoutMs: 90000})")
         late.ev("__test.open(501, 'stream')")
         late.ev("__test.connect(501)")
         # Poll like the engine does: the host's hello (and with it the stage)
