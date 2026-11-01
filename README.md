@@ -41,8 +41,8 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
   host starts the match from the game menu; every wait screen shows the room code. A
   sixth guest is told the room is full. Traffic goes directly between the browsers
   over WebRTC; Trystero only exchanges connection details over public Nostr relays.
-  TURN is required for some NAT pairs and is not wired up yet, so a few network
-  combinations cannot connect.
+  TURN is optional and supplied by the hoster or by the player; without one, a few
+  network combinations cannot connect. See `docs/hosting.md`.
 - **Refresh / rejoin** — if the guest reloads before the match starts, the
   lobby offers **Rejoin** and the host replaces the old client. A reload after
   the match has started fails with a clear message; resuming a running match is
@@ -75,6 +75,8 @@ without any backend. Signalling uses the public relays Trystero ships with. TURN
 optional and supplied by whoever hosts a copy or by a player with their own relay; without
 one, some NAT pairs cannot connect. See [docs/hosting.md](docs/hosting.md) for the hosting
 profiles, `turn.json` schema, a coturn checklist and the credential-endpoint contract.
+A static `turn.json` credential is public: use a dedicated credential with quotas,
+rotate it, and prefer the credential-endpoint mode for public play.
 
 ## Attribution
 

@@ -228,7 +228,7 @@ turnutils_uclient -u xblast -w replace-me turn.example.org
 Check the credential endpoint separately:
 
 ```sh
-curl -i https://turn.example.com/credentials
+curl -i -H 'Origin: https://your.game.origin' https://turn.example.com/credentials
 ```
 
 The response must be JSON, carry CORS headers for your game origin, and contain a

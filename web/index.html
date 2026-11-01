@@ -176,9 +176,9 @@
           <label for="turn-user">Username</label>
           <input id="turn-user" type="text" autocomplete="off" spellcheck="false">
           <label for="turn-cred">Credential</label>
-          <input id="turn-cred" type="password" autocomplete="off">
+          <input id="turn-cred" type="password" autocomplete="new-password">
           <div class="row"><button id="turn-forget" type="button">Forget</button></div>
-          <p id="turn-error" class="hint"></p>
+          <p id="turn-error" class="hint" role="alert" aria-live="polite"></p>
         </details>
       </section>
     </div>
@@ -406,6 +406,14 @@
   let turnModulePromise = null;
   let turnFilePromise = null;
 
+  function turnStorage() {
+    try {
+      return sessionStorage;
+    } catch (error) {
+      return null;
+    }
+  }
+
   function loadTurnModule() {
     if (!turnModulePromise) {
       turnModulePromise = import('./turn.js').catch((error) => {
@@ -429,7 +437,7 @@
   }
 
   function applyStoredTurnOverride(turn) {
-    const stored = turn.readPlayerOverride(sessionStorage);
+    const stored = turn.readPlayerOverride(turnStorage());
     if (!stored) return;
     turnUrlsEl.value = Array.isArray(stored.urls) ? stored.urls.join(', ') : stored.urls;
     turnUserEl.value = stored.username || '';
@@ -581,29 +589,47 @@
     const hasPlayerTurn = Boolean(
       rawTurn.urls.trim() || rawTurn.username.trim() || rawTurn.credential.trim());
     if (turn && hasPlayerTurn) {
-      const parsed = turn.parsePlayerOverride(rawTurn);
-      if (parsed.error) {
-        showTurnError(parsed.error);
-        turnAdvancedEl.open = true;
-      } else {
-        playerOverride = parsed.turnConfig;
-        turn.writePlayerOverride(sessionStorage, rawTurn);
-        showTurnError('');
+      let parsed;
+      try {
+        parsed = turn.parsePlayerOverride(rawTurn);
+      } catch (error) {
+        parsed = { error: 'Could not read the TURN settings.' };
       }
+      if (parsed.error) {
+        showTurnError(parsed.error +
+          ' Fix the fields or press Forget to use the deployer TURN settings.');
+        turnAdvancedEl.open = true;
+        lobbyStarting = false;
+        return;
+      }
+      playerOverride = parsed.turnConfig;
+      turn.writePlayerOverride(turnStorage(), rawTurn);
+      showTurnError('');
     } else if (turn) {
-      turn.clearPlayerOverride(sessionStorage);
+      turn.clearPlayerOverride(turnStorage());
     } else if (hasPlayerTurn) {
       showTurnError('TURN support is unavailable in this build.');
+      lobbyStarting = false;
+      return;
     }
 
-    const file = await loadTurnFileOnce();
+    let file = null;
+    if (!playerOverride) file = await loadTurnFileOnce();
     if (file && file.warning) console.info('xb:', file.warning);
     let resolved = { turnConfig: [], source: null, warning: null };
     if (turn) {
-      resolved = await turn.resolveTurnConfig({ file, playerOverride });
+      try {
+        resolved = await turn.resolveTurnConfig({ file, playerOverride });
+      } catch (error) {
+        console.warn('xb: TURN setup failed');
+      }
       if (resolved.warning && resolved.warning !== (file && file.warning)) {
         console.warn('xb:', resolved.warning);
       }
+    }
+    if (resolved.turnConfig.length) {
+      console.info(`xb: TURN configured (${resolved.turnConfig.length} server(s), ` +
+        `${resolved.source || 'unknown'})`);
     }
     api.configure({ turnConfig: resolved.turnConfig, turnSource: resolved.source });
 
@@ -645,7 +671,7 @@
   }
   turnForgetEl.addEventListener('click', async () => {
     const turn = await loadTurnModule();
-    if (turn) turn.clearPlayerOverride(sessionStorage);
+    if (turn) turn.clearPlayerOverride(turnStorage());
     turnUrlsEl.value = '';
     turnUserEl.value = '';
     turnCredEl.value = '';

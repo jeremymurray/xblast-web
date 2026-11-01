@@ -717,25 +717,90 @@ def run_turn_config(base):
         page.close()
 
 
-def run_turn_ui(base):
-    page = Page(f"{base}/index.html",
+def open_lobby(base):
+    return Page(f"{base}/index.html",
                 wait_for="!!document.getElementById('turn-advanced')")
+
+
+def set_turn_fields(page, urls, username, credential):
+    page.ev(
+        "document.getElementById('turn-urls').value = " + json.dumps(urls) + ";" +
+        "document.getElementById('turn-user').value = " + json.dumps(username) + ";" +
+        "document.getElementById('turn-cred').value = " + json.dumps(credential) + "; true")
+
+
+def run_turn_ui(base):
+    # Storage, hydration and Forget.
+    page = open_lobby(base)
     try:
         check(page.ev("document.getElementById('turn-cred').type") == "password",
               "credential field is not a password input")
         page.ev("sessionStorage.setItem('xb:turn', JSON.stringify({"
-                "urls:['turn:relay.example.org:3478'],username:'u',credential:'p'})); true")
+                "urls:['turn:relay.example.org:3478'],username:'u',"
+                "credential:'sekrit-credential-123'})); true")
         page.reload()
         page.wait_js("document.getElementById('turn-urls').value === "
                      "'turn:relay.example.org:3478'", 10, "stored override")
         check(page.ev("document.getElementById('turn-advanced').open") is True,
               "stored override did not open the panel")
+        check(page.ev("document.getElementById('turn-user').value") == "u",
+              "stored username was not restored")
+        check(not page.ev("document.body.innerText.includes('sekrit-credential-123')"),
+              "credential leaked into page text")
+        check(page.ev("localStorage.getItem('xb:turn')") is None,
+              "override leaked into localStorage")
         page.ev("document.getElementById('turn-forget').click()")
-        page.wait_js("document.getElementById('turn-urls').value === ''", 5, "forget")
+        page.wait_js("document.getElementById('turn-urls').value === ''", 5, "forget url")
+        page.wait_js("document.getElementById('turn-user').value === ''", 5, "forget user")
+        page.wait_js("document.getElementById('turn-cred').value === ''", 5, "forget credential")
         check(page.ev("sessionStorage.getItem('xb:turn')") is None,
               "Forget left the override in storage")
     finally:
         page.close()
+
+    # A malformed override must be visible and must not start the room.
+    page = open_lobby(base)
+    try:
+        set_turn_fields(page, "stun:stun.example.org", "u", "p")
+        page.ev("document.getElementById('host').click(); true")
+        page.wait_js("document.getElementById('turn-error').textContent.length > 0",
+                     10, "invalid override error")
+        check(page.ev("document.getElementById('landing').classList.contains('show')") is True,
+              "invalid override left the lobby")
+        check(page.ev("globalThis.XBNet ? XBNet.status().role : null") is None,
+              "invalid override started a session")
+
+        # Fixing the fields and retrying uses the player override before enter().
+        set_turn_fields(page, "turn:relay.example.org:3478", "u", "p")
+        page.ev("document.getElementById('host').click(); true")
+        page.wait_js("globalThis.XBNet && XBNet.status().turnSource === 'player'",
+                     20, "player override applied")
+        check(page.ev("XBNet.status().turnConfigured") is True,
+              "player override was not configured")
+        check(page.ev("document.getElementById('landing').classList.contains('show')") is False,
+              "valid override did not leave the lobby")
+        check(any("TURN configured" in line for line in page.console_text()),
+              "missing one-time TURN configured log")
+    finally:
+        page.close()
+
+    # A malformed turn.json must not stop Host.
+    malformed = os.path.join(DIST, "turn.json")
+    with open(malformed, "w", encoding="utf-8") as handle:
+        handle.write("{not json")
+    page = open_lobby(base)
+    try:
+        page.ev("document.getElementById('host').click(); true")
+        page.wait_js("globalThis.XBNet && XBNet.status().role === 'host'",
+                     20, "host with malformed turn.json")
+        check(page.ev("XBNet.status().turnConfigured") is False,
+              "malformed turn.json produced TURN config")
+    finally:
+        page.close()
+        try:
+            os.remove(malformed)
+        except OSError:
+            pass
 
 
 SCENARIOS = {

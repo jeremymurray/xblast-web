@@ -8,8 +8,8 @@
  * [type, ...payload]; datagrams ride the unreliable unordered `xb.act`
  * channel as raw bytes.
  *
- * This file intentionally has no dependencies beyond the vendored Trystero
- * packages and no build step: it is loaded as a plain ES module.
+ * This file has no build step: it is loaded as a plain ES module. It imports
+ * the vendored Trystero packages and the dependency-free ./turn.js validator.
  */
 import { getRelaySockets, joinRoom, selfId } from '@trystero-p2p/nostr';
 import { normalizeTurnConfig } from './turn.js';

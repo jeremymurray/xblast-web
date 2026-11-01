@@ -112,6 +112,12 @@
           cfg('turns:relay.example.org:5349')]).length === 1);
         T.check('accepts multiple urls', turn.normalizeTurnConfig([
           cfg(['turn:relay.example.org:3478', 'turns:relay.example.org:5349'])]).length === 1);
+        T.check('accepts portless turn url', turn.normalizeTurnConfig([
+          cfg('turn:relay.example.org')]).length === 1);
+        T.check('accepts portless turns url', turn.normalizeTurnConfig([
+          cfg('turns:relay.example.org')]).length === 1);
+        T.check('rejects missing host', turn.normalizeTurnConfig([
+          cfg('turn::3478')]).length === 0);
         T.check('rejects stun', turn.normalizeTurnConfig([
           cfg('stun:stun.example.org:3478')]).length === 0);
         T.check('rejects embedded userinfo', turn.normalizeTurnConfig([
@@ -133,9 +139,13 @@
 
         const staticFile = { turnConfig: [cfg('turn:relay.example.org:3478')] };
         T.check('parses static file', turn.parseTurnFile(staticFile).turnConfig.length === 1);
+        T.check('empty config does not warn',
+          turn.parseTurnFile({ turnConfig: [] }).warning === null);
         T.check('parses endpoint file', turn.parseTurnFile(
           { credentialsUrl: '/turn-credentials' }, { baseUrl: 'https://game.example/' }
         ).credentialsUrl === 'https://game.example/turn-credentials');
+        T.check('empty endpoint array warns',
+          !!turn.parseCredentialResponse([]).warning);
         T.check('rejects http endpoint', turn.parseTurnFile(
           { credentialsUrl: 'http://evil.example/creds' }, { baseUrl: 'https://game.example/' }
         ).credentialsUrl === null);
@@ -207,7 +217,8 @@
         let status = XBNet.status();
         T.check('status count', status.turnConfigured === true && status.turnServers === 1);
         T.check('status source', status.turnSource === 'player');
-        T.check('status hides credential', !JSON.stringify(status).includes('"p"'));
+        T.check('status hides credential', !('turnConfig' in status) &&
+          !('username' in status) && !('credential' in status));
         XB.configure({ turnConfig: [cfg('stun:stun.example.org')], turnSource: 'file' });
         status = XBNet.status();
         T.check('invalid config clears', status.turnConfigured === false &&
@@ -232,8 +243,10 @@
     } else {
       XB.enter(T.role, T.room);
     }
-    T.ready = true;
-    T.log(`session ready: role=${T.role} room=${T.room} self=${XB.status().selfId}`);
+    if (T.scenario !== 'turn-config') {
+      T.ready = true;
+      T.log(`session ready: role=${T.role} room=${T.room} self=${XB.status().selfId}`);
+    }
   } catch (e) {
     T.error = e && e.message ? e.message : String(e);
     T.log('module failure: ' + T.error);

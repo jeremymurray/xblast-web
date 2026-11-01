@@ -73,7 +73,8 @@ export function parseTurnFile(data, opts = {}) {
   }
   const turnConfig = normalizeTurnConfig(data.turnConfig);
   let warning = null;
-  if (data.turnConfig !== undefined && turnConfig.length === 0) {
+  if (Array.isArray(data.turnConfig) && data.turnConfig.length > 0 &&
+      turnConfig.length === 0) {
     warning = 'TURN configuration has no valid entries.';
   }
   let credentialsUrl = null;
@@ -88,7 +89,11 @@ export function parseTurnFile(data, opts = {}) {
 
 export function parseCredentialResponse(data) {
   if (Array.isArray(data)) {
-    return { turnConfig: normalizeTurnConfig(data), warning: null };
+    const turnConfig = normalizeTurnConfig(data);
+    return {
+      turnConfig,
+      warning: turnConfig.length ? null : 'TURN credential response has no valid entries.',
+    };
   }
   if (!data || typeof data !== 'object') {
     return { turnConfig: [], warning: 'TURN credential response is not an object.' };
@@ -202,9 +207,11 @@ export function parsePlayerOverride(value) {
   return { turnConfig, error: null };
 }
 
-export function readPlayerOverride(storage = globalThis.sessionStorage) {
+export function readPlayerOverride(storage = null) {
   try {
-    const raw = storage.getItem(PLAYER_STORAGE_KEY);
+    const store = storage || globalThis.sessionStorage;
+    if (!store) return null;
+    const raw = store.getItem(PLAYER_STORAGE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
     if (!data || typeof data !== 'object') return null;
@@ -232,9 +239,10 @@ export function writePlayerOverride(storage, value) {
   }
 }
 
-export function clearPlayerOverride(storage = globalThis.sessionStorage) {
+export function clearPlayerOverride(storage = null) {
   try {
-    storage.removeItem(PLAYER_STORAGE_KEY);
+    const store = storage || globalThis.sessionStorage;
+    if (store) store.removeItem(PLAYER_STORAGE_KEY);
   } catch (e) {
     // private mode or no storage
   }
