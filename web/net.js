@@ -37,7 +37,7 @@ const REJECT_FULL = 1;
 /* Six players: the host plus five guests. Kept in JS because the room is
  * joined before the engine loads; this build has MAX_PLAYER 6. */
 const MAX_CLIENTS = 5;
-const ROOM_FULL_MESSAGE = 'The room is full (6 players).';
+const ROOM_FULL_MESSAGE = `The room is full (${MAX_CLIENTS + 1} players).`;
 
 const STAGE_SETUP = 0;
 const STAGE_LISTENING = 1;
@@ -115,6 +115,7 @@ function newSession(role, room) {
     joinErrorPeer: null,
     connectError: null,     // reason the active connect failed or timed out
     connectTimedOut: false,
+    rejectReason: null,     // session-wide: the host refused this guest
     recheck: null,
     stats: { ctlTx: 0, ctlRx: 0, actTx: 0, actRx: 0 },
   };
@@ -176,7 +177,9 @@ function clientCount(s, exceptPeer) {
 
 /* The room is at its six-player cap: tell the guest why and keep it out. */
 function rejectClient(s, peer) {
-  ctlSend(s, peer, new Uint8Array([CTL_REJECT, REJECT_FULL]));
+  if (!ctlSend(s, peer, new Uint8Array([CTL_REJECT, REJECT_FULL]))) {
+    console.warn('xbnet: could not send the room-full reject to', peer.id);
+  }
   peer.rejected = true;
   removePending(s, peer);
 }
@@ -304,6 +307,11 @@ function handleHello(s, peer, bytes) {
   peer.hostStage = remoteRole === ROLE_HOST ? remoteStage : 0;
   peer.helloOk = true;
   clearHelloTimers(peer);
+  if (peer.accepted) {
+    // An accepted peer only retransmits its hello; re-running admission would
+    // let a lost echo plus a match start evict a guest that is playing.
+    return;
+  }
   // A valid peer makes an older handshake failure stale.
   s.lastError = null;
   s.joinErrorPeer = null;
@@ -371,6 +379,9 @@ function handleCtlMessage(s, peer, data) {
        * channel, so remoteRole is known by the time this arrives. */
       if (peer.remoteRole === ROLE_HOST && bytes.length >= 2 && bytes[1] === REJECT_FULL) {
         peer.rejected = true;
+        /* Session-wide: the reject usually lands while the engine is still
+         * loading, before the player presses Connect. */
+        s.rejectReason = ROOM_FULL_MESSAGE;
         s.connectError = ROOM_FULL_MESSAGE;
         s.lastError = s.connectError;
         // Closing the stream makes the engine leave the wait screen instead of
@@ -424,6 +435,7 @@ function setupPeer(s, peerId, pc) {
     actOpen: false,
     helloOk: false,
     invalid: false,
+    rejected: false,
     version: 0,
     remoteRole: 0,
     clientId: null,
@@ -663,6 +675,13 @@ function connectState(fd) {
     return -1;
   }
   if (s.error) return -1;
+  /* The host refused this guest. The frame usually arrives before the engine
+   * calls connect(), so the reason outlives the peer's channels. */
+  if (s.rejectReason) {
+    s.connectError = s.rejectReason;
+    s.lastError = s.connectError;
+    return -1;
+  }
   let peer = f.peer;
   if (!peer) {
     peer = findHostPeer(s);
@@ -722,7 +741,7 @@ function accept(listenFd, newFd) {
   while (s.pending.length) {
     const id = s.pending.shift();
     const peer = s.peers.get(id);
-    if (!peer || peer.closed || !peer.helloOk || peer.invalid ||
+    if (!peer || peer.closed || !peer.helloOk || peer.invalid || peer.rejected ||
         peer.remoteRole !== ROLE_CLIENT || peer.accepted) {
       continue;
     }
@@ -1018,6 +1037,16 @@ function engineListening() {
   if (session) session.engineListening = true;
 }
 
+/* Test hook: retransmit our hello to one peer, as the retry timers do. Used to
+ * prove a retransmit cannot change an accepted peer's slot. */
+function resendHello(peerId) {
+  const s = session;
+  if (!s) return false;
+  const peer = s.peers.get(peerId);
+  if (!peer || peer.closed) return false;
+  return sendHello(s, peer);
+}
+
 const XBNet = {
   configure,
   enter,
@@ -1043,6 +1072,7 @@ const XBNet = {
   peerIds,
   stats,
   engineListening,
+  __resendHello: resendHello,
 };
 
 globalThis.XBNet = XBNet;
