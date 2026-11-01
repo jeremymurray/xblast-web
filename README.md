@@ -3,9 +3,10 @@
 XBlast TNT (the classic Bomberman-style game) running in the browser, with
 peer-to-peer multiplayer and no game server.
 
-Status: **0.3.0 — two-player P2P**. Single-player and a two-player network
-match work in Chromium-based desktop browsers (Chrome, Edge, and other Chromium
-derivatives); six players, chat and reconnect are still to come.
+Status: **0.3.1 plus an unreleased six-player slice**. Solo and network matches
+(one host plus up to five guests) work in Chromium-based desktop browsers (Chrome,
+Edge, and other Chromium derivatives); three browsers are covered by the default test,
+six by an opt-in one. Chat, a desync hash, TURN and host migration are still to come.
 
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
 - `data/` — images, levels, sounds, music and the Bitstream Vera font, from the
@@ -35,13 +36,13 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
 
 - **Solo** — click Play, then start a local game against bots or a second
   keyboard player.
-- **Multiplayer** — open the page in two browsers (or two profiles), enter the
-  same room code in both, and click **Host** in one and **Join** in the other.
-  The host starts the match from the game menu; both wait screens show the room
-  code. Share the code with the other player. Traffic goes directly between the
-  browsers over WebRTC; Trystero only exchanges connection details over public
-  Nostr relays. TURN is required for some NAT pairs and is not wired up yet, so
-  a few network combinations cannot connect.
+- **Multiplayer** — open the page in up to six browsers (or profiles), enter the
+  same room code in each, and click **Host** in one and **Join** in the others. The
+  host starts the match from the game menu; every wait screen shows the room code. A
+  sixth guest is told the room is full. Traffic goes directly between the browsers
+  over WebRTC; Trystero only exchanges connection details over public Nostr relays.
+  TURN is required for some NAT pairs and is not wired up yet, so a few network
+  combinations cannot connect.
 - **Refresh / rejoin** — if the guest reloads before the match starts, the
   lobby offers **Rejoin** and the host replaces the old client. A reload after
   the match has started fails with a clear message; resuming a running match is
@@ -54,8 +55,10 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
 
 ```sh
 python3 scripts/playtest.py       # solo: start a game, move, drop a bomb
-python3 scripts/nettest_js.py     # transport: real WebRTC pages, two/three peers
-python3 scripts/netplaytest.py    # two headless browsers: host/join, then a match
+python3 scripts/nettest_js.py     # transport: real WebRTC pages, up to seven peers
+python3 scripts/netplaytest.py    # three browsers: host + two guests, then a match
+python3 scripts/netplaytest.py --scenario six       # six players, heavy, opt-in
+python3 scripts/netplaytest.py --scenario match     # two-browser regression
 python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
 python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
 ```

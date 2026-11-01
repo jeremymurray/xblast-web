@@ -39,6 +39,10 @@ GPL-2.0-or-later.
   default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
   Nostr relays; **TURN is required for some NAT pairs** and is not wired up yet, so those pairs
   cannot connect.
+- **Room capacity:** five guests + host = six players (`MAX_PLAYER` 6; `-DSMPF` would make it 16
+  and is off). A sixth client gets `CTL_REJECT` → "The room is full (6 players)."; a rejoin by
+  client id still replaces. `--scenario guests` (3 browsers) is the default netplay test,
+  `--scenario six` is the heavy opt-in.
 - **Licensing:** whole work published as GPL-2.0-or-later with complete corresponding source;
   vendored Trystero/noble stay MIT.
 - No rollback/prediction, no TypeScript rewrite, no central server.
