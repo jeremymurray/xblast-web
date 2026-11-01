@@ -157,6 +157,9 @@ class Page:
         extra = f" (last error: {last})" if last else ""
         raise TimeoutError(f"{label}: timed out after {timeout}s waiting for {expr}{extra}")
 
+    def reload(self):
+        self.ws.call(self.next_id(), "Page.reload", {"ignoreCache": False})
+
     def console_text(self):
         out = []
         for ev in getattr(self.ws, "events", []) if self.ws else []:
@@ -714,6 +717,27 @@ def run_turn_config(base):
         page.close()
 
 
+def run_turn_ui(base):
+    page = Page(f"{base}/index.html",
+                wait_for="!!document.getElementById('turn-advanced')")
+    try:
+        check(page.ev("document.getElementById('turn-cred').type") == "password",
+              "credential field is not a password input")
+        page.ev("sessionStorage.setItem('xb:turn', JSON.stringify({"
+                "urls:['turn:relay.example.org:3478'],username:'u',credential:'p'})); true")
+        page.reload()
+        page.wait_js("document.getElementById('turn-urls').value === "
+                     "'turn:relay.example.org:3478'", 10, "stored override")
+        check(page.ev("document.getElementById('turn-advanced').open") is True,
+              "stored override did not open the panel")
+        page.ev("document.getElementById('turn-forget').click()")
+        page.wait_js("document.getElementById('turn-urls').value === ''", 5, "forget")
+        check(page.ev("sessionStorage.getItem('xb:turn')") is None,
+              "Forget left the override in storage")
+    finally:
+        page.close()
+
+
 SCENARIOS = {
     "basic": run_basic,
     "wrong-room": run_wrong_room,
@@ -721,12 +745,13 @@ SCENARIOS = {
     "replace": run_replace,
     "full": run_full,
     "turn-config": run_turn_config,
+    "turn-ui": run_turn_ui,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
-        "basic", "wrong-room", "multi", "replace", "full", "turn-config",
+        "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
