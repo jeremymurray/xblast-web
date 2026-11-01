@@ -24,12 +24,15 @@ GPL-2.0-or-later.
   **Host** or **Join** is clicked and the code is the game/room identifier; the engine's socket
   shim only attaches synthetic fds. Closing a stream never leaves the room; only **Leave** or the
   **Multiplayer Lobby** main-menu entry (a page reload) does.
-- **Web main menu:** Solo, Multiplayer Lobby, Options, Quit. The IRC/central-server screens are
-  compiled out on web.
+- **Web main menu:** Solo, Multiplayer Lobby, Options, Quit. The legacy IRC/central-server
+  screens are unreachable on web: the main menu replaces them, and old entry points redirect or
+  reload the lobby. They are not removed from the shared engine source.
 - **Netplay test:** `scripts/netplaytest.py` needs internet (public Nostr relays) and starts
   Chromium with `--disable-features=WebRtcHideLocalIpsWithMdns` so two local pages connect.
 - **Hosting:** plain static files, deployable to GitHub Pages. No server-side code anywhere in the
-  default path.
+  default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
+  Nostr relays; **TURN is required for some NAT pairs** and is not wired up yet, so those pairs
+  cannot connect.
 - **Licensing:** whole work published as GPL-2.0-or-later with complete corresponding source;
   vendored Trystero/noble stay MIT.
 - No rollback/prediction, no TypeScript rewrite, no central server.

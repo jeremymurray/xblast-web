@@ -24,6 +24,7 @@
 #include "xblast.h"
 
 #ifdef __EMSCRIPTEN__
+/* web port: page-owned room entry points. */
 #include "net_web.h"
 #endif
 
@@ -413,9 +414,8 @@ CreateOptionsMenu (void *par)
 #ifdef SDL
 	MenuAddHButton (MENU_LEFT, MENU_ROW (3), MENU_WIDTH, N_("Video"), CreateVideoMenu, NULL);
 #endif
-#ifdef __EMSCRIPTEN__
-	/* web port: there is no central server to configure. */
-#else
+/* web port: the lobby owns multiplayer; there is no central server to configure. */
+#ifndef __EMSCRIPTEN__
 	MenuAddHButton (MENU_LEFT, MENU_ROW (4), MENU_WIDTH, N_("Central"), CreateDefaultCentralMenu, NULL);	// XBCC
 #endif
 	/* leave menu */

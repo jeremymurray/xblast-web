@@ -4,8 +4,8 @@ XBlast TNT (the classic Bomberman-style game) running in the browser, with
 peer-to-peer multiplayer and no game server.
 
 Status: **0.3.0 — two-player P2P**. Single-player and a two-player network
-match work in current desktop browsers; six players, chat and reconnect are
-still to come.
+match work in Chromium-based desktop browsers (Chrome, Edge, and other Chromium
+derivatives); six players, chat and reconnect are still to come.
 
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
 - `data/` — images, levels, sounds, music and the Bitstream Vera font, from the
@@ -24,11 +24,12 @@ Requires the Emscripten SDK pinned in `.tool-versions`:
 asdf plugin add emsdk
 asdf install
 ./scripts/build-web.sh
-python3 -m http.server -d web/dist 8000
+python3 -m http.server -d web/dist 8123
 ```
 
-Then open <http://localhost:8000>. Serve over HTTP; the `.wasm` and `.data`
-files will not load from `file://`.
+Then open <http://localhost:8123>. Solo works over plain HTTP. Multiplayer needs
+a secure context — HTTPS, or `localhost` as above — because it uses Web Crypto
+and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
 
 ## Play
 
@@ -39,7 +40,8 @@ files will not load from `file://`.
   The host starts the match from the game menu; both wait screens show the room
   code. Share the code with the other player. Traffic goes directly between the
   browsers over WebRTC; Trystero only exchanges connection details over public
-  Nostr relays. Some NAT pairs still need TURN (not wired up yet).
+  Nostr relays. TURN is required for some NAT pairs and is not wired up yet, so
+  a few network combinations cannot connect.
 - **Leave / change rooms** — use **Leave**, or *Multiplayer Lobby* on the main
   menu, which reloads the page. Leaving a match returns to the menu but keeps
   the room.
@@ -48,18 +50,20 @@ files will not load from `file://`.
 
 ```sh
 python3 scripts/playtest.py       # solo: start a game, move, drop a bomb
+python3 scripts/nettest_js.py     # transport: real WebRTC pages, two/three peers
 python3 scripts/netplaytest.py    # two headless browsers: host/join, then a match
 ```
 
-`scripts/netplaytest.py` needs internet access to public Nostr relays (set
-`XB_TEST_OFFLINE=1` to skip) and launches Chromium with
-`--disable-features=WebRtcHideLocalIpsWithMdns` so two local pages can connect.
+`scripts/nettest_js.py` and `scripts/netplaytest.py` need internet access to
+public Nostr relays (set `XB_TEST_OFFLINE=1` to skip the netplay test) and launch
+Chromium with `--disable-features=WebRtcHideLocalIpsWithMdns` so local pages can
+connect.
 
 ## Hosting
 
 The build is a plain static bundle (`web/dist/`), so it can be served from GitHub Pages
-without any backend. Signalling uses the public relays Trystero ships with; TURN may be
-needed for some NAT pairs.
+without any backend. Signalling uses the public relays Trystero ships with. TURN is
+required for some NAT pairs; relay mode is not wired up yet, so those pairs cannot connect.
 
 ## Attribution
 

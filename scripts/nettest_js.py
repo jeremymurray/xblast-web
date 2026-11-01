@@ -219,13 +219,23 @@ def wait_connect(page, fd, timeout=25):
 
 
 def wait_connect_failure(page, fd, timeout=3.0):
+    """Wait for the active connect to fail and prove it was the timeout path.
+
+    A per-peer Trystero/relay error may be displayed, but it must not be a
+    session-wide error: only the active connect's own timeout may fail it.
+    """
     end = time.time() + timeout
     while time.time() < end:
         state = page.ev(f"__test.connectState({fd})")
         if state == -1:
-            err = page.ev("XBNet.status().error")
-            check(err is None,
-                  f"connectState({fd}) failed with session error {err!r}, not the connect timeout")
+            status = page.ev("XBNet.status()")
+            check(status.get("error") is None,
+                  f"connectState({fd}) failed with session error {status.get('error')!r}, "
+                  "not the connect timeout")
+            check(status.get("connectTimedOut") is True,
+                  f"connectState({fd}) failed without connectTimedOut; status={status!r}")
+            check(bool(status.get("connectError")),
+                  f"connectState({fd}) timed out without a connectError; status={status!r}")
             return
         if state == 1:
             raise AssertionError(f"connectState({fd}) connected to a room with no host")
@@ -382,8 +392,23 @@ def run_wrong_room(base):
               f"wrong-room connect failed after only {failed_after_ms:.0f}ms; expected the 500ms timeout")
         check(failed_after_ms < 3000,
               f"wrong-room connect failed after {failed_after_ms:.0f}ms; limit 3000ms")
+
+        # A failed/timed-out connect must not poison the session: pressing
+        # Connect again has to start a fresh attempt, not fail immediately.
+        print("wrong-room: retry starts a clean connect", flush=True)
+        retry_state = page.ev("__test.connect(301)")
+        check(retry_state == 0,
+              f"second connect returned {retry_state!r}, expected 0 (connecting)")
+        check(page.ev("XBNet.status().connectTimedOut") is False,
+              "second connect kept the previous connectTimedOut flag")
+        retry_started = time.time()
+        wait_connect_failure(page, 301, timeout=3.0)
+        retry_elapsed = time.time() - retry_started
+        check(retry_elapsed < 3.0,
+              f"wrong-room retry failed after {retry_elapsed:.2f}s (limit 3s)")
         finish_pages([("guest", page)], True)
-        print(f"wrong-room: PASS (failed after {failed_after_ms:.0f}ms)", flush=True)
+        print(f"wrong-room: PASS (failed after {failed_after_ms:.0f}ms; "
+              f"retry failed after {retry_elapsed:.0f}ms)", flush=True)
     except Exception as e:
         finish_pages_best_effort([("guest", page)], e)
         dump_pages([("guest", page)])
@@ -407,9 +432,11 @@ def run_multi(base):
         b_id = b.ev("XBNet.status().selfId")
         check(len({host_id, a_id, b_id}) == 3, "page selfIds are not distinct")
 
-        print("1. all three pages see each other (mesh)", flush=True)
-        for label, page in pages:
-            page.wait_js(peer_ready_expr(2), 60, f"{label} peers ready")
+        print("1. host sees both guests; each guest sees the host", flush=True)
+        # Clients ignore each other's channel hello (same role), so the
+        # connected-peer count on a guest is one: the host. The host sees both.
+        for label, page, expected in (("host", host, 2), ("client-a", a, 1), ("client-b", b, 1)):
+            page.wait_js(peer_ready_expr(expected), 60, f"{label} peers ready")
 
         print("2. host listens, both clients connect", flush=True)
         check(host.ev("__test.open(101, 'stream')") is True, "host open(101) failed")

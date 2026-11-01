@@ -24,6 +24,7 @@
 #include "xblast.h"
 
 #ifdef __EMSCRIPTEN__
+/* web port: page-owned room entry points. */
 #include "net_web.h"
 #endif
 

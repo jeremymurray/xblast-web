@@ -24,6 +24,7 @@
 #include "xblast.h"
 
 #ifdef __EMSCRIPTEN__
+/* web port: page-owned room entry points. */
 #include "net_web.h"
 #endif
 
@@ -1079,6 +1080,20 @@ ButtonServerKickOut (void *par)
 	return XBFalse;
 }								/* ButtonServerKickOut */
 
+#ifdef __EMSCRIPTEN__
+/*
+ * web port: show the page-owned room code in the wait screens.
+ */
+static void
+AddWebRoomWaitLine (const char *suffix)
+{
+	static char line[80];
+
+	snprintf (line, sizeof line, "Room %s - %s", XBWeb_RoomCode (), suffix);
+	MenuAddLabel1 (10, 79, TITLE_WIDTH + 60, line);
+}								/* AddWebRoomWaitLine */
+#endif
+
 /*
  * build server wait menu
  */
@@ -1101,12 +1116,7 @@ CreateServerWaitMenu (void *par)
 	MenuAddLabel (TITLE_LEFT, TITLE_TOP, TITLE_WIDTH, "Waiting for Clients");
 #ifdef __EMSCRIPTEN__
 	/* web port: show the room code instead of the dead IRC channel. */
-	{
-		static char line[80];
-
-		snprintf (line, sizeof line, "Room %s - waiting for players", XBWeb_RoomCode ());
-		MenuAddLabel1 (10, 79, TITLE_WIDTH + 60, line);
-	}
+	AddWebRoomWaitLine ("waiting for players");
 #else
 	MenuAddLabel1 (10, 79, TITLE_WIDTH + 60,
 				   "Chat with lamer Rado and others in http://xblast.sf.net/irc/");
@@ -1251,12 +1261,7 @@ CreateClientWaitMenu (void *par)
 	CreateHostItems (XBFalse);
 #ifdef __EMSCRIPTEN__
 	/* web port: show the room code instead of the dead IRC channel. */
-	{
-		static char line[80];
-
-		snprintf (line, sizeof line, "Room %s - waiting for the host to start", XBWeb_RoomCode ());
-		MenuAddLabel1 (10, 79, TITLE_WIDTH + 60, line);
-	}
+	AddWebRoomWaitLine ("waiting for the host to start");
 #else
 	MenuAddLabel1 (10, 79, TITLE_WIDTH + 60,
 				   _("Chat with lamer Rado and others in http://xblast.sf.net/irc/"));

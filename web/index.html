@@ -193,6 +193,7 @@
   const netStateEl = document.getElementById('net-state');
   const toastEl = document.getElementById('net-toast');
   const toastTextEl = document.getElementById('net-toast-text');
+  const toastCancelEl = document.getElementById('net-toast-cancel');
 
   document.getElementById('again').addEventListener('click', () => location.reload());
 
@@ -306,6 +307,9 @@
   let engineLoaded = false;
   let lobbyStarting = false;
   let netTimer = null;
+  let netStartedAt = 0;
+  let toastHoldUntil = 0;
+  const SIGNAL_GRACE_MS = 4000;
 
   function loadEngine() {
     if (engineLoaded) return;
@@ -317,13 +321,24 @@
     document.body.appendChild(script);
   }
 
-  function showToast(text) {
+  function showToast(text, options) {
+    const opts = options || {};
+    if (Date.now() < toastHoldUntil && !opts.force) return;
     toastTextEl.textContent = text;
+    toastCancelEl.style.display = opts.cancel ? '' : 'none';
     toastEl.classList.add('show');
+  }
+
+  /* Short-lived confirmation that must not be replaced by the status poll. */
+  function showNotice(text) {
+    toastHoldUntil = Date.now() + 1400;
+    showToast(text, { force: true, cancel: false });
+    setTimeout(hideToast, 1400);
   }
 
   function hideToast() {
     toastEl.classList.remove('show');
+    toastHoldUntil = 0;
   }
 
   function updateNetbar() {
@@ -331,13 +346,54 @@
     if (!api || !netbarEl.classList.contains('show')) return;
     const status = api.status();
     const stats = api.stats();
+    const peers = stats.peers || 0;
+    const elapsed = netStartedAt ? Date.now() - netStartedAt : 0;
+    const signallingOffline = !status.relayReady && elapsed >= SIGNAL_GRACE_MS && peers === 0;
+    const guestFailed = status.role === 'client' && peers === 0 &&
+      (status.connectTimedOut || status.connectError);
+    const guestConnecting = status.role === 'client' && peers === 0 && !guestFailed;
+    const joinError = peers === 0 ? status.lastError : null;
+
+    let stateText;
+    let dot = 'warn';
+    if (status.error) {
+      stateText = status.error;
+      dot = 'err';
+    } else if (peers > 0) {
+      stateText = `${peers} peer${peers === 1 ? '' : 's'} connected`;
+      dot = 'ok';
+    } else if (guestFailed) {
+      stateText = status.connectError || status.lastError || 'connection failed';
+      dot = 'err';
+    } else if (signallingOffline) {
+      stateText = 'signalling offline';
+      dot = 'err';
+    } else if (status.role === 'client') {
+      stateText = 'connecting…';
+    } else {
+      stateText = 'waiting for a guest…';
+    }
     netRoleEl.textContent = status.role === 'client' ? 'Guest' : 'Host';
     netRoomEl.textContent = status.room || '';
-    netStateEl.textContent = status.error ? 'error'
-      : (stats.peers ? `${stats.peers} peer${stats.peers === 1 ? '' : 's'} connected`
-        : (status.role === 'client' ? 'connecting…' : 'waiting for a guest…'));
-    netDotEl.className = 'dot ' + (status.error ? 'err' : (stats.peers ? 'ok' : 'warn'));
-    if (stats.peers > 0 || status.error) hideToast();
+    netStateEl.textContent = stateText;
+    netDotEl.className = 'dot ' + dot;
+
+    if (Date.now() < toastHoldUntil) return;
+    if (peers > 0) {
+      hideToast();
+    } else if (status.error) {
+      showToast(`Multiplayer error: ${status.error}`);
+    } else if (guestFailed) {
+      showToast(status.connectError || status.lastError || 'Could not connect to the host.');
+    } else if (joinError) {
+      showToast(`Signalling error: ${joinError}`, { cancel: guestConnecting });
+    } else if (signallingOffline) {
+      showToast('Signalling offline — cannot reach the public relays.', { cancel: guestConnecting });
+    } else if (guestConnecting) {
+      showToast(`Connecting to room ${status.room} …`, { cancel: true });
+    } else if (status.role === 'host') {
+      showToast(`Waiting for a guest to join room ${status.room} …`);
+    }
   }
 
   function startSolo() {
@@ -349,6 +405,13 @@
   }
 
   async function startNet(mode) {
+    if (!window.isSecureContext || !window.crypto || !window.crypto.subtle) {
+      const message = 'Multiplayer needs HTTPS or localhost.';
+      statusEl.textContent = message;
+      statusEl.className = 'error';
+      showToast(message, { force: true, cancel: false });
+      return;
+    }
     if (lobbyStarting || engineLoaded) return;
     lobbyStarting = true;
     const room = normalizeRoom(roomEl.value) || makeCode();
@@ -386,7 +449,10 @@
     netbarEl.classList.add('show');
     netRoleEl.textContent = mode === 'client' ? 'Guest' : 'Host';
     netRoomEl.textContent = room;
-    showToast(`Connecting to room ${room} …`);
+    netStartedAt = Date.now();
+    showToast(mode === 'client'
+      ? `Connecting to room ${room} …`
+      : `Waiting for a guest to join room ${room} …`, { cancel: mode === 'client' });
     updateNetbar();
     if (netTimer) clearInterval(netTimer);
     netTimer = setInterval(updateNetbar, 500);
@@ -403,10 +469,13 @@
   hostEl.addEventListener('click', () => startNet('host'));
   joinEl.addEventListener('click', () => startNet('client'));
 
-  document.getElementById('net-toast-cancel').addEventListener('click', () => {
-    if (globalThis.XBNet) globalThis.XBNet.cancelConnect();
-    showToast('Connect cancelled.');
-    setTimeout(hideToast, 1200);
+  toastCancelEl.addEventListener('click', () => {
+    const api = globalThis.XBNet;
+    const status = api ? api.status() : null;
+    /* Only the guest has a connect to cancel; the host's cancel is a no-op. */
+    if (!api || !status || status.role !== 'client') return;
+    api.cancelConnect();
+    showNotice('Connect cancelled.');
   });
 
   document.getElementById('net-copy').addEventListener('click', async () => {
@@ -414,10 +483,9 @@
     if (!room) return;
     try {
       await navigator.clipboard.writeText(room);
-      showToast('Room code copied.');
-      setTimeout(hideToast, 1200);
+      showNotice('Room code copied.');
     } catch (error) {
-      showToast(`Room code: ${room}`);
+      showNotice(`Room code: ${room}`);
     }
   });
 

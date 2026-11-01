@@ -59,7 +59,11 @@ function newSession(role, room) {
     activeConnectFd: null,
     engineListening: false,
     state: 'joining',
-    error: null,
+    error: null,            // fatal: the room itself could not be joined
+    lastError: null,        // last per-peer/connect error, for display only
+    joinErrorPeer: null,
+    connectError: null,     // reason the active connect failed or timed out
+    connectTimedOut: false,
     recheck: null,
     stats: { ctlTx: 0, ctlRx: 0, actTx: 0, actRx: 0 },
   };
@@ -98,6 +102,23 @@ function removePending(s, peer) {
   s.pending = s.pending.filter((id) => id !== peer.id);
 }
 
+/* Closed, wrong-role/duplicate and not-yet-helloed peers stay in the map so
+ * bound fds can still observe eof; only a usable game link counts as a
+ * connected peer. This also stops clients counting each other's ignored
+ * channel in the lobby chip. */
+function isActivePeer(peer) {
+  return Boolean(peer) && !peer.closed && !peer.invalid && peer.helloOk;
+}
+
+function activePeers(s) {
+  const out = [];
+  if (!s) return out;
+  for (const peer of s.peers.values()) {
+    if (isActivePeer(peer)) out.push(peer);
+  }
+  return out;
+}
+
 function ctlSend(s, peer, bytes) {
   if (!peer.ctl || peer.ctl.readyState !== 'open') return false;
   try {
@@ -112,7 +133,7 @@ function ctlSend(s, peer, bytes) {
 
 function findHostPeer(s) {
   for (const peer of s.peers.values()) {
-    if (!peer.closed && peer.helloOk && peer.remoteRole === ROLE_HOST) return peer;
+    if (isActivePeer(peer) && peer.helloOk && peer.remoteRole === ROLE_HOST) return peer;
   }
   return null;
 }
@@ -153,6 +174,9 @@ function handleHello(s, peer, bytes) {
   peer.remoteRole = remoteRole;
   peer.helloOk = true;
   clearHelloTimers(peer);
+  // A valid peer makes an older handshake failure stale.
+  s.lastError = null;
+  s.joinErrorPeer = null;
   if (firstValid) {
     // The peer's channel may have existed before ours did, so its first hello
     // can be lost. Echo ours once we know both channels are live.
@@ -177,9 +201,14 @@ function handleCtlMessage(s, peer, data) {
     case CTL_HELLO:
       handleHello(s, peer, bytes);
       break;
-    case CTL_DATA:
-      if (peer.helloOk && !peer.invalid) peer.ctlQueue.push(bytes.slice(1));
+    case CTL_DATA: {
+      if (peer.helloOk && !peer.invalid && bytes.length > 1) {
+        // An empty payload is not EOF: the C shim reserves 0 for end of
+        // file, so a zero-length frame would look like a half-close.
+        peer.ctlQueue.push(bytes.slice(1));
+      }
       break;
+    }
     case CTL_EOF:
       peer.eof = true;
       break;
@@ -313,6 +342,10 @@ function attachExistingPeers(s) {
 function handlePeerLeave(s, peerId) {
   const peer = s.peers.get(peerId);
   if (!peer) return;
+  if (s.joinErrorPeer === peerId) {
+    s.lastError = null;
+    s.joinErrorPeer = null;
+  }
   clearHelloTimers(peer);
   peer.closed = true;
   peer.eof = true;
@@ -334,8 +367,17 @@ function enter(role, room) {
       {
         onJoinError: (err) => {
           if (session !== s) return;
-          s.error = err && err.error ? String(err.error) : String(err);
-          s.state = 'error';
+          const text = err && err.error ? String(err.error) : String(err);
+          const peerId = err && err.peerId ? String(err.peerId) : '';
+          // Trystero reports handshake/SDP failures per peer. One stale or
+          // unreachable peer must not poison the session: keep the message
+          // for display and keep waiting for the actual host.
+          if (s.role === 'client' && peerId) {
+            const host = findHostPeer(s);
+            if (host && peerId !== host.id) return;
+          }
+          s.lastError = text;
+          s.joinErrorPeer = peerId;
         },
       },
     );
@@ -424,6 +466,13 @@ function connect(fd, room) {
   }
   const s = session;
   if (!s || s.role !== 'client') return;
+  // A new attempt starts clean: a stale per-peer error or a previous timeout
+  // must not make Connect fail immediately.
+  s.error = null;
+  s.lastError = null;
+  s.joinErrorPeer = null;
+  s.connectError = null;
+  s.connectTimedOut = false;
   const f = ensureFd(s, fd, 'stream');
   f.kind = 'stream';
   f.role = 'connect';
@@ -442,8 +491,14 @@ function connectState(fd) {
   const s = session;
   if (!s) return -1;
   const f = s.fds.get(fd);
-  if (!f || f.kind !== 'stream') return 0;
-  if (f.cancelled || s.error) return -1;
+  // A missing fd is a failure, not "still connecting": the engine menu must
+  // not spin forever if the session/fd bookkeeping regresses.
+  if (!f || f.kind !== 'stream') return -1;
+  if (f.cancelled) {
+    s.connectError = s.connectError || 'Connect cancelled.';
+    return -1;
+  }
+  if (s.error) return -1;
   let peer = f.peer;
   if (!peer) {
     peer = findHostPeer(s);
@@ -455,7 +510,12 @@ function connectState(fd) {
   if (peer && peer.helloOk && peer.remoteRole === ROLE_HOST && peer.ctlOpen && !peer.closed) {
     return 1;
   }
-  if (f.connectStarted && Date.now() - f.connectStarted > config.connectTimeoutMs) return -1;
+  if (f.connectStarted && Date.now() - f.connectStarted > config.connectTimeoutMs) {
+    s.connectTimedOut = true;
+    s.connectError = `Timed out connecting to room ${s.room}.`;
+    s.lastError = s.connectError;
+    return -1;
+  }
   return 0;
 }
 
@@ -467,7 +527,12 @@ function cancelConnect(fd) {
     : fd;
   if (target === null || target === undefined) return;
   const f = s.fds.get(target);
-  if (f) f.cancelled = true;
+  if (f) {
+    f.cancelled = true;
+    s.connectError = 'Connect cancelled.';
+    s.connectTimedOut = false;
+    s.lastError = s.connectError;
+  }
 }
 
 function accept(listenFd, newFd) {
@@ -579,6 +644,9 @@ function recv(fd, max) {
       if (take === chunk.length) peer.ctlQueue.shift();
       else peer.ctlQueue[0] = chunk.subarray(take);
     }
+    // Empty chunks are dropped on receipt, but never surface a zero-length
+    // read: the C shim treats 0 as end of file.
+    if (!out.length) return { kind: 'block' };
     return { kind: 'data', data: out };
   }
 
@@ -723,9 +791,12 @@ function status() {
     role: s ? s.role : null,
     room: s ? s.room : null,
     state: s ? s.state : 'idle',
-    peers: s ? s.peers.size : 0,
+    peers: s ? activePeers(s).length : 0,
     selfId,
     error: s ? s.error : null,
+    lastError: s ? s.lastError : null,
+    connectError: s ? s.connectError : null,
+    connectTimedOut: s ? s.connectTimedOut : false,
     relayReady: relayReady(),
     listening: s ? Boolean(s.engineListening) : false,
   };
@@ -733,21 +804,20 @@ function status() {
 
 function peerIds() {
   const s = session;
-  return s ? Array.from(s.peers.keys()) : [];
+  return s ? activePeers(s).map((peer) => peer.id) : [];
 }
 
 function stats() {
   const s = session;
   let ctlOpen = false;
   let actOpen = false;
-  if (s) {
-    for (const peer of s.peers.values()) {
-      if (peer.ctlOpen) ctlOpen = true;
-      if (peer.actOpen) actOpen = true;
-    }
+  const peers = activePeers(s);
+  for (const peer of peers) {
+    if (peer.ctlOpen) ctlOpen = true;
+    if (peer.actOpen) actOpen = true;
   }
   return {
-    peers: s ? s.peers.size : 0,
+    peers: peers.length,
     ctlTx: s ? s.stats.ctlTx : 0,
     ctlRx: s ? s.stats.ctlRx : 0,
     actTx: s ? s.stats.actTx : 0,

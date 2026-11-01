@@ -192,6 +192,10 @@ Do **not** attempt rollback netcode, a new level editor, or a rewrite before M1 
 
 ## 7. Missing features and gaps
 
+> **Superseded at M2 (0.3.0):** the lobby UI, WebRTC transport shim and lobby
+> lifecycle listed below are implemented; see `PROGRESS.md` for current status.
+> This section is kept as the original M1 gap analysis.
+
 Engine-level (must add):
 - **Lobby/matchmaking UI** — no room codes, player discovery, or "waiting for players" flow for
   web peers. The existing central-server client (`central.c`) is obsolete; don't revive it.

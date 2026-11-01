@@ -9,6 +9,7 @@
 
 #define XB_WEB_PORT 16168
 #define XB_CONNECT_SLICE_MS 50
+#define XB_CONNECT_DEADLINE_MS 30000
 #define XB_SELECT_SLICE_MS 5
 
 struct _xb_socket
@@ -435,6 +436,7 @@ Socket_Connect (XBSocket *sock)
 {
 	char fallback[16];
 	const char *room;
+	double deadline;
 	if (sock == NULL || !sock->open) {
 		return XBFalse;
 	}
@@ -454,6 +456,9 @@ Socket_Connect (XBSocket *sock)
 	if (!xbnet_connect (sock->fd, room)) {
 		return XBFalse;
 	}
+	/* Independent backstop: even if the JS connect state never leaves 0,
+	 * the menu must not hang forever. */
+	deadline = emscripten_get_now () + XB_CONNECT_DEADLINE_MS;
 	for (;;) {
 		int state = xbnet_connect_state (sock->fd);
 		if (state == 1) {
@@ -462,6 +467,9 @@ Socket_Connect (XBSocket *sock)
 			return XBTrue;
 		}
 		if (state != 0) {
+			return XBFalse;
+		}
+		if (emscripten_get_now () >= deadline) {
 			return XBFalse;
 		}
 		emscripten_sleep (XB_CONNECT_SLICE_MS);
