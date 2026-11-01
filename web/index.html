@@ -56,6 +56,16 @@
   .card #shuffle { flex: 0 0 auto; color: #ddd; background: #333; }
   @media (max-width: 700px) { .panel .cards { grid-template-columns: 1fr; } }
 
+  #rejoin-banner {
+    display: none; align-items: center; justify-content: space-between; gap: 1em;
+    margin: 0 0 1em; padding: 0.7em 0.9em; border: 1px solid #555; border-radius: 6px;
+    background: rgba(255, 212, 0, 0.08); color: #ddd; font-size: 13px;
+  }
+  #rejoin-banner.show { display: flex; }
+  #rejoin-banner button {
+    margin: 0; padding: 0.45em 0.9em; font: 13px monospace; white-space: nowrap;
+  }
+
   /* Session chip, kept compact so engine menus stay visible */
   #netbar {
     position: fixed; top: 10px; left: 10px; z-index: 25; display: none;
@@ -124,6 +134,10 @@
     <h1>XBlast TNT</h1>
     <p>A browser port of the classic Bomberman-style blast game. GPL-2.0-or-later,
        peer-to-peer multiplayer, no game server.</p>
+    <div id="rejoin-banner">
+      <span>Last session: room <span id="rejoin-room"></span></span>
+      <button id="rejoin" type="button">Rejoin</button>
+    </div>
     <div class="cards">
       <section class="card">
         <h2>Solo</h2>
@@ -186,6 +200,9 @@
   const shuffleEl = document.getElementById('shuffle');
   const hostEl = document.getElementById('host');
   const joinEl = document.getElementById('join');
+  const rejoinBannerEl = document.getElementById('rejoin-banner');
+  const rejoinEl = document.getElementById('rejoin');
+  const rejoinRoomEl = document.getElementById('rejoin-room');
   const netbarEl = document.getElementById('netbar');
   const netRoleEl = document.getElementById('net-role');
   const netRoomEl = document.getElementById('net-room');
@@ -304,6 +321,53 @@
       .replace(/-+$/g, '');
   }
 
+  const LAST_ROOM_KEY = 'xb:lastRoom';
+
+  function readLastRoom() {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(LAST_ROOM_KEY) || 'null');
+      if (value && (value.mode === 'host' || value.mode === 'client') &&
+          typeof value.room === 'string' && value.room) {
+        return value;
+      }
+    } catch (e) {
+      // private mode or a malformed value
+    }
+    return null;
+  }
+
+  function storeLastRoom(mode, room) {
+    try {
+      sessionStorage.setItem(LAST_ROOM_KEY, JSON.stringify({ mode, room }));
+    } catch (e) {
+      // private mode: rejoin is unavailable, the rest still works
+    }
+  }
+
+  function clearLastRoom() {
+    try {
+      sessionStorage.removeItem(LAST_ROOM_KEY);
+    } catch (e) {
+      // nothing to clear
+    }
+  }
+
+  function hideRejoinBanner() {
+    rejoinBannerEl.classList.remove('show');
+  }
+
+  function showRejoinBanner(last) {
+    if (!last) {
+      hideRejoinBanner();
+      return;
+    }
+    roomEl.value = last.room;
+    rejoinRoomEl.textContent = last.room;
+    rejoinEl.textContent = last.mode === 'client' ? 'Rejoin' : 'Re-host';
+    rejoinEl.dataset.mode = last.mode;
+    rejoinBannerEl.classList.add('show');
+  }
+
   let engineLoaded = false;
   let lobbyStarting = false;
   let netTimer = null;
@@ -399,6 +463,8 @@
   function startSolo() {
     if (engineLoaded) return;
     globalThis.xbConfig = { mode: 'solo', room: '' };
+    clearLastRoom();
+    hideRejoinBanner();
     unlockAudio();
     landingEl.classList.remove('show');
     loadEngine();
@@ -417,6 +483,8 @@
     const room = normalizeRoom(roomEl.value) || makeCode();
     roomEl.value = room;
     globalThis.xbConfig = { mode, room };
+    storeLastRoom(mode, room);
+    hideRejoinBanner();
     try {
       /* net.js must exist before the engine starts: the room is page-owned. */
       await import('./net.js');
@@ -459,7 +527,10 @@
     loadEngine();
   }
 
-  roomEl.value = makeCode();
+  const lastRoom = readLastRoom();
+  if (lastRoom) showRejoinBanner(lastRoom);
+  else roomEl.value = makeCode();
+
   playEl.addEventListener('click', startSolo);
   shuffleEl.addEventListener('click', () => {
     roomEl.value = makeCode();
@@ -468,6 +539,10 @@
   });
   hostEl.addEventListener('click', () => startNet('host'));
   joinEl.addEventListener('click', () => startNet('client'));
+  rejoinEl.addEventListener('click', () => {
+    const mode = rejoinEl.dataset.mode;
+    if (mode === 'host' || mode === 'client') startNet(mode);
+  });
 
   toastCancelEl.addEventListener('click', () => {
     const api = globalThis.XBNet;
@@ -491,6 +566,7 @@
 
   document.getElementById('leave').addEventListener('click', () => {
     hideToast();
+    clearLastRoom();
     if (globalThis.XBNet) globalThis.XBNet.leave();
     location.reload();
   });
