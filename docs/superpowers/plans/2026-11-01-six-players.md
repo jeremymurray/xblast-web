@@ -154,6 +154,8 @@ def run_full(base):
             "'The host is already in a match.'; })()",
             30, "late guest got the match message")
         check(late.ev("__test.connectState(501)") == -1, "late guest connect did not fail")
+        check(host.ev("XBNet.status().peers") == 5,
+              "host counted the late guest as a peer")
 
         finish_pages(pages + [("guest-6", extra), ("rejoiner", rejoiner),
                               ("late", late)], True)
@@ -189,10 +191,13 @@ Expected: FAIL — `status().maxClients is not the five-guest cap` (the field do
 - New helpers (place near `activePeers`):
   - `clientCount(s, exceptPeer)`: count peers where `isActivePeer(peer) && peer.remoteRole === ROLE_CLIENT && peer !== exceptPeer && (peer.accepted || s.pending.includes(peer.id))`.
   - `rejectClient(s, peer)`: `ctlSend(s, peer, new Uint8Array([CTL_REJECT, REJECT_FULL]))`; `peer.rejected = true`; `removePending(s, peer)`.
-- `handleHello`, host + client branch: after `replaceClientPeer(s, peer, remoteClientId)` and before queueing, reject when
-  `(s.hostStage === STAGE_SETUP || s.hostStage === STAGE_LISTENING) && clientCount(s, peer) >= MAX_CLIENTS`;
-  otherwise queue as today. Check `peer.rejected` at the top of `handleHello` and return early for rejected peers.
-  Keep the `if (firstValid) sendHello(s, peer)` echo, but skip it for a rejected peer.
+- `handleHello`, host + client branch: after `replaceClientPeer(s, peer, remoteClientId)`, pick one of three outcomes:
+  - stage `match` or `idle`: mark `peer.rejected = true` and do **not** queue it (the hello's
+    stage already tells the guest why; no reject frame);
+  - stage `setup`/`listening` and `clientCount(s, peer) >= MAX_CLIENTS`: `rejectClient(s, peer)`;
+  - otherwise queue it as today.
+  Also return early at the top of `handleHello` for an already-rejected peer, and send the
+  `firstValid` hello echo before any reject frame so the guest knows the stage first.
 - `handleCtlMessage`: `case CTL_REJECT:` when `peer.remoteRole === ROLE_HOST` and `bytes[1] === REJECT_FULL` → set `peer.rejected = true`, `s.connectError = 'The room is full (6 players).'`, `s.lastError = s.connectError`, then `closePeerChannels(s, peer, true)` so the stream EOFs.
 - `connectState(fd)`: after the peer is resolved, `if (peer.rejected) { s.connectError = 'The room is full (6 players).'; s.lastError = s.connectError; return -1; }`. This runs after the existing stage checks, so `MATCH`/`IDLE` keep precedence.
 - `status()`: add `maxClients: MAX_CLIENTS` and `full: s && s.role === 'host' ? clientCount(s, null) >= MAX_CLIENTS : false`.
