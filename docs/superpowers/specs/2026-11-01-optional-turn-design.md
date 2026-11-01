@@ -136,6 +136,8 @@ STUN servers remain.
 Both may appear; the endpoint is preferred and the static list is the fallback.
 
 - `turnConfig` is an array of ICE-server objects; `urls` may be a string or an array.
+- Ports are optional: `turn:` defaults to 3478 and `turns:` to 5349 (RFC 7065). A URL with no
+  host, an embedded userinfo part or an out-of-range port is rejected.
 - `username` and `credential` are passed through unchanged.
 - Only `turnConfig` and `credentialsUrl` are accepted. Arbitrary `rtcConfig` is not, so a config
   file cannot silently replace STUN or set a relay-only policy.
@@ -203,7 +205,7 @@ real limits are short-lived credentials, provider quotas and rate limiting.
 
 ### Player-supplied TURN
 
-The landing lobby gets a collapsed **Advanced: TURN** panel above the Host/Join buttons:
+The landing lobby gets a collapsed **Advanced: TURN** panel below the Host/Join buttons:
 
 - Fields: TURN URL(s), username, credential. The URL field accepts one or more
   comma/whitespace-separated `turn:`/`turns:` URLs for one credential.
@@ -220,8 +222,10 @@ Storage and precedence:
 - At Host/Join, a valid player override is used **instead of** the deployer's TURN list; the
   default STUN servers remain. This makes the player's explicit choice predictable and avoids
   mixing an unknown shared credential with their own.
-- Invalid input is shown inline and is not applied. The player can correct it, clear it, or
-  proceed and let the deployer's TURN/flags apply. A malformed override never blocks the lobby.
+- Invalid input is shown inline and is not applied. The first Host/Join click is refused: the
+  landing stays visible, the panel opens and the player corrects the fields or presses Forget.
+  A retry with cleared or valid fields proceeds. This keeps a typo from silently starting the
+  room without the relay the player asked for; the lobby itself remains usable.
 - If the player override is present, the page does not fetch `credentialsUrl`.
 - `turnSource` is `'player'` when the override is in use.
 

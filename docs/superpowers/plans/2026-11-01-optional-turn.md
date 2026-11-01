@@ -25,7 +25,7 @@
 
 - A missing, malformed or 500-ing `turn.json` / credential endpoint must leave the lobby usable and fall back to STUN.
 - Player credentials must never appear in `status()`, console output, errors, the room or another peer's browser.
-- `turn:` URL parsing must reject `stun:`, embedded userinfo, missing host/port, bad ports and non-TURN schemes.
+- `turn:` URL parsing must reject `stun:`, embedded userinfo, missing host, bad ports and non-TURN schemes; portless `turn:`/`turns:` URLs are valid per RFC 7065.
 - Endpoint failure must fall back to static `turnConfig`, and a player override must take precedence over both.
 - A malformed player override must not silently connect through an unexpected relay; it must be rejected visibly and leave the deployer path usable.
 
@@ -544,9 +544,10 @@ In `startNet`, after importing `net.js` and before `enter`:
 
 - build `{ urls, username, credential }` from the fields;
 - if any field is non-empty, call `parsePlayerOverride`; on error show `turn-error`, open the
-  panel, and continue with the deployer path; on success store it and use its `turnConfig`;
+  panel, reset `lobbyStarting` and return without entering the room; on success store it and use
+  its `turnConfig`;
 - if every field is empty, call `clearPlayerOverride`;
-- await the background `loadTurnFile()`;
+- await the background `loadTurnFile()` unless a valid player override is already in use;
 - call `resolveTurnConfig({ file, playerOverride })`;
 - call `XBNet.configure({ turnConfig: result.turnConfig, turnSource: result.source })`;
 - then call `XBNet.enter(mode, room)`.

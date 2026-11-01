@@ -8,10 +8,11 @@
  * [type, ...payload]; datagrams ride the unreliable unordered `xb.act`
  * channel as raw bytes.
  *
- * This file intentionally has no dependencies beyond the vendored Trystero
- * packages and no build step: it is loaded as a plain ES module.
+ * This file has no build step: it is loaded as a plain ES module. It imports
+ * the vendored Trystero packages and the dependency-free ./turn.js validator.
  */
 import { getRelaySockets, joinRoom, selfId } from '@trystero-p2p/nostr';
+import { normalizeTurnConfig } from './turn.js';
 
 const APP_ID = 'xblast-tnt-web-v1';
 const ROOM_PREFIX = 'xblast-tnt-';
@@ -50,8 +51,12 @@ const PORT = 16168;
 const CTL_BUFFER_LIMIT = 512 * 1024;
 const DEFAULT_CONNECT_TIMEOUT_MS = 20000;
 
+const TURN_SOURCES = new Set(['file', 'endpoint', 'player']);
+
 const config = {
   connectTimeoutMs: DEFAULT_CONNECT_TIMEOUT_MS,
+  turnConfig: [],
+  turnSource: null,
 };
 
 /* The single active page session; rooms are page-owned, not fd-owned. */
@@ -126,6 +131,16 @@ function configure(opts) {
   if (Number.isFinite(opts.connectTimeoutMs) && opts.connectTimeoutMs > 0) {
     config.connectTimeoutMs = opts.connectTimeoutMs;
   }
+  if ('turnConfig' in opts) {
+    config.turnConfig = normalizeTurnConfig(opts.turnConfig);
+    config.turnSource = null;
+  }
+  if ('turnSource' in opts) {
+    config.turnSource = config.turnConfig.length && TURN_SOURCES.has(opts.turnSource)
+      ? opts.turnSource
+      : null;
+  }
+  if (!config.turnConfig.length) config.turnSource = null;
 }
 
 function ensureFd(s, fd, kind) {
@@ -536,8 +551,10 @@ function enter(role, room) {
   const s = newSession(role === 'client' ? 'client' : 'host', room || '');
   session = s;
   try {
+    const roomConfig = { appId: APP_ID };
+    if (config.turnConfig.length) roomConfig.turnConfig = config.turnConfig;
     const roomObj = joinRoom(
-      { appId: APP_ID },
+      roomConfig,
       ROOM_PREFIX + s.room,
       {
         onJoinError: (err) => {
@@ -1003,6 +1020,9 @@ function status() {
     connectTimedOut: s ? s.connectTimedOut : false,
     maxClients: MAX_CLIENTS,
     full: Boolean(s && s.role === 'host' && clientCount(s, null) >= MAX_CLIENTS),
+    turnConfigured: config.turnConfig.length > 0,
+    turnServers: config.turnConfig.length,
+    turnSource: config.turnConfig.length ? config.turnSource : null,
     relayReady: relayReady(),
     listening: s ? Boolean(s.engineListening) : false,
   };

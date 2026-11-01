@@ -54,6 +54,10 @@
       this.done = true;
       this.log(ok ? 'PASS' : 'FAIL: ' + this.error);
     },
+    check(name, condition) {
+      if (!condition) throw new Error(name);
+      this.log('ok: ' + name);
+    },
     requireNet() {
       const net = globalThis.XBNet;
       if (!net) throw new Error('XBNet is undefined');
@@ -97,7 +101,140 @@
     const XB = globalThis.XBNet;
     if (!XB) throw new Error('XBNet is undefined after importing ../net.js');
 
-    if (T.scenario === 'wrong-room') {
+    if (T.scenario === 'turn-config') {
+      try {
+        const turn = await import('../turn.js');
+        const cfg = (urls, username = 'u', credential = 'p') =>
+          ({ urls, username, credential });
+        T.check('accepts turn url', turn.normalizeTurnConfig([
+          cfg('turn:relay.example.org:3478?transport=udp')]).length === 1);
+        T.check('accepts turns url', turn.normalizeTurnConfig([
+          cfg('turns:relay.example.org:5349')]).length === 1);
+        T.check('accepts multiple urls', turn.normalizeTurnConfig([
+          cfg(['turn:relay.example.org:3478', 'turns:relay.example.org:5349'])]).length === 1);
+        T.check('accepts portless turn url', turn.normalizeTurnConfig([
+          cfg('turn:relay.example.org')]).length === 1);
+        T.check('accepts portless turns url', turn.normalizeTurnConfig([
+          cfg('turns:relay.example.org')]).length === 1);
+        T.check('rejects missing host', turn.normalizeTurnConfig([
+          cfg('turn::3478')]).length === 0);
+        T.check('rejects stun', turn.normalizeTurnConfig([
+          cfg('stun:stun.example.org:3478')]).length === 0);
+        T.check('rejects embedded userinfo', turn.normalizeTurnConfig([
+          cfg('turn:user:pass@relay.example.org:3478')]).length === 0);
+        T.check('rejects bad port', turn.normalizeTurnConfig([
+          cfg('turn:relay.example.org:99999')]).length === 0);
+        T.check('rejects missing credential', turn.normalizeTurnConfig([
+          { urls: 'turn:relay.example.org:3478', username: 'u', credential: '' }]).length === 0);
+        T.check('drops only invalid entries', turn.normalizeTurnConfig([
+          cfg('stun:stun.example.org:3478'), cfg('turn:relay.example.org:3478')]).length === 1);
+        T.check('non-array is empty', turn.normalizeTurnConfig('nope').length === 0);
+
+        const fakeFetch = (responses) => async (url) => {
+          const hit = responses[String(url)];
+          if (!hit) return { ok: false, status: 404, json: async () => ({}) };
+          if (hit.throw) throw new Error('network down');
+          return { ok: true, status: 200, json: async () => hit.body };
+        };
+
+        const staticFile = { turnConfig: [cfg('turn:relay.example.org:3478')] };
+        T.check('parses static file', turn.parseTurnFile(staticFile).turnConfig.length === 1);
+        T.check('empty config does not warn',
+          turn.parseTurnFile({ turnConfig: [] }).warning === null);
+        T.check('parses endpoint file', turn.parseTurnFile(
+          { credentialsUrl: '/turn-credentials' }, { baseUrl: 'https://game.example/' }
+        ).credentialsUrl === 'https://game.example/turn-credentials');
+        T.check('empty endpoint array warns',
+          !!turn.parseCredentialResponse([]).warning);
+        T.check('rejects http endpoint', turn.parseTurnFile(
+          { credentialsUrl: 'http://evil.example/creds' }, { baseUrl: 'https://game.example/' }
+        ).credentialsUrl === null);
+
+        const missing = await turn.loadTurnFile({
+          fetchImpl: fakeFetch({}), url: '/turn.json', timeoutMs: 50,
+        });
+        T.check('missing file is empty', missing.turnConfig.length === 0 && !!missing.warning);
+        const loaded = await turn.loadTurnFile({
+          fetchImpl: fakeFetch({ '/turn.json': { body: staticFile } }),
+          url: '/turn.json', timeoutMs: 50,
+        });
+        T.check('loads static file', loaded.turnConfig.length === 1);
+
+        const endpoint = await turn.fetchCredentials('https://game.example/creds', {
+          fetchImpl: fakeFetch({
+            'https://game.example/creds': { body: { turnConfig: [cfg('turns:relay.example.org:5349')] } },
+          }), timeoutMs: 50,
+        });
+        T.check('endpoint response', endpoint.turnConfig.length === 1);
+
+        const viaEndpoint = await turn.resolveTurnConfig({
+          file: { turnConfig: [], credentialsUrl: 'https://game.example/creds' },
+          fetchImpl: fakeFetch({
+            'https://game.example/creds': { body: { turnConfig: [cfg('turns:relay.example.org:5349')] } },
+          }), timeoutMs: 50,
+        });
+        T.check('resolves endpoint', viaEndpoint.source === 'endpoint');
+        const fallback = await turn.resolveTurnConfig({
+          file: { turnConfig: [cfg('turn:relay.example.org:3478')],
+                  credentialsUrl: 'https://game.example/creds' },
+          fetchImpl: fakeFetch({ 'https://game.example/creds': { throw: true } }), timeoutMs: 50,
+        });
+        T.check('falls back to file', fallback.source === 'file');
+        const override = await turn.resolveTurnConfig({
+          file: { turnConfig: [cfg('turn:file.example.org:3478')], credentialsUrl: null },
+          playerOverride: [cfg('turn:mine.example.org:3478')], timeoutMs: 50,
+        });
+        T.check('player wins', override.source === 'player');
+
+        const split = turn.parsePlayerOverride({
+          urls: 'turn:a.example:3478, turns:b.example:5349', username: 'u', credential: 'p',
+        });
+        T.check('splits override urls', split.turnConfig.length === 1 &&
+          split.turnConfig[0].urls.length === 2);
+        T.check('rejects empty override', !!turn.parsePlayerOverride(
+          { urls: '', username: '', credential: '' }).error);
+        T.check('rejects bad override', !!turn.parsePlayerOverride(
+          { urls: 'stun:stun.example', username: 'u', credential: 'p' }).error);
+
+        const mem = (() => {
+          const data = new Map();
+          return {
+            getItem: (k) => data.has(k) ? data.get(k) : null,
+            setItem: (k, v) => data.set(k, String(v)),
+            removeItem: (k) => data.delete(k),
+          };
+        })();
+        T.check('writes override', turn.writePlayerOverride(mem, {
+          urls: ['turn:relay.example.org:3478'], username: 'u', credential: 'p',
+        }) === true);
+        T.check('reads override', turn.readPlayerOverride(mem).credential === 'p');
+        turn.clearPlayerOverride(mem);
+        T.check('clears override', turn.readPlayerOverride(mem) === null);
+        mem.setItem(turn.PLAYER_STORAGE_KEY, '{not json');
+        T.check('bad stored json is null', turn.readPlayerOverride(mem) === null);
+
+        XB.configure({ turnConfig: [cfg('turn:relay.example.org:3478')], turnSource: 'player' });
+        let status = XBNet.status();
+        T.check('status count', status.turnConfigured === true && status.turnServers === 1);
+        T.check('status source', status.turnSource === 'player');
+        T.check('status hides credential', !('turnConfig' in status) &&
+          !('username' in status) && !('credential' in status));
+        XB.configure({ turnConfig: [cfg('stun:stun.example.org')], turnSource: 'file' });
+        status = XBNet.status();
+        T.check('invalid config clears', status.turnConfigured === false &&
+          status.turnServers === 0 && status.turnSource === null);
+        XB.configure({ turnConfig: [cfg('turn:relay.example.org:3478')], turnSource: 'bogus' });
+        T.check('bogus source is null', XBNet.status().turnSource === null);
+        XB.configure({ turnConfig: [] });
+        T.check('empty clears', XBNet.status().turnConfigured === false);
+
+        T.ready = true;
+        T.finish(true);
+      } catch (e) {
+        T.ready = true;
+        T.finish(false, e);
+      }
+    } else if (T.scenario === 'wrong-room') {
       XB.configure({connectTimeoutMs: 500});
       XB.enter(T.role, T.room);
       XB.open(301, 'stream');
@@ -106,8 +243,10 @@
     } else {
       XB.enter(T.role, T.room);
     }
-    T.ready = true;
-    T.log(`session ready: role=${T.role} room=${T.room} self=${XB.status().selfId}`);
+    if (T.scenario !== 'turn-config') {
+      T.ready = true;
+      T.log(`session ready: role=${T.role} room=${T.room} self=${XB.status().selfId}`);
+    }
   } catch (e) {
     T.error = e && e.message ? e.message : String(e);
     T.log('module failure: ' + T.error);

@@ -1,0 +1,9 @@
+{
+  "turnConfig": [
+    {
+      "urls": ["turn:turn.example.org:3478?transport=udp"],
+      "username": "xblast",
+      "credential": "replace-me"
+    }
+  ]
+}

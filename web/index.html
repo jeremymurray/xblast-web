@@ -54,6 +54,14 @@
   .card .row { display: flex; gap: 0.5em; margin-top: 0.6em; }
   .card .row button { flex: 1; margin-top: 0; padding: 0.6em 0.8em; }
   .card #shuffle { flex: 0 0 auto; color: #ddd; background: #333; }
+  .card #turn-advanced {
+    margin-top: 0.9em; padding-top: 0.7em; border-top: 1px solid #333;
+  }
+  .card #turn-advanced summary {
+    cursor: pointer; color: #ffd400; font-size: 13px;
+  }
+  .card #turn-advanced .hint { color: #888; font-size: 12px; margin: 0.4em 0; }
+  .card #turn-advanced .hint.error { color: #f66; }
   @media (max-width: 700px) { .panel .cards { grid-template-columns: 1fr; } }
 
   #rejoin-banner {
@@ -158,6 +166,20 @@
           <button id="host" type="button">Host</button>
           <button id="join" type="button">Join</button>
         </div>
+        <details id="turn-advanced">
+          <summary>Advanced: TURN</summary>
+          <p class="hint">Only needed if you cannot connect. Use a relay you trust.
+             Hosting your own copy with TURN is the recommended fix.</p>
+          <label for="turn-urls">TURN URL(s)</label>
+          <input id="turn-urls" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="turn:host:3478?transport=udp">
+          <label for="turn-user">Username</label>
+          <input id="turn-user" type="text" autocomplete="off" spellcheck="false">
+          <label for="turn-cred">Credential</label>
+          <input id="turn-cred" type="password" autocomplete="new-password">
+          <div class="row"><button id="turn-forget" type="button">Forget</button></div>
+          <p id="turn-error" class="hint" role="alert" aria-live="polite"></p>
+        </details>
       </section>
     </div>
     <dl>
@@ -211,6 +233,12 @@
   const toastEl = document.getElementById('net-toast');
   const toastTextEl = document.getElementById('net-toast-text');
   const toastCancelEl = document.getElementById('net-toast-cancel');
+  const turnAdvancedEl = document.getElementById('turn-advanced');
+  const turnUrlsEl = document.getElementById('turn-urls');
+  const turnUserEl = document.getElementById('turn-user');
+  const turnCredEl = document.getElementById('turn-cred');
+  const turnForgetEl = document.getElementById('turn-forget');
+  const turnErrorEl = document.getElementById('turn-error');
 
   document.getElementById('again').addEventListener('click', () => location.reload());
 
@@ -375,6 +403,48 @@
   let toastHoldUntil = 0;
   const SIGNAL_GRACE_MS = 4000;
 
+  let turnModulePromise = null;
+  let turnFilePromise = null;
+
+  function turnStorage() {
+    try {
+      return sessionStorage;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function loadTurnModule() {
+    if (!turnModulePromise) {
+      turnModulePromise = import('./turn.js').catch((error) => {
+        console.warn('xb: TURN helper unavailable', error);
+        return null;
+      });
+    }
+    return turnModulePromise;
+  }
+
+  function loadTurnFileOnce() {
+    if (!turnFilePromise) {
+      turnFilePromise = loadTurnModule().then((turn) => turn ? turn.loadTurnFile() : null);
+    }
+    return turnFilePromise;
+  }
+
+  function showTurnError(text) {
+    turnErrorEl.textContent = text || '';
+    turnErrorEl.classList.toggle('error', Boolean(text));
+  }
+
+  function applyStoredTurnOverride(turn) {
+    const stored = turn.readPlayerOverride(turnStorage());
+    if (!stored) return;
+    turnUrlsEl.value = Array.isArray(stored.urls) ? stored.urls.join(', ') : stored.urls;
+    turnUserEl.value = stored.username || '';
+    turnCredEl.value = stored.credential || '';
+    turnAdvancedEl.open = true;
+  }
+
   function loadEngine() {
     if (engineLoaded) return;
     engineLoaded = true;
@@ -508,6 +578,61 @@
       statusEl.className = 'error';
       return;
     }
+
+    const turn = await loadTurnModule();
+    let playerOverride = null;
+    const rawTurn = {
+      urls: turnUrlsEl.value,
+      username: turnUserEl.value,
+      credential: turnCredEl.value,
+    };
+    const hasPlayerTurn = Boolean(
+      rawTurn.urls.trim() || rawTurn.username.trim() || rawTurn.credential.trim());
+    if (turn && hasPlayerTurn) {
+      let parsed;
+      try {
+        parsed = turn.parsePlayerOverride(rawTurn);
+      } catch (error) {
+        parsed = { error: 'Could not read the TURN settings.' };
+      }
+      if (parsed.error) {
+        showTurnError(parsed.error +
+          ' Fix the fields or press Forget to use the deployer TURN settings.');
+        turnAdvancedEl.open = true;
+        lobbyStarting = false;
+        return;
+      }
+      playerOverride = parsed.turnConfig;
+      turn.writePlayerOverride(turnStorage(), rawTurn);
+      showTurnError('');
+    } else if (turn) {
+      turn.clearPlayerOverride(turnStorage());
+    } else if (hasPlayerTurn) {
+      showTurnError('TURN support is unavailable in this build.');
+      lobbyStarting = false;
+      return;
+    }
+
+    let file = null;
+    if (!playerOverride) file = await loadTurnFileOnce();
+    if (file && file.warning) console.info('xb:', file.warning);
+    let resolved = { turnConfig: [], source: null, warning: null };
+    if (turn) {
+      try {
+        resolved = await turn.resolveTurnConfig({ file, playerOverride });
+      } catch (error) {
+        console.warn('xb: TURN setup failed');
+      }
+      if (resolved.warning && resolved.warning !== (file && file.warning)) {
+        console.warn('xb:', resolved.warning);
+      }
+    }
+    if (resolved.turnConfig.length) {
+      console.info(`xb: TURN configured (${resolved.turnConfig.length} server(s), ` +
+        `${resolved.source || 'unknown'})`);
+    }
+    api.configure({ turnConfig: resolved.turnConfig, turnSource: resolved.source });
+
     try {
       api.enter(mode, room);
     } catch (error) {
@@ -535,6 +660,23 @@
   const lastRoom = readLastRoom();
   if (lastRoom) showRejoinBanner(lastRoom);
   else roomEl.value = makeCode();
+
+  loadTurnModule().then((turn) => {
+    if (turn) applyStoredTurnOverride(turn);
+  });
+  loadTurnFileOnce();
+
+  for (const field of [turnUrlsEl, turnUserEl, turnCredEl]) {
+    field.addEventListener('input', () => showTurnError(''));
+  }
+  turnForgetEl.addEventListener('click', async () => {
+    const turn = await loadTurnModule();
+    if (turn) turn.clearPlayerOverride(turnStorage());
+    turnUrlsEl.value = '';
+    turnUserEl.value = '';
+    turnCredEl.value = '';
+    showTurnError('');
+  });
 
   playEl.addEventListener('click', startSolo);
   shuffleEl.addEventListener('click', () => {
