@@ -89,3 +89,8 @@ emcc "${CFLAGS[@]}" $SOURCES "${LDFLAGS[@]}" -o "$OUT/xblast.js"
 
 echo "built $OUT/xblast.js"
 cp "$ROOT/web/index.html" "$OUT/index.html"
+if [ -f "$ROOT/web/net.js" ]; then
+	cp "$ROOT/web/net.js" "$OUT/net.js"
+fi
+mkdir -p "$OUT/vendor"
+cp -R "$ROOT/web/vendor/." "$OUT/vendor/"
