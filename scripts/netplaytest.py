@@ -504,6 +504,125 @@ def run_guests(base, outdir):
             page.close()
 
 
+def run_six(base, outdir):
+    """Six browsers: host + five guests reach a match; a seventh is refused."""
+    room = f"m2-six-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    guests = [Page(f"{base}/", f"guest{i + 1}") for i in range(5)]
+    pages = [host] + guests
+    light = None
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                20, f"{page.label} lobby")
+
+        print(f"== six room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        for guest in guests:
+            if not start_lobby_page(guest, "join", room):
+                raise AssertionError(f"could not click #join for {guest.label}")
+        for page in pages:
+            wait_engine(page)
+        for page in pages:
+            dismiss_intro(page)
+
+        for guest in guests:
+            choose_first_player(guest)
+            guest.key("return")       # Connect
+            guest.wait_js(
+                "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                90, f"{guest.label} connected before host Continue")
+            print(f"{guest.label} connected while the host was in setup", flush=True)
+
+        choose_first_player(host)
+        host_ctl_before = host.ev("globalThis.__xbnet ? __xbnet.stats().ctlRx : 0") or 0
+        host.key("return")            # Continue -> listen
+        host.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 5",
+                     90, "host has five guests")
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 200}",
+            60, "host received every guest's config")
+        host.wait_js(
+            "document.getElementById('net-state').textContent.indexOf('full') >= 0",
+            20, "host lobby says the room is full")
+        shot(host, os.path.join(outdir, "six-host-full.png"))
+
+        # A seventh guest joins only the WebRTC room: the lightweight transport
+        # page needs no engine to prove the refusal.
+        light = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full", "light")
+        light.wait_js("globalThis.XBNet && __test.ready === true", 30, "light guest ready")
+        light.ev("__test.open(301, 'stream')")
+        light.ev("__test.connect(301)")
+        light.wait_js(
+            "(() => { const st = __test.connectState(301); const s = XBNet.status(); "
+            "return st === -1 && s.connectError === 'The room is full (6 players).'; })()",
+            30, "seventh guest refused")
+        if light.ev("XBNet.stats().peers") != 0:
+            raise AssertionError("refused guest still counts a connected peer")
+        if host.ev("globalThis.__xbnet.stats().peers") != 5:
+            raise AssertionError("host counted the refused guest as a peer")
+        print("seventh guest refused with the room-full message", flush=True)
+
+        time.sleep(3.0)
+        act_before = {
+            page.label: page.ev("globalThis.__xbnet ? __xbnet.stats().actTx : 0") or 0
+            for page in pages
+        }
+        print(f"actTx before Start: {json.dumps(act_before, sort_keys=True)}", flush=True)
+
+        host.key("return")            # Start
+        time.sleep(3.0)
+        for page in pages:
+            page.key("space")         # dismiss level intro
+        time.sleep(3.0)
+        for name in ("left", "right", "space"):
+            for page in pages:
+                page.key(name)
+            time.sleep(0.3)
+        time.sleep(3.0)
+
+        for page in pages:
+            shot(page, os.path.join(outdir, f"six-{page.label}.png"))
+        snapshots = {page.label: page.snapshot() for page in pages}
+        for page in pages:
+            dump_page(page)
+
+        failures = []
+        for label, snap in snapshots.items():
+            stats = snap.get("stats") or {}
+            want = 5 if label == "host" else 1
+            if stats.get("peers") != want:
+                failures.append(f"{label}: peers={stats.get('peers')} (expected {want})")
+            for counter in ("ctlTx", "ctlRx", "actTx", "actRx"):
+                if not stats.get(counter, 0) > 0:
+                    failures.append(f"{label}: {counter}={stats.get(counter)}")
+            delta = stats.get("actTx", 0) - act_before[label]
+            if delta < 100:
+                failures.append(f"{label}: actTx delta after Start={delta} (expected >=100)")
+            if "show" in (snap.get("overlay") or "").split():
+                failures.append(f"{label}: overlay is showing")
+        if failures:
+            raise AssertionError("; ".join(failures))
+        print(f"six: PASS (room {room})", flush=True)
+        return 0
+    except Exception:
+        for page in pages + ([light] if light else []):
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        for page in pages + ([light] if light else []):
+            try:
+                shot(page, os.path.join(outdir, f"six-failure-{page.label}.png"))
+            except Exception:
+                pass
+        return 1
+    finally:
+        for page in pages + ([light] if light else []):
+            page.close()
+
+
 def run_refresh(base, outdir):
     """Guest refreshes in the wait screen, rejoins, and the host replaces it."""
     room = f"m2-refresh-{random.randrange(16 ** 6):06x}"
@@ -727,7 +846,7 @@ def main():
             print("--scenario needs a value", file=sys.stderr)
             return 2
         del args[index:index + 2]
-    if scenario not in ("match", "guests", "refresh", "midmatch"):
+    if scenario not in ("match", "guests", "six", "refresh", "midmatch"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -735,6 +854,11 @@ def main():
 
     print("== building web bundle ==", flush=True)
     subprocess.run([os.path.join(SCRIPTS, "build-web.sh")], cwd=ROOT, check=True)
+    # The six-browser run uses the lightweight transport page for its seventh
+    # guest, so a refusal is checked without a seventh engine.
+    test_dst = os.path.join(DIST, "test", "net.html")
+    os.makedirs(os.path.dirname(test_dst), exist_ok=True)
+    shutil.copyfile(os.path.join(ROOT, "web", "test", "net.html"), test_dst)
 
     server, base = start_server()
     try:
@@ -744,6 +868,8 @@ def main():
             return run_midmatch(base, outdir)
         if scenario == "guests":
             return run_guests(base, outdir)
+        if scenario == "six":
+            return run_six(base, outdir)
         return run(base, outdir)
     finally:
         server.shutdown()
