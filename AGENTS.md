@@ -81,7 +81,8 @@ known issues, next tasks, how to run. Keep it concise and current; it is the han
 
 ## Next milestone
 M3: six players, chat UI, per-round desync hash, TURN fallback, host migration and backgrounding
-warning. Mid-match resume/replay is a later item.
+warning. Mid-match resume/replay is a later item. An optional 16-player `-DSMPF` build is a
+later, M4-era idea (see `PROGRESS.md`); the web build stays 6-player until then.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

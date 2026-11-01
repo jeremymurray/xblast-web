@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-10-31 (M2 done, 0.3.0; M3 reconnect/replace slice done, 0.3.1)
+Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace slice done, 0.3.1; six-player slice designed)
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Updated: 2026-10-31 (M2 done, 0.3.0; M3 reconnect/replace slice done, 0.3.1)
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, chat, reconnect | in progress (reconnect/replace done, 0.3.1) |
-| M4 — polish, assets, PWA | not started |
+| M4 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
 
 ## M2 checklist
 
@@ -132,3 +132,10 @@ python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails 
 5. Host migration and a host-backgrounding warning.
 6. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
    an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
+7. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
+   `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
+   scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
+   `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the
+   engine instead of the 6-player constant, and more action datagrams per frame (the engine's
+   `MAX_MASK_BYTES` already allows it). It is off in `scripts/build-web.sh` and is not part of
+   M3; revisit as an opt-in build in M4.
