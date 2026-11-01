@@ -1054,7 +1054,12 @@ ButtonServerDisconnect (void *par)
 	Server_SendDisconnectAll ();
 	Dbg_Out ("cleaning up\n");
 	ClearHostNames ();
+#ifdef __EMSCRIPTEN__
+	/* web port: the obsolete setup-server screen is gone. */
+	return CreateMainMenu (par);
+#else
 	return CreateServerMenu (par);
+#endif
 }								/* ButtonServerDisconnect */
 
 /*
@@ -1234,8 +1239,18 @@ CreateClientWaitMenu (void *par)
 	/* hosts */
 	teamMode = 0;
 	CreateHostItems (XBFalse);
+#ifdef __EMSCRIPTEN__
+	/* web port: show the room code instead of the dead IRC channel. */
+	{
+		static char line[80];
+
+		snprintf (line, sizeof line, "Room %s - waiting for the host to start", XBWeb_RoomCode ());
+		MenuAddLabel1 (10, 79, TITLE_WIDTH + 60, line);
+	}
+#else
 	MenuAddLabel1 (10, 79, TITLE_WIDTH + 60,
 				   _("Chat with lamer Rado and others in http://xblast.sf.net/irc/"));
+#endif
 	/* Buttons */
 	MenuSetAbort (MenuAddHButton
 				  (3 * CELL_W / 2, MENU_BOTTOM, 4 * CELL_W, _("Disconnect"), ButtonClientDisconnect,
@@ -1352,6 +1367,10 @@ ButtonServerBack (void *par)
 XBBool
 CreateServerMenu (void *par)
 {
+#ifdef __EMSCRIPTEN__
+	/* web port: safety net only; hosting starts from the lobby. */
+	return CreateMainMenu (par);
+#else
 	XBAtom *atom = par;
 
 	assert (atom != NULL);
@@ -1393,6 +1412,7 @@ CreateServerMenu (void *par)
 	MenuSetLinks ();
 	/* that's all */
 	return XBFalse;
+#endif
 }								/* CreateServerMenu */
 
 /*********************
@@ -1753,6 +1773,10 @@ ButtonClientBack (void *par)
 XBBool
 CreateClientMenu (void *par)
 {
+#ifdef __EMSCRIPTEN__
+	/* web port: safety net only; the join menu drives the room connect. */
+	return CreateJoinNetGameMenu (par);
+#else
 	XBAtom *atom = par;
 	assert (atom != NULL);
 	/* get old server from database */
@@ -1785,6 +1809,7 @@ CreateClientMenu (void *par)
 	MenuSetLinks ();
 	/* that's all */
 	return XBFalse;
+#endif
 }								/* CreateClientMenu */
 
 /****************

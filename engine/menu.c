@@ -125,6 +125,18 @@ ButtonJoinNet (void *par)
 	return CreateJoinNetGameMenu (&gameType);
 }								/* ButtonJoinNet */
 
+#ifdef __EMSCRIPTEN__
+/*
+ * web port: reload the page-owned multiplayer lobby
+ */
+static XBBool
+ButtonWebLobby (void *par)
+{
+	XBWeb_ReloadLobby ();
+	return XBFalse;
+}								/* ButtonWebLobby */
+#endif
+
 /*
  * quit xblast menu
  */
@@ -149,6 +161,14 @@ CreateMainMenu (void *par)
 	/* Title */
 	MenuAddLabel (TITLE_LEFT, TITLE_TOP, TITLE_WIDTH, N_("XBlast Main Menu"));
 	/* Buttons */
+#ifdef __EMSCRIPTEN__
+	/* web port: the lobby owns host/join; drop the central and LAN plumbing. */
+	(void)MenuAddHButton (MENU_LEFT, MENU_TOP, MENU_WIDTH, N_("Solo"), ButtonStartLocal, NULL);
+	(void)MenuAddHButton (MENU_LEFT, MENU_TOP + 1 * CELL_H, MENU_WIDTH, N_("Multiplayer Lobby"),
+						  ButtonWebLobby, NULL);
+	(void)MenuAddHButton (MENU_LEFT, MENU_TOP + 2 * CELL_H, MENU_WIDTH, N_("Options"),
+						  CreateOptionsMenu, NULL);
+#else
 	(void)MenuAddHButton (MENU_LEFT, MENU_TOP, MENU_WIDTH, N_("Start Local Game"), ButtonStartLocal,
 						  NULL);
 	(void)MenuAddHButton (MENU_LEFT, MENU_TOP + 1 * CELL_H, MENU_WIDTH, N_("Create Network Game"),
@@ -161,10 +181,16 @@ CreateMainMenu (void *par)
 						  NULL);
 	(void)MenuAddHButton (MENU_LEFT, MENU_TOP + 6 * CELL_H, MENU_WIDTH, N_("Start Central"),
 						  ButtonStartCentral, NULL);
+#endif
 	/* exit game */
 
+#ifdef __EMSCRIPTEN__
+	/* web port: the IRC channel is gone; keep the project link only. */
+	MenuAddLabel1 (10, 63, TITLE_WIDTH + 60, N_("visit http://xblast.sf.net/"));
+#else
 	MenuAddLabel1 (10, 79, TITLE_WIDTH + 60, N_("to talk to others go to http://xblast.sf.net/irc/"));
 	MenuAddLabel1 (10, 63, TITLE_WIDTH + 60, N_("visit http://xblast.sf.net/"));
+#endif
 	MenuSetAbort (MenuAddHButton
 				  (MENU_LEFT, MENU_BOTTOM, MENU_WIDTH, N_("Quit"), ButtonMainQuit, NULL));
 	/* audience */
@@ -387,7 +413,11 @@ CreateOptionsMenu (void *par)
 #ifdef SDL
 	MenuAddHButton (MENU_LEFT, MENU_ROW (3), MENU_WIDTH, N_("Video"), CreateVideoMenu, NULL);
 #endif
+#ifdef __EMSCRIPTEN__
+	/* web port: there is no central server to configure. */
+#else
 	MenuAddHButton (MENU_LEFT, MENU_ROW (4), MENU_WIDTH, N_("Central"), CreateDefaultCentralMenu, NULL);	// XBCC
+#endif
 	/* leave menu */
 	MenuSetAbort (MenuAddHButton
 				  (MENU_LEFT, MENU_BOTTOM, MENU_WIDTH, N_("Main Menu"), CreateMainMenu, NULL));
