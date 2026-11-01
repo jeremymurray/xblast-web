@@ -233,10 +233,15 @@ def wait_engine(page):
 
 
 def dismiss_intro(page):
-    # The intro animates for ~1.75 s, then waits up to 10 s for a key.
-    time.sleep(3.0)
-    page.key("space")
-    time.sleep(2.0)
+    # The intro animates for ~1.75 s, then waits up to 10 s for a key. With
+    # several engines running, a dismissal key can land during the animation
+    # and only skip it, leaving the intro's own wait to eat the input meant for
+    # the menu. A click on an empty menu area ends that wait and does nothing
+    # in a menu, so it is safe before, during and after the intro.
+    time.sleep(2.5)
+    for _ in range(4):
+        page.click(480, 650)
+        time.sleep(1.2)
 
 
 def choose_first_player(page):
@@ -392,6 +397,107 @@ def run(base, outdir):
             shot(pages[1], os.path.join(outdir, "netplay-failure-guest.png"))
         except Exception:
             pass
+        return 1
+    finally:
+        for page in pages:
+            page.close()
+
+
+def run_guests(base, outdir):
+    """Three browsers: a host plus two guests reach a match together."""
+    room = f"m2-guests-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    g1 = Page(f"{base}/", "guest1")
+    g2 = Page(f"{base}/", "guest2")
+    pages = [host, g1, g2]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                15, f"{page.label} lobby")
+
+        print(f"== guests room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        for guest in (g1, g2):
+            if not start_lobby_page(guest, "join", room):
+                raise AssertionError(f"could not click #join for {guest.label}")
+        for page in pages:
+            wait_engine(page)
+        for page in pages:
+            dismiss_intro(page)
+
+        # Both guests connect while the host is still in Start Network Game.
+        for guest in (g1, g2):
+            choose_first_player(guest)
+            guest.key("return")       # Connect
+            guest.wait_js(
+                "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                60, f"{guest.label} connected before host Continue")
+            print(f"{guest.label} connected while the host was in setup", flush=True)
+
+        choose_first_player(host)
+        host_ctl_before = host.ev("globalThis.__xbnet ? __xbnet.stats().ctlRx : 0") or 0
+        host.key("return")            # Continue -> listen
+        host.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 2",
+                     60, "host has two guests")
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 100}",
+            30, "host received both guests' configs")
+        time.sleep(2.0)
+        shot(host, os.path.join(outdir, "guests-host-wait.png"))
+
+        act_before = {
+            page.label: page.ev("globalThis.__xbnet ? __xbnet.stats().actTx : 0") or 0
+            for page in pages
+        }
+        print(f"actTx before Start: {json.dumps(act_before, sort_keys=True)}", flush=True)
+
+        host.key("return")            # Start
+        time.sleep(3.0)
+        for page in pages:
+            page.key("space")         # dismiss level intro
+        time.sleep(2.5)
+        for name in ("left", "right", "space"):
+            for page in pages:
+                page.key(name)
+            time.sleep(0.4)
+        time.sleep(2.5)
+
+        for page in pages:
+            shot(page, os.path.join(outdir, f"guests-{page.label}.png"))
+        snapshots = {page.label: page.snapshot() for page in pages}
+        for page in pages:
+            dump_page(page)
+
+        failures = []
+        for label, snap in snapshots.items():
+            stats = snap.get("stats") or {}
+            want = 2 if label == "host" else 1
+            if stats.get("peers") != want:
+                failures.append(f"{label}: peers={stats.get('peers')} (expected {want})")
+            for counter in ("ctlTx", "ctlRx", "actTx", "actRx"):
+                if not stats.get(counter, 0) > 0:
+                    failures.append(f"{label}: {counter}={stats.get(counter)}")
+            delta = stats.get("actTx", 0) - act_before[label]
+            if delta < 100:
+                failures.append(f"{label}: actTx delta after Start={delta} (expected >=100)")
+            if "show" in (snap.get("overlay") or "").split():
+                failures.append(f"{label}: overlay is showing")
+        if failures:
+            raise AssertionError("; ".join(failures))
+        print(f"guests: PASS (room {room})", flush=True)
+        return 0
+    except Exception:
+        for page in pages:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        for page in pages:
+            try:
+                shot(page, os.path.join(outdir, f"guests-failure-{page.label}.png"))
+            except Exception:
+                pass
         return 1
     finally:
         for page in pages:
@@ -612,7 +718,7 @@ def main():
         return 0
 
     args = sys.argv[1:]
-    scenario = "match"
+    scenario = "guests"
     if "--scenario" in args:
         index = args.index("--scenario")
         try:
@@ -621,7 +727,7 @@ def main():
             print("--scenario needs a value", file=sys.stderr)
             return 2
         del args[index:index + 2]
-    if scenario not in ("match", "refresh", "midmatch"):
+    if scenario not in ("match", "guests", "refresh", "midmatch"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -636,6 +742,8 @@ def main():
             return run_refresh(base, outdir)
         if scenario == "midmatch":
             return run_midmatch(base, outdir)
+        if scenario == "guests":
+            return run_guests(base, outdir)
         return run(base, outdir)
     finally:
         server.shutdown()
