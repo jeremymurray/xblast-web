@@ -16,3 +16,6 @@ __pycache__/
 
 # local worktrees
 .worktrees/
+
+# plan/execution scratch
+.superpowers/
