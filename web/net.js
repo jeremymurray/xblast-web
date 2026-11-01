@@ -367,7 +367,9 @@ function handleCtlMessage(s, peer, data) {
       }
       break;
     case CTL_REJECT:
-      if (bytes.length >= 2 && bytes[1] === REJECT_FULL) {
+      /* Only the host refuses; the hello precedes it on the same ordered
+       * channel, so remoteRole is known by the time this arrives. */
+      if (peer.remoteRole === ROLE_HOST && bytes.length >= 2 && bytes[1] === REJECT_FULL) {
         peer.rejected = true;
         s.connectError = ROOM_FULL_MESSAGE;
         s.lastError = s.connectError;
