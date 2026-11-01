@@ -93,7 +93,7 @@ def start_server():
 
 
 class Page:
-    def __init__(self, url):
+    def __init__(self, url, wait_for="window.__test !== undefined"):
         self.port = free_port()
         self.profile = tempfile.mkdtemp(prefix="xb-nettest-profile-")
         self.proc = subprocess.Popen(
@@ -122,7 +122,7 @@ class Page:
             self.ws.call(self.next_id(), "Page.enable")
             self.ws.call(self.next_id(), "Runtime.enable")
             self.ws.call(self.next_id(), "Log.enable")
-            self.wait_js("window.__test !== undefined", 30, "test page")
+            self.wait_js(wait_for, 30, "test page")
         except Exception:
             self.close()
             raise
@@ -699,17 +699,35 @@ def dump_pages(pages):
             print("console:", line, file=sys.stderr)
 
 
+def run_turn_config(base):
+    page = Page(f"{base}/test/net.html?scenario=turn-config")
+    try:
+        page.wait_js("__test.ready === true", 20, "turn-config ready")
+        page.wait_js("__test.done === true", 20, "turn-config done")
+        err = page.ev("__test.error")
+        if err:
+            raise AssertionError(f"turn-config failed: {err}")
+        check(page.ev("__test.ok") is True, "turn-config did not pass")
+        for line in page.ev("__test.lines"):
+            print(line, flush=True)
+    finally:
+        page.close()
+
+
 SCENARIOS = {
     "basic": run_basic,
     "wrong-room": run_wrong_room,
     "multi": run_multi,
     "replace": run_replace,
     "full": run_full,
+    "turn-config": run_turn_config,
 }
 
 
 def main():
-    wanted = sys.argv[1:] or ["basic", "wrong-room", "multi", "replace", "full"]
+    wanted = sys.argv[1:] or [
+        "basic", "wrong-room", "multi", "replace", "full", "turn-config",
+    ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
         print(f"unknown scenario(s): {', '.join(unknown)}", file=sys.stderr)

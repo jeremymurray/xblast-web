@@ -54,6 +54,10 @@
       this.done = true;
       this.log(ok ? 'PASS' : 'FAIL: ' + this.error);
     },
+    check(name, condition) {
+      if (!condition) throw new Error(name);
+      this.log('ok: ' + name);
+    },
     requireNet() {
       const net = globalThis.XBNet;
       if (!net) throw new Error('XBNet is undefined');
@@ -97,7 +101,35 @@
     const XB = globalThis.XBNet;
     if (!XB) throw new Error('XBNet is undefined after importing ../net.js');
 
-    if (T.scenario === 'wrong-room') {
+    if (T.scenario === 'turn-config') {
+      try {
+        const turn = await import('../turn.js');
+        const cfg = (urls, username = 'u', credential = 'p') =>
+          ({ urls, username, credential });
+        T.check('accepts turn url', turn.normalizeTurnConfig([
+          cfg('turn:relay.example.org:3478?transport=udp')]).length === 1);
+        T.check('accepts turns url', turn.normalizeTurnConfig([
+          cfg('turns:relay.example.org:5349')]).length === 1);
+        T.check('accepts multiple urls', turn.normalizeTurnConfig([
+          cfg(['turn:relay.example.org:3478', 'turns:relay.example.org:5349'])]).length === 1);
+        T.check('rejects stun', turn.normalizeTurnConfig([
+          cfg('stun:stun.example.org:3478')]).length === 0);
+        T.check('rejects embedded userinfo', turn.normalizeTurnConfig([
+          cfg('turn:user:pass@relay.example.org:3478')]).length === 0);
+        T.check('rejects bad port', turn.normalizeTurnConfig([
+          cfg('turn:relay.example.org:99999')]).length === 0);
+        T.check('rejects missing credential', turn.normalizeTurnConfig([
+          { urls: 'turn:relay.example.org:3478', username: 'u', credential: '' }]).length === 0);
+        T.check('drops only invalid entries', turn.normalizeTurnConfig([
+          cfg('stun:stun.example.org:3478'), cfg('turn:relay.example.org:3478')]).length === 1);
+        T.check('non-array is empty', turn.normalizeTurnConfig('nope').length === 0);
+        T.ready = true;
+        T.finish(true);
+      } catch (e) {
+        T.ready = true;
+        T.finish(false, e);
+      }
+    } else if (T.scenario === 'wrong-room') {
       XB.configure({connectTimeoutMs: 500});
       XB.enter(T.role, T.room);
       XB.open(301, 'stream');

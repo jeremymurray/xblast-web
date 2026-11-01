@@ -93,5 +93,8 @@ cp "$ROOT/web/index.html" "$OUT/index.html"
 if [ -f "$ROOT/web/net.js" ]; then
 	cp "$ROOT/web/net.js" "$OUT/net.js"
 fi
+if [ -f "$ROOT/web/turn.js" ]; then
+	cp "$ROOT/web/turn.js" "$OUT/turn.js"
+fi
 mkdir -p "$OUT/vendor"
 cp -R "$ROOT/web/vendor/." "$OUT/vendor/"
