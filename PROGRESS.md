@@ -100,8 +100,8 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
   not relay game traffic.
 - **Host tab backgrounding can stall the match**: browsers throttle background timers and
   the engine loop is timer-driven. Keep the host tab in the foreground.
-- **No reconnect, host migration or chat UI.** Closing the host tab ends the match; a
-  dropped guest is gone.
+- **No host migration.** Closing the host tab ends the match; a dropped guest is gone. There is
+  no lobby chat UI (deferred, see Possible future work); the engine's in-game chat still works.
 - **Refresh/rejoin:** a guest who refreshes before the match starts gets a Rejoin prompt and
   the host replaces the old client (0.3.1). A refresh after the match starts fails with a
   clear message; **mid-match resume/replay is not implemented** and is the remaining reconnect
@@ -144,16 +144,21 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 
 ## Next tasks (M3)
 
-1. Chat UI over the reliable channel.
-2. Per-round state hash to detect and report desync.
-3. TURN: optional relay fallback for restrictive NATs.
-4. Host migration and a host-backgrounding warning.
-5. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
+1. Per-round state hash to detect and report desync.
+2. TURN: optional relay fallback for restrictive NATs.
+3. Host migration and a host-backgrounding warning.
+4. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
    an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
-6. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
+5. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
    `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
    scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
    `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the
    engine instead of the 6-player constant, and more action datagrams per frame (the engine's
    `MAX_MASK_BYTES` already allows it). It is off in `scripts/build-web.sh` and is not part of
    M3; revisit as an opt-in build in M4.
+
+## Possible future work (not planned)
+
+- **Lobby chat UI.** Deferred 2026-11-01: the engine's in-game chat is adequate and there is no
+  separate web lobby to host a chat panel. Revisit only if a persistent lobby/social screen
+  exists; it would ride `xb.ctl` with host relay.
