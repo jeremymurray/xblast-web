@@ -13,3 +13,6 @@ build/out/
 
 # Python bytecode
 __pycache__/
+
+# local worktrees
+.worktrees/
