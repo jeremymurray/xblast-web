@@ -10,6 +10,8 @@ const TURN_URL = /^(turns?):(\[[0-9a-fA-F:]+\]|[A-Za-z0-9._-]+)(?::(\d{1,5}))?(?
 const MAX_FIELD = 512;
 const MAX_URL = 2048;
 
+export const PLAYER_STORAGE_KEY = 'xb:turn';
+
 export function parseTurnUrl(value) {
   if (typeof value !== 'string') return null;
   const text = value.trim();
@@ -176,4 +178,64 @@ export async function resolveTurnConfig(opts = {}) {
     return { turnConfig: staticConfig, source: 'file', warning };
   }
   return { turnConfig: [], source: null, warning };
+}
+
+const OVERRIDE_ERROR = 'Enter a turn: or turns: URL, username and credential.';
+
+export function parsePlayerOverride(value) {
+  if (!value || typeof value !== 'object') {
+    return { turnConfig: [], error: OVERRIDE_ERROR };
+  }
+  let urls = value.urls;
+  if (typeof urls === 'string') {
+    urls = urls.split(/[\s,]+/).filter(Boolean);
+  } else if (!Array.isArray(urls)) {
+    urls = [];
+  }
+  urls = urls.map((url) => String(url).trim()).filter(Boolean);
+  const username = typeof value.username === 'string' ? value.username.trim() : '';
+  const credential = typeof value.credential === 'string' ? value.credential.trim() : '';
+  const turnConfig = normalizeTurnConfig([{ urls, username, credential }]);
+  if (!turnConfig.length) {
+    return { turnConfig: [], error: OVERRIDE_ERROR };
+  }
+  return { turnConfig, error: null };
+}
+
+export function readPlayerOverride(storage = globalThis.sessionStorage) {
+  try {
+    const raw = storage.getItem(PLAYER_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return null;
+    return {
+      urls: Array.isArray(data.urls) ? data.urls.slice() : String(data.urls || ''),
+      username: typeof data.username === 'string' ? data.username : '',
+      credential: typeof data.credential === 'string' ? data.credential : '',
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+export function writePlayerOverride(storage, value) {
+  if (!storage || !value) return false;
+  try {
+    storage.setItem(PLAYER_STORAGE_KEY, JSON.stringify({
+      urls: Array.isArray(value.urls) ? value.urls.slice() : String(value.urls || ''),
+      username: typeof value.username === 'string' ? value.username : '',
+      credential: typeof value.credential === 'string' ? value.credential : '',
+    }));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+export function clearPlayerOverride(storage = globalThis.sessionStorage) {
+  try {
+    storage.removeItem(PLAYER_STORAGE_KEY);
+  } catch (e) {
+    // private mode or no storage
+  }
 }

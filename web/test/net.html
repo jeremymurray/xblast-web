@@ -176,6 +176,33 @@
         });
         T.check('player wins', override.source === 'player');
 
+        const split = turn.parsePlayerOverride({
+          urls: 'turn:a.example:3478, turns:b.example:5349', username: 'u', credential: 'p',
+        });
+        T.check('splits override urls', split.turnConfig.length === 1 &&
+          split.turnConfig[0].urls.length === 2);
+        T.check('rejects empty override', !!turn.parsePlayerOverride(
+          { urls: '', username: '', credential: '' }).error);
+        T.check('rejects bad override', !!turn.parsePlayerOverride(
+          { urls: 'stun:stun.example', username: 'u', credential: 'p' }).error);
+
+        const mem = (() => {
+          const data = new Map();
+          return {
+            getItem: (k) => data.has(k) ? data.get(k) : null,
+            setItem: (k, v) => data.set(k, String(v)),
+            removeItem: (k) => data.delete(k),
+          };
+        })();
+        T.check('writes override', turn.writePlayerOverride(mem, {
+          urls: ['turn:relay.example.org:3478'], username: 'u', credential: 'p',
+        }) === true);
+        T.check('reads override', turn.readPlayerOverride(mem).credential === 'p');
+        turn.clearPlayerOverride(mem);
+        T.check('clears override', turn.readPlayerOverride(mem) === null);
+        mem.setItem(turn.PLAYER_STORAGE_KEY, '{not json');
+        T.check('bad stored json is null', turn.readPlayerOverride(mem) === null);
+
         T.ready = true;
         T.finish(true);
       } catch (e) {
