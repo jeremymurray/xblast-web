@@ -72,7 +72,9 @@ connect.
 
 The build is a plain static bundle (`web/dist/`), so it can be served from GitHub Pages
 without any backend. Signalling uses the public relays Trystero ships with. TURN is
-required for some NAT pairs; relay mode is not wired up yet, so those pairs cannot connect.
+optional and supplied by whoever hosts a copy or by a player with their own relay; without
+one, some NAT pairs cannot connect. See [docs/hosting.md](docs/hosting.md) for the hosting
+profiles, `turn.json` schema, a coturn checklist and the credential-endpoint contract.
 
 ## Attribution
 

@@ -64,6 +64,17 @@ hanging. Host migration and mid-match resume remain future work.
 - [x] Intro dismissal uses harmless clicks, so multi-engine runs no longer lose input
 - [ ] 16-player `-DSMPF` build (optional, M4)
 
+## M3 optional TURN
+
+- [x] `web/turn.js` validates `turn:`/`turns:` entries and loads `turn.json`
+- [x] Static `turnConfig` and `credentialsUrl` (short-lived credential endpoint) modes
+- [x] Player **Advanced: TURN** override in the lobby, `sessionStorage` only, never shared
+- [x] `XBNet.status()` exposes `turnConfigured`, `turnServers`, `turnSource` without credentials
+- [x] No `turn.json` means STUN only; malformed files/endpoints never block the lobby
+- [x] Examples, gitignored real config, build copy, `docs/hosting.md`
+- [x] Tests: `turn-config` and `turn-ui` transport scenarios
+- [ ] Real relay verification with coturn is manual; not part of the default suite
+
 ## How to run (dev)
 
 ```sh
@@ -87,7 +98,7 @@ python3 scripts/netplaytest.py --scenario six       # six players + a refused se
 python3 scripts/netplaytest.py --scenario match     # two-browser regression
 python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
 python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
-python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full
+python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full, turn-config, turn-ui
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with
@@ -96,8 +107,9 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 
 ## Known issues / notes
 
-- **No TURN.** Some NAT pairs cannot connect. Public relays are signalling only; they do
-  not relay game traffic.
+- **TURN is optional and hoster/player supplied.** Without a relay, some NAT pairs cannot
+  connect. Public Nostr relays are signalling only; they do not relay game traffic. The project's
+  own deployment runs no TURN; `docs/hosting.md` covers self-hosting and the player override.
 - **Host tab backgrounding can stall the match**: browsers throttle background timers and
   the engine loop is timer-driven. Keep the host tab in the foreground.
 - **No host migration.** Closing the host tab ends the match; a dropped guest is gone. There is
@@ -141,16 +153,17 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 - Networking: WebRTC star, host is the authoritative game server.
 - Signalling: vendored Trystero 0.26.0 (MIT) over public Nostr relays; no npm at build
   time and no CDN at runtime.
+- TURN is optional: deployer `turn.json` (static or credential endpoint) or a player override
+  in the lobby. The project runs no TURN service or credential endpoint.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2.
 - Attribution: every commit carries an `Assisted-by:` trailer.
 
 ## Next tasks (M3)
 
-1. TURN: optional relay fallback for restrictive NATs.
-2. Host migration and a host-backgrounding warning.
-3. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
+1. Host migration and a host-backgrounding warning.
+2. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
    an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
-4. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
+3. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
    `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
    scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
    `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the

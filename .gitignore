@@ -1,3 +1,6 @@
+# local TURN credentials
+web/turn.json
+
 # build artefacts
 web/dist/
 build/out/

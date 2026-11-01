@@ -96,5 +96,8 @@ fi
 if [ -f "$ROOT/web/turn.js" ]; then
 	cp "$ROOT/web/turn.js" "$OUT/turn.js"
 fi
+if [ -f "$ROOT/web/turn.json" ]; then
+	cp "$ROOT/web/turn.json" "$OUT/turn.json"
+fi
 mkdir -p "$OUT/vendor"
 cp -R "$ROOT/web/vendor/." "$OUT/vendor/"
