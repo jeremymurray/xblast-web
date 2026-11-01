@@ -300,16 +300,22 @@ def run(base, outdir):
             20, "guest control channel open")
         # The server requests the guest's game/player config after accepting.
         # Starting before those arrive makes Network_CreateGlobalGameConfig
-        # see only the host's player ("Need at least two teams/players").
-        try:
-            host.wait_js(
-                f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 50}",
-                20, "host received guest config")
-        except TimeoutError:
-            print("warning: host config traffic did not grow; continuing after a pause",
-                  file=sys.stderr, flush=True)
+        # see only the host's player ("Need at least two teams/players"), so
+        # this wait is a hard gate, not a warning.
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 50}",
+            20, "host received guest config")
         time.sleep(1.5)
         print("both peers connected; starting the match", flush=True)
+
+        # Activity counters only prove the DataChannels are alive. Record
+        # actTx immediately before Start, then require a substantial increase
+        # after the movement phase: pings alone add only single digits.
+        act_before = {
+            page.label: page.ev("globalThis.__xbnet ? __xbnet.stats().actTx : 0") or 0
+            for page in pages
+        }
+        print(f"actTx before Start: {json.dumps(act_before, sort_keys=True)}", flush=True)
 
         host.key("return")         # Start (default)
         time.sleep(3.0)
@@ -339,6 +345,12 @@ def run(base, outdir):
             for counter in ("ctlTx", "ctlRx", "actTx", "actRx"):
                 if not stats.get(counter, 0) > 0:
                     failures.append(f"{label}: {counter}={stats.get(counter)}")
+            # A match that never left the wait menus still exchanges pings,
+            # but not the per-frame action traffic a running game produces.
+            act_delta = stats.get("actTx", 0) - act_before.get(label, 0)
+            if act_delta < 100:
+                failures.append(
+                    f"{label}: actTx delta after Start={act_delta} (expected >=100)")
             if "show" in (snap.get("overlay") or "").split():
                 failures.append(f"{label}: overlay is showing")
             if not snap.get("peers"):
@@ -350,8 +362,10 @@ def run(base, outdir):
         for label, snap in snapshots.items():
             status = snap.get("status") or {}
             stats = snap.get("stats") or {}
+            act_delta = stats.get("actTx", 0) - act_before.get(label, 0)
             print(f"{label}: self={status.get('selfId')} peers={snap.get('peers')}")
             print(f"{label}: stats={json.dumps(stats, sort_keys=True)}")
+            print(f"{label}: actTx delta after Start={act_delta}")
         print("netplay: PASS")
         return 0
     except Exception:
