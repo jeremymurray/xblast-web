@@ -30,6 +30,14 @@ const CTL_DATA = 2;
 const CTL_EOF = 3;
 const CTL_CLOSE = 4;
 const CTL_STATUS = 5;
+const CTL_REJECT = 6;
+
+const REJECT_FULL = 1;
+
+/* Six players: the host plus five guests. Kept in JS because the room is
+ * joined before the engine loads; this build has MAX_PLAYER 6. */
+const MAX_CLIENTS = 5;
+const ROOM_FULL_MESSAGE = 'The room is full (6 players).';
 
 const STAGE_SETUP = 0;
 const STAGE_LISTENING = 1;
@@ -150,7 +158,27 @@ function removePending(s, peer) {
  * connected peer. This also stops clients counting each other's ignored
  * channel in the lobby chip. */
 function isActivePeer(peer) {
-  return Boolean(peer) && !peer.closed && !peer.invalid && peer.helloOk;
+  return Boolean(peer) && !peer.closed && !peer.invalid && !peer.rejected && peer.helloOk;
+}
+
+/* Distinct client ids that hold (or are queued for) a player slot. A peer that
+ * is rejected never counts, so a repeated hello cannot inflate the room. */
+function clientCount(s, exceptPeer) {
+  let count = 0;
+  if (!s) return count;
+  for (const peer of s.peers.values()) {
+    if (peer === exceptPeer) continue;
+    if (!isActivePeer(peer) || peer.remoteRole !== ROLE_CLIENT) continue;
+    if (peer.accepted || s.pending.includes(peer.id)) count++;
+  }
+  return count;
+}
+
+/* The room is at its six-player cap: tell the guest why and keep it out. */
+function rejectClient(s, peer) {
+  ctlSend(s, peer, new Uint8Array([CTL_REJECT, REJECT_FULL]));
+  peer.rejected = true;
+  removePending(s, peer);
 }
 
 function activePeers(s) {
@@ -252,6 +280,9 @@ function sendHello(s, peer) {
 }
 
 function handleHello(s, peer, bytes) {
+  // A peer that was refused stays out until it leaves; repeated hellos are
+  // retransmits, not a new request.
+  if (peer.rejected) return;
   const version = bytes[1];
   const remoteRole = bytes[2];
   const idLen = bytes[3];
@@ -278,12 +309,22 @@ function handleHello(s, peer, bytes) {
   s.joinErrorPeer = null;
   if (firstValid) {
     // The peer's channel may have existed before ours did, so its first hello
-    // can be lost. Echo ours once we know both channels are live.
+    // can be lost. Echo ours first: a guest must read the stage before any
+    // reject frame that follows on the same ordered channel.
     sendHello(s, peer);
   }
   if (s.role === 'host' && remoteRole === ROLE_CLIENT) {
     replaceClientPeer(s, peer, remoteClientId);
-    if (!peer.accepted && !s.pending.includes(peer.id)) s.pending.push(peer.id);
+    if (s.hostStage === STAGE_MATCH || s.hostStage === STAGE_IDLE) {
+      // Not accepting: the hello's stage already tells the guest why, so no
+      // reject frame, and the peer must not look connected or get a slot.
+      peer.rejected = true;
+      removePending(s, peer);
+    } else if (clientCount(s, peer) >= MAX_CLIENTS) {
+      rejectClient(s, peer);
+    } else if (!peer.accepted && !s.pending.includes(peer.id)) {
+      s.pending.push(peer.id);
+    }
   } else if (s.role === 'client' && remoteRole === ROLE_HOST) {
     bindConnectFds(s, peer);
   }
@@ -323,6 +364,16 @@ function handleCtlMessage(s, peer, data) {
     case CTL_STATUS:
       if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
         peer.hostStage = bytes[1];
+      }
+      break;
+    case CTL_REJECT:
+      if (bytes.length >= 2 && bytes[1] === REJECT_FULL) {
+        peer.rejected = true;
+        s.connectError = ROOM_FULL_MESSAGE;
+        s.lastError = s.connectError;
+        // Closing the stream makes the engine leave the wait screen instead of
+        // waiting for config that will never come.
+        closePeerChannels(s, peer, true);
       }
       break;
     default:
@@ -629,6 +680,11 @@ function connectState(fd) {
       s.lastError = s.connectError;
       return -1;
     }
+    if (peer.rejected) {
+      s.connectError = ROOM_FULL_MESSAGE;
+      s.lastError = s.connectError;
+      return -1;
+    }
     if (peer.ctlOpen && !peer.closed) return 1;
   }
   if (f.connectStarted && Date.now() - f.connectStarted > config.connectTimeoutMs) {
@@ -910,6 +966,7 @@ function relayReady() {
 
 function status() {
   const s = session;
+  const hostPeer = s ? findHostPeer(s) : null;
   return {
     role: s ? s.role : null,
     room: s ? s.room : null,
@@ -917,11 +974,14 @@ function status() {
     peers: s ? activePeers(s).length : 0,
     selfId,
     clientId: s ? s.clientId : null,
-    hostStage: s ? s.hostStage : null,
+    /* The host's own stage, or the stage its hello told a guest. */
+    hostStage: s ? (s.role === 'host' ? s.hostStage : (hostPeer ? hostPeer.hostStage : 0)) : null,
     error: s ? s.error : null,
     lastError: s ? s.lastError : null,
     connectError: s ? s.connectError : null,
     connectTimedOut: s ? s.connectTimedOut : false,
+    maxClients: MAX_CLIENTS,
+    full: Boolean(s && s.role === 'host' && clientCount(s, null) >= MAX_CLIENTS),
     relayReady: relayReady(),
     listening: s ? Boolean(s.engineListening) : false,
   };

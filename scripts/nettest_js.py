@@ -540,6 +540,126 @@ def run_replace(base):
             page.close()
 
 
+def run_full(base):
+    """Room capacity: five guests fit, a sixth is refused, a freed slot reopens it."""
+    room = unique_room("xbfull")
+    print(f"== full: room {room} ==", flush=True)
+    host = Page(f"{base}/test/net.html?role=host&room={room}&scenario=full")
+    guests = [Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
+              for _ in range(5)]
+    extra = None
+    rejoiner = None
+    late = None
+    pages = [("host", host)] + [(f"guest-{i + 1}", g) for i, g in enumerate(guests)]
+    try:
+        for label, page in pages:
+            require_net(page, label)
+        host_id = host.ev("XBNet.status().selfId")
+        guest_ids = [g.ev("XBNet.status().selfId") for g in guests]
+        check(len({host_id, *guest_ids}) == 6, "page selfIds are not distinct")
+        check(host.ev("XBNet.status().maxClients") == 5,
+              "status().maxClients is not the five-guest cap")
+
+        print("1. host listens, five guests connect", flush=True)
+        check(host.ev("__test.open(101, 'stream')") is True, "host open(101) failed")
+        check(host.ev("__test.listen(101)") is True, "host listen(101) did not return true")
+        for i, guest in enumerate(guests):
+            fd = 201 + i
+            check(guest.ev(f"__test.open({fd}, 'stream')") is True,
+                  f"guest {i + 1} open({fd}) failed")
+            guest.ev(f"__test.connect({fd})")
+            wait_connect(guest, fd)
+        host.wait_js("XBNet.status().peers === 5", 30, "host sees five helloed guests")
+
+        print("2. host accepts four; one stays pending", flush=True)
+        accepted = {}
+        for new_fd in (102, 103, 104, 105):
+            accepted[wait_accept(host, 101, new_fd)] = new_fd
+        check(len(accepted) == 4 and set(accepted) <= set(guest_ids),
+              f"host accepted {sorted(accepted)!r}, expected four of {sorted(guest_ids)!r}")
+
+        print("3. a sixth guest is refused while one is still pending", flush=True)
+        extra = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
+        require_net(extra, "guest-6")
+        extra.ev("__test.open(301, 'stream')")
+        extra.ev("__test.connect(301)")
+        extra.wait_js(
+            "(() => { const s = XBNet.status(); return s.connectError === "
+            "'The room is full (6 players).'; })()",
+            30, "sixth guest got the room-full message")
+        check(extra.ev("__test.connectState(301)") == -1,
+              "sixth guest connect did not fail")
+        check(extra.ev("XBNet.stats().peers") == 0,
+              "rejected guest still counts a connected peer")
+        check(host.ev("XBNet.status().peers") == 5,
+              "host peer count changed after the reject")
+        check(host.ev("XBNet.status().full") is True,
+              "host does not report the room as full")
+
+        print("4. the pending guest is accepted; the room stays full", flush=True)
+        pending = set(guest_ids) - set(accepted)
+        check(len(pending) == 1, f"expected one pending guest, got {sorted(pending)!r}")
+        accepted[wait_accept(host, 101, 106)] = 106
+        check(set(accepted) == set(guest_ids), "host did not accept every helloed guest")
+        check(host.ev("XBNet.status().peers") == 5, "host peer count is not five")
+        check(host.ev("XBNet.status().full") is True, "host stopped reporting full")
+
+        print("5. a rejoin of an existing client id still replaces while full", flush=True)
+        joiner_id = guests[1].ev("XBNet.status().clientId")
+        rejoiner = Page(f"{base}/test/net.html?role=client&room={room}"
+                        f"&scenario=full&clientId={joiner_id}")
+        require_net(rejoiner, "rejoiner")
+        rejoiner.ev("__test.open(401, 'stream')")
+        rejoiner.ev("__test.connect(401)")
+        wait_connect(rejoiner, 401)
+        check(wait_accept(host, 101, 107) == rejoiner.ev("XBNet.status().selfId"),
+              "host accepted the wrong peer for the rejoining client")
+        wait_eof(guests[1], 202)
+        host.wait_js("XBNet.status().peers === 5", 15, "host still has five guests")
+        check(host.ev("XBNet.status().full") is True, "host stopped reporting full")
+
+        print("6. a match stage outranks the capacity message", flush=True)
+        host.ev("__test.closeFd(101)")          # listen closes, accepted peers stay
+        host.wait_js("XBNet.status().hostStage === 2", 15, "host stage match")
+        check(host.ev("XBNet.status().full") is True, "host stopped reporting full")
+        late = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full")
+        require_net(late, "late")
+        late.ev("__test.open(501, 'stream')")
+        late.ev("__test.connect(501)")
+        # Poll like the engine does: the host's hello (and with it the stage)
+        # can arrive after the first connectState call.
+        late.wait_js(
+            "(() => { const st = __test.connectState(501); const s = XBNet.status(); "
+            "return st === -1 && s.connectError === "
+            "'The host is already in a match.'; })()",
+            30, "late guest got the match message")
+        check(late.ev("__test.connectState(501)") == -1, "late guest connect did not fail")
+        check(host.ev("XBNet.status().peers") == 5,
+              "host counted the late guest as a peer")
+
+        print("7. a guest leaving frees the slot", flush=True)
+        first = guest_ids[0]
+        host.ev(f"__test.closeFd({accepted[first]})")
+        wait_eof(guests[0], 201)
+        host.wait_js("XBNet.status().full === false", 15, "host no longer full")
+        check(host.ev("XBNet.stats().peers") == 4,
+              "host peer count is not four after a leave")
+
+        finish_pages(pages + [("guest-6", extra), ("rejoiner", rejoiner),
+                              ("late", late)], True)
+        print("full: PASS", flush=True)
+    except Exception as e:
+        finish_pages_best_effort(pages + [("guest-6", extra), ("rejoiner", rejoiner),
+                                          ("late", late)], e)
+        dump_pages([p for p in pages + [("guest-6", extra), ("rejoiner", rejoiner),
+                                        ("late", late)] if p[1] is not None])
+        raise
+    finally:
+        for page in [host, *guests, extra, rejoiner, late]:
+            if page is not None:
+                page.close()
+
+
 def dump_pages(pages):
     for label, page in pages:
         print(f"-- {label} page --", file=sys.stderr)
@@ -557,11 +677,12 @@ SCENARIOS = {
     "wrong-room": run_wrong_room,
     "multi": run_multi,
     "replace": run_replace,
+    "full": run_full,
 }
 
 
 def main():
-    wanted = sys.argv[1:] or ["basic", "wrong-room", "multi", "replace"]
+    wanted = sys.argv[1:] or ["basic", "wrong-room", "multi", "replace", "full"]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
         print(f"unknown scenario(s): {', '.join(unknown)}", file=sys.stderr)
