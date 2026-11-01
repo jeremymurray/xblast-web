@@ -113,3 +113,5 @@ python3 scripts/netplaytest.py         # two headless browsers: host/join, then 
 3. Chat UI over the reliable channel.
 4. Per-round state hash to detect and report desync.
 5. TURN: optional relay fallback for restrictive NATs.
+6. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
+   an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
