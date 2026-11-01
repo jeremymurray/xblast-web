@@ -23,6 +23,19 @@ def shot(ws, path):
     print("wrote", path)
 
 
+def wait_js(ws, expression, timeout=60):
+    """Poll the page until `expression` is truthy; no fixed-load sleeps."""
+    end = time.time() + timeout
+    while time.time() < end:
+        result = ws.call(6, "Runtime.evaluate", {
+            "expression": expression, "returnByValue": True,
+        })
+        if (result.get("result") or {}).get("value"):
+            return
+        time.sleep(0.2)
+    raise RuntimeError(f"timed out after {timeout}s waiting for {expression}")
+
+
 def main():
     url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8123/index.html"
     outdir = sys.argv[2] if len(sys.argv) > 2 else "/tmp"
@@ -45,13 +58,20 @@ def main():
         ws = cdp.WS(target["webSocketDebuggerUrl"])
         ws.call(1, "Page.enable")
         ws.call(2, "Runtime.enable")
+        wait_js(ws, "document.readyState === 'complete' && !!document.getElementById('play')",
+                30)
         ws.call(5, "Runtime.evaluate", {
             "expression": "document.getElementById('play') && document.getElementById('play').click()",
         })
-        time.sleep(9)                      # load + intro
-
-        cdp.send_key(ws, "space")          # dismiss intro
-        time.sleep(2)
+        wait_js(ws, "!!window.__xbReady", 90)   # engine runtime up
+        time.sleep(1.0)
+        # The intro animates, then waits up to 10 s for input. Clicking an empty
+        # area ends that wait and does nothing in a menu, so the timing stops
+        # mattering under load.
+        for _ in range(3):
+            cdp.send_click(ws, 480, 650)
+            time.sleep(1.2)
+        time.sleep(0.5)
         cdp.send_click(ws, 480, 168)       # Start Local Game
         time.sleep(2)
         cdp.send_click(ws, 384, 168)       # focus Right Keyboard combo
