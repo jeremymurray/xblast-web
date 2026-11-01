@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace slice done, 0.3.1; six-player slice designed)
+Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace and six-player slices done, 0.3.1)
 
 ## Milestones
 
@@ -9,7 +9,7 @@ Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace slice done, 0.3.1; six
 | M0 — engine boots in browser | **done** (0.1.0) |
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
-| M3 — 6-player, chat, reconnect | in progress (reconnect/replace done, 0.3.1) |
+| M3 — 6-player, chat, reconnect | in progress (reconnect/replace and six players done, 0.3.1) |
 | M4 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
 
 ## M2 checklist
@@ -53,6 +53,17 @@ stale client instead of keeping a dead slot. A refresh after the match has start
 quickly with a clear "host is already in a match / not accepting players" message instead of
 hanging. Host migration and mid-match resume remain future work.
 
+## M3 six players (multi-guest)
+
+- [x] Host accepts five guests and refuses a sixth with "The room is full (6 players)."
+      (`CTL_REJECT`); a rejoin by an existing client id still replaces while the room is full
+- [x] A host in `match`/`idle` sends no reject: its hello's stage gives the clearer reason
+- [x] Host lobby shows `n of 5 guests connected` and `room full`
+- [x] `--scenario guests` (host + two guests) is the default netplay run
+- [x] `--scenario six` (host + five guests, plus a refused seventh page) is opt-in
+- [x] Intro dismissal uses harmless clicks, so multi-engine runs no longer lose input
+- [ ] 16-player `-DSMPF` build (optional, M4)
+
 ## How to run (dev)
 
 ```sh
@@ -61,23 +72,27 @@ python3 -m http.server -d web/dist 8123
 # open http://localhost:8123/
 ```
 
-Solo: click Play. Multiplayer: open a second browser (or a second profile/window),
-type the same room code in both, click **Host** in one and **Join** in the other, then
-start a network game from the menu. The room code is the game/room identifier.
+Solo: click Play. Multiplayer: open up to six browsers (or profiles), type the same
+room code in each, click **Host** in one and **Join** in the others, then start a network
+game from the menu. The room code is the game/room identifier; a sixth guest is refused
+with "The room is full (6 players).".
 
 Scripted checks:
 
 ```sh
 python3 scripts/cdp_shot.py http://localhost:8123/index.html /tmp/shot.png 8
 python3 scripts/playtest.py            # solo: assigns Olaf, starts a game, moves/bombs
-python3 scripts/netplaytest.py         # two headless browsers: host/join, then a match
+python3 scripts/netplaytest.py         # three browsers: host + two guests, then a match
+python3 scripts/netplaytest.py --scenario six       # six players + a refused seventh (heavy)
+python3 scripts/netplaytest.py --scenario match     # two-browser regression
 python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
 python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
+python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with
 `XB_TEST_OFFLINE=1`) and starts Chromium with
-`--disable-features=WebRtcHideLocalIpsWithMdns` so both local pages can connect.
+`--disable-features=WebRtcHideLocalIpsWithMdns` so the local pages can connect.
 
 ## Known issues / notes
 
@@ -98,7 +113,11 @@ python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails 
   `/.well-known/appspecific/com.chrome.devtools.json`, and DevTools requests the
   `*.mjs.map` files we intentionally stripped from the vendored bundle. No normal page
   load requests either.
-- **Only two players (one host, one guest) have been verified**; 6-player is M3.
+- **Verified player counts:** three browsers end to end (host + two guests) are the default
+  test; six (host + five guests) run on demand with `--scenario six`, which needs six engine
+  pages and several minutes.
+- **A full room needs a reload to retry.** A refused guest's channels are closed; the lobby's
+  Rejoin after a reload is the way back in once a slot frees.
 - **No per-round desync hash.** Divergence would be silent; M3 adds a state hash.
 - **The room persists after a match.** Leaving a match returns to the menu but stays in
   the room; use **Leave** or *Multiplayer Lobby* on the main menu, which reloads.
@@ -125,14 +144,13 @@ python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails 
 
 ## Next tasks (M3)
 
-1. Six players: accept multiple guests, player slots in the lobby and game setup.
-2. Chat UI over the reliable channel.
-3. Per-round state hash to detect and report desync.
-4. TURN: optional relay fallback for restrictive NATs.
-5. Host migration and a host-backgrounding warning.
-6. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
+1. Chat UI over the reliable channel.
+2. Per-round state hash to detect and report desync.
+3. TURN: optional relay fallback for restrictive NATs.
+4. Host migration and a host-backgrounding warning.
+5. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
    an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
-7. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
+6. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
    `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
    scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
    `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the

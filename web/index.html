@@ -423,8 +423,13 @@
     if (status.error) {
       stateText = status.error;
       dot = 'err';
+    } else if (status.role === 'host' && status.full) {
+      stateText = `room full — ${peers} of ${status.maxClients} guests`;
+      dot = 'warn';
     } else if (peers > 0) {
-      stateText = `${peers} peer${peers === 1 ? '' : 's'} connected`;
+      stateText = status.role === 'host'
+        ? `${peers} of ${status.maxClients} guests connected`
+        : `${peers} peer${peers === 1 ? '' : 's'} connected`;
       dot = 'ok';
     } else if (guestFailed) {
       stateText = status.connectError || status.lastError || 'connection failed';

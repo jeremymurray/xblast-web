@@ -82,12 +82,16 @@ pages.
 - On a valid client hello the host first runs the existing replace-by-client-id path, then
   counts client peers with a hello that are not closed and are still accepted or pending.
 - If this client id is not among them and the count is already `MAX_CLIENTS`, the host sends
-  `CTL_REJECT` with reason `1` (room full), marks the peer `rejected`, keeps it out of pending,
-  and closes its channels after ~1 s so the frame can flush.
-- A rejected peer's repeated hellos are ignored (no re-queue).
-- The guest's `connectState(fd)` returns `-1` with
-  `connectError = "The room is full (6 players)."` as soon as a reject arrives, and closes its
-  side.
+  `CTL_REJECT` with reason `1` (room full), marks the peer `rejected`, and keeps it out of
+  pending. Further hellos from a rejected peer are ignored until it leaves.
+- The guest marks the host peer rejected, sets
+  `connectError = "The room is full (6 players)."`, and closes its channels: its stream EOFs,
+  so the engine drops out of the wait screen instead of hanging.
+- A retry on the same page cannot reuse the closed channels; the lobby's **Rejoin** after a
+  reload is the way back in, as with the pre-match reconnect flow.
+- Capacity rejection only applies while the host is in `setup` or `listening`. In `match` or
+  `idle` the hello's stage already gives the guest a clearer error ("already in a match" /
+  "not accepting players"), so the host sends no reject frame there.
 - If the reject frame is lost the guest falls back to today's connect timeout; the message is
   still bounded by the timeout, not a hang.
 
@@ -135,14 +139,14 @@ build, as the reconnect slice already requires, so no version bump is needed for
 
 ## 10. Risks
 
-- The host can briefly hold a rejected peer in its map until the delayed close; `activePeers`
-  excludes it, so counts stay correct.
+- The host can briefly hold a rejected peer in its map until that peer leaves or a retry is
+  accepted; `activePeers` excludes rejected peers, so counts stay correct.
 - Replacement racing the capacity check: replacement runs first and closes the old peer, so the
   count does not include it.
 - Six engine pages on one machine is heavy (each preloads ~15 MB of data); the `six` scenario is
   opt-in and may need longer waits than the three-page run.
-- The 1 s flush delay before closing a rejected peer is a heuristic; a lost frame degrades to the
-  existing timeout.
+- A rejected guest keeps idle channels until it leaves or retries; a lost reject frame degrades
+  to the existing connect timeout.
 
 ## 11. Process
 
