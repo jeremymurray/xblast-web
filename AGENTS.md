@@ -29,9 +29,12 @@ GPL-2.0-or-later.
   reload the lobby. They are not removed from the shared engine source.
 - **Netplay test:** `scripts/netplaytest.py` needs internet (public Nostr relays) and starts
   Chromium with `--disable-features=WebRtcHideLocalIpsWithMdns` so two local pages connect.
-- **M2 playtest:** Chrome + Firefox on one machine played a match. Refresh/rejoin is not clean
-  (new peer id; the host can hold the stale client); that is M3 reconnect/replace. Public-relay
-  502s and DevTools source-map 404s are cosmetic.
+- **M2 playtest:** Chrome + Firefox on one machine played a match. Public-relay 502s and DevTools
+  source-map 404s are cosmetic.
+- **Reconnect/replace (0.3.1):** hello v2 carries a stable per-tab client id; the host replaces an
+  old peer with the same id, closing its channels so the engine frees the slot. A host stage
+  status (`setup`/`listening`/`match`/`idle`) makes a mid-match refresh fail clearly. The lobby
+  stores the last room and offers Rejoin/Re-host; no auto-load. Mid-match resume/replay is later.
 - **Hosting:** plain static files, deployable to GitHub Pages. No server-side code anywhere in the
   default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
   Nostr relays; **TURN is required for some NAT pairs** and is not wired up yet, so those pairs
@@ -59,7 +62,7 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
 ## Versioning
-- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.3.0** (M2 done).
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.3.1** (M2 done; M3 reconnect/replace slice).
 - Bump MINOR when a milestone lands (M3 → 0.4.0), PATCH for playtest fixes.
 - Tag annotated releases on `main` after the merge. Only git tags record the version; there is no
   version file, so keep this line and `PROGRESS.md` current.
@@ -77,8 +80,8 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M3: reconnect/replace first (stable per-tab id, host replaces the old peer, host migration and
-backgrounding warning), then six players, chat UI, per-round desync hash and TURN fallback.
+M3: six players, chat UI, per-round desync hash, TURN fallback, host migration and backgrounding
+warning. Mid-match resume/replay is a later item.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

@@ -16,6 +16,7 @@ import functools
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -524,6 +525,86 @@ def run_refresh(base, outdir):
             page.close()
 
 
+def run_midmatch(base, outdir):
+    """A guest who refreshes after the match starts must fail clearly, not hang."""
+    room = f"m2-midmatch-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    guest = Page(f"{base}/", "guest")
+    pages = [host, guest]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                15, f"{page.label} lobby")
+        print(f"== midmatch room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        if not start_lobby_page(guest, "join", room):
+            raise AssertionError("could not click #join")
+        for page in pages:
+            wait_engine(page)
+        dismiss_intro(host)
+        dismiss_intro(guest)
+
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+            40, "guest connected before host Continue")
+        choose_first_player(host)
+        host_ctl_before = host.ev("globalThis.__xbnet ? __xbnet.stats().ctlRx : 0") or 0
+        host.key("return")
+        for page in pages:
+            page.wait_js("globalThis.__xbnet && __xbnet.stats().peers >= 1",
+                         40, f"{page.label} peer")
+        host.wait_js(
+            f"globalThis.__xbnet && __xbnet.stats().ctlRx >= {host_ctl_before + 50}",
+            20, "host received guest config")
+        time.sleep(1.5)
+        host.key("return")         # Start
+        time.sleep(3.0)
+        host.key("space")
+        guest.key("space")
+        time.sleep(2.0)
+        print("match running; guest reloads and tries to rejoin", flush=True)
+
+        guest.reload()
+        guest.wait_js(
+            "document.readyState === 'complete' && !!document.getElementById('rejoin')",
+            20, "guest rejoin banner")
+        if not click_rejoin(guest):
+            raise AssertionError("could not click #rejoin")
+        wait_engine(guest)
+        dismiss_intro(guest)
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "(() => { try { const s = __xbnet.status();"
+            " return /already in a match|not accepting players/i.test("
+            "s.connectError || s.lastError || ''); } catch (e) { return false; } })()",
+            20, "guest gets a clear mid-match refusal")
+        if guest.ev("__xbnet.connectState(1000)") != -1:
+            raise AssertionError("mid-match connect did not fail")
+        reason = guest.ev("__xbnet.status().connectError || __xbnet.status().lastError || ''")
+        shot(guest, os.path.join(outdir, "midmatch-guest-error.png"))
+        print(f"midmatch: PASS ({reason})", flush=True)
+        return 0
+    except Exception:
+        for page in pages:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        try:
+            shot(host, os.path.join(outdir, "midmatch-failure-host.png"))
+            shot(guest, os.path.join(outdir, "midmatch-failure-guest.png"))
+        except Exception:
+            pass
+        return 1
+    finally:
+        for page in pages:
+            page.close()
+
+
 def main():
     if os.environ.get("XB_TEST_OFFLINE") == "1":
         print("SKIP: XB_TEST_OFFLINE=1; the netplay test needs internet access "
@@ -540,7 +621,7 @@ def main():
             print("--scenario needs a value", file=sys.stderr)
             return 2
         del args[index:index + 2]
-    if scenario not in ("match", "refresh"):
+    if scenario not in ("match", "refresh", "midmatch"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -553,6 +634,8 @@ def main():
     try:
         if scenario == "refresh":
             return run_refresh(base, outdir)
+        if scenario == "midmatch":
+            return run_midmatch(base, outdir)
         return run(base, outdir)
     finally:
         server.shutdown()
