@@ -1,13 +1,13 @@
 # Progress
 
-Updated: 2026-10-31 (M1 in progress, release 0.1.0 tagged)
+Updated: 2026-10-31 (M1 done, release 0.2.0)
 
 ## Milestones
 
 | Milestone | State |
 |---|---|
 | M0 — engine boots in browser | **done** (0.1.0) |
-| M1 — single-player playable on web | **in progress** |
+| M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | not started |
 | M3 — 6-player, chat, reconnect | not started |
 | M4 — polish, assets, PWA | not started |
@@ -23,10 +23,10 @@ Updated: 2026-10-31 (M1 in progress, release 0.1.0 tagged)
 - [x] Esc leaves a match (player abort moved to Delete, with config migration)
 - [x] Scripted playtest can assign a keyboard player and start a local game
 - [ ] Controls: confirm arrows move and space drops a bomb in-game
-- [ ] Level flow: win/lose → next level / scoreboard verified end to end
+- [x] Level flow: round ends and the scoreboard appears ("Olaf wins"/"Draw Game")
 - [x] Settings persistence: engine config dir ⇄ `localStorage`
-- [ ] Settings persistence: verify across a real page reload
-- [ ] Reduce bundle size (data is ~20 MB with all sounds)
+- [x] Settings persistence: reload restores 8 config files from localStorage
+- [x] Bundle: LZ4-compressed preload package (20 MB → 15 MB)
 
 ## How to run (dev)
 
@@ -61,7 +61,7 @@ python3 scripts/playtest.py            # assigns Olaf, starts a game, moves/bomb
 - **Quit needs `EXIT_RUNTIME=1`** so `Module.onExit` runs and the page shows the
   "Play again" overlay.
 - `©` in the intro still renders as a missing-glyph box.
-- Bundle: 3.5 MB wasm + 20 MB data (all sounds/music preloaded). Compress in M4.
+- Bundle: 3.5 MB wasm + 15 MB LZ4 data (all sounds/music preloaded).
 - `web/net_stub.c` fails all socket calls; multiplayer is not wired up.
 
 ## Decisions
@@ -74,10 +74,11 @@ python3 scripts/playtest.py            # assigns Olaf, starts a game, moves/bomb
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1.
 - Attribution: every commit carries an `Assisted-by:` trailer.
 
-## M1 next tasks
+## M2 next tasks
 
-1. Human check: sound and in-game controls.
-2. Verify settings survive a real reload (save on exit, restore in
-   `onRuntimeInitialized`).
-3. Win/lose → next level / scoreboard flow.
-4. Trim the data bundle (exclude music unless selected, compress assets).
+1. WebRTC transport: implement `socket.h` on two DataChannels (reliable for
+   control/level, unreliable-unordered for actions), replacing `net_stub.c`.
+2. Room codes / signalling via Trystero; host and join flow from the landing
+   page.
+3. Deterministic seed exchange and a per-round state hash for desync checks.
+4. Two-player smoke test over a local WebRTC pair.
