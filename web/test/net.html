@@ -203,6 +203,20 @@
         mem.setItem(turn.PLAYER_STORAGE_KEY, '{not json');
         T.check('bad stored json is null', turn.readPlayerOverride(mem) === null);
 
+        XB.configure({ turnConfig: [cfg('turn:relay.example.org:3478')], turnSource: 'player' });
+        let status = XBNet.status();
+        T.check('status count', status.turnConfigured === true && status.turnServers === 1);
+        T.check('status source', status.turnSource === 'player');
+        T.check('status hides credential', !JSON.stringify(status).includes('"p"'));
+        XB.configure({ turnConfig: [cfg('stun:stun.example.org')], turnSource: 'file' });
+        status = XBNet.status();
+        T.check('invalid config clears', status.turnConfigured === false &&
+          status.turnServers === 0 && status.turnSource === null);
+        XB.configure({ turnConfig: [cfg('turn:relay.example.org:3478')], turnSource: 'bogus' });
+        T.check('bogus source is null', XBNet.status().turnSource === null);
+        XB.configure({ turnConfig: [] });
+        T.check('empty clears', XBNet.status().turnConfigured === false);
+
         T.ready = true;
         T.finish(true);
       } catch (e) {
