@@ -16,13 +16,26 @@ GPL-2.0-or-later.
   **No sdl12-compat** — it dlopens SDL2, which is unavailable in wasm. The SDL backend is ported
   directly to SDL 2 (`web/compat/`, `web/sdl_web.c`).
 - **Network:** WebRTC star, host = authoritative game server. Two DataChannels: reliable-ordered
-  for control/level/chat, unreliable-unordered for per-frame actions. Map onto `socket.h`.
-- **Lobby/signalling:** Trystero (serverless room codes). TURN still required for some NATs;
-  relay mode is an optional fallback, never the default.
+  `xb.ctl` for control/level/chat, unreliable-unordered `xb.act` for per-frame actions. Map onto
+  `socket.h`.
+- **Signalling:** vendored Trystero 0.26.0 (`nostr` + `core`) and `@noble/secp256k1`, MIT, no npm
+  at build time and no CDN at runtime. `./scripts/vendor-trystero.sh` regenerates them.
+- **Room lifecycle:** the room is page-owned (`web/index.html`), not fd-owned. It is joined when
+  **Host** or **Join** is clicked and the code is the game/room identifier; the engine's socket
+  shim only attaches synthetic fds. Closing a stream never leaves the room; only **Leave** or the
+  **Multiplayer Lobby** main-menu entry (a page reload) does.
+- **Web main menu:** Solo, Multiplayer Lobby, Options, Quit. The legacy IRC/central-server
+  screens are unreachable on web: the main menu replaces them, and old entry points redirect or
+  reload the lobby. They are not removed from the shared engine source.
+- **Netplay test:** `scripts/netplaytest.py` needs internet (public Nostr relays) and starts
+  Chromium with `--disable-features=WebRtcHideLocalIpsWithMdns` so two local pages connect.
 - **Hosting:** plain static files, deployable to GitHub Pages. No server-side code anywhere in the
-  default path.
-- **Licensing:** whole work published as GPL-2.0-or-later with complete corresponding source.
-- No rollback/prediction, no TypeScript rewrite, no central server before M1 ships.
+  default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
+  Nostr relays; **TURN is required for some NAT pairs** and is not wired up yet, so those pairs
+  cannot connect.
+- **Licensing:** whole work published as GPL-2.0-or-later with complete corresponding source;
+  vendored Trystero/noble stay MIT.
+- No rollback/prediction, no TypeScript rewrite, no central server.
 - **Web build skips screen fades** (`__EMSCRIPTEN__` in `sdl_pixmap.c`): the
   blocking `SDL_Delay` wipe stalls Asyncify and feels slow. Keep transitions
   instant until a non-blocking fade is implemented.
@@ -43,9 +56,10 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
 ## Versioning
-- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.1.0** (M0 done).
-- Bump MINOR when a milestone lands (M1 → 0.2.0), PATCH for playtest fixes.
-- Tag annotated releases on `main` after the merge.
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.3.0** (M2 done).
+- Bump MINOR when a milestone lands (M3 → 0.4.0), PATCH for playtest fixes.
+- Tag annotated releases on `main` after the merge. Only git tags record the version; there is no
+  version file, so keep this line and `PROGRESS.md` current.
 
 ## Engine change conventions
 - Browser-only behaviour changes in `engine/` are wrapped in
@@ -60,8 +74,8 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M0: prove the menu renders in a real browser and input works; remove debug probes; then merge
-`m0-sdl2-port` into `main`.
+M3: six players, chat UI, reconnect/host migration, per-round desync hash, TURN fallback, and
+handling host tab backgrounding.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

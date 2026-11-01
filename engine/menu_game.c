@@ -23,6 +23,11 @@
 
 #include "xblast.h"
 
+#ifdef __EMSCRIPTEN__
+/* web port: page-owned room entry points. */
+#include "net_web.h"
+#endif
+
 /*
  * local constants
  */
@@ -381,7 +386,12 @@ ButtonStartClient (void *par)
 		playerList = NULL;
 	}
 	/* next menu screen */
+#ifdef __EMSCRIPTEN__
+	/* web port: the lobby already joined the room; attach the engine stream. */
+	return XBWeb_ClientConnect (par);
+#else
 	return CreateClientMenu (par);
+#endif
 }								/* ButtonSelectLevels */
 
 /*
@@ -452,7 +462,12 @@ ButtonStartServer (void *par)
 		playerList = NULL;
 	}
 	/* goto next screen */
+#ifdef __EMSCRIPTEN__
+	/* web port: the lobby already joined the room; attach the engine stream. */
+	return XBWeb_ServerListen (par);
+#else
 	return CreateServerMenu (par);
+#endif
 }								/* ButtonSelectLevels */
 
 /*
@@ -669,7 +684,12 @@ CreateStartNetGameMenu (void *par)
 	mlp.funcAbort = CreateStartNetGameMenu;
 	mlp.parAbort = par;
 	mlp.textDefault = N_("Cont.");
+#ifdef __EMSCRIPTEN__
+	/* web port: the level menu returns to the room-backed host path. */
+	mlp.funcDefault = ButtonStartServer;
+#else
 	mlp.funcDefault = CreateServerMenu;
+#endif
 	mlp.parDefault = par;
 	/* build menu */
 	MenuClear ();
@@ -726,6 +746,15 @@ CreateJoinNetGameMenu (void *par)
 	/* Buttons */
 	MenuSetAbort (MenuAddHButton
 				  (4 * CELL_W / 2, MENU_BOTTOM, 5 * CELL_W, N_("Back"), ButtonMainMenu, NULL));
+#ifdef __EMSCRIPTEN__
+	/* web port: the page-owned room replaces central and LAN search. */
+	idButtonCentral = 0;
+	idButtonLevels = 0;
+	idButtonStart =
+		MenuAddHButton (17 * CELL_W / 2, MENU_ROW (7), 5 * CELL_W, N_("Connect ..."), ButtonStartClient,
+						par);
+	MenuSetDefault (idButtonStart);
+#else
 	idButtonCentral =
 		MenuAddHButton (17 * CELL_W / 2, MENU_ROW (6), 5 * CELL_W, N_("Search Central"),
 						ButtonSearchCentral, par);
@@ -736,6 +765,7 @@ CreateJoinNetGameMenu (void *par)
 		MenuAddHButton (17 * CELL_W / 2, MENU_BOTTOM, 5 * CELL_W, N_("Search LAN"), ButtonSearchLan,
 						par);
 	MenuSetDefault (idButtonLevels);
+#endif
 	/* polling */
 	MenuAddCyclic (PollStartGame, par);
 	/* --- */

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="importmap">
+{"imports":{
+  "@trystero-p2p/nostr":"./vendor/trystero/nostr/index.mjs",
+  "@trystero-p2p/core":"./vendor/trystero/core/index.mjs",
+  "@noble/secp256k1":"./vendor/trystero/noble/index.js"
+}}
+</script>
+<title>XBlast socket shim test</title>
+</head>
+<body>
+<pre id="status">loading socket shim test</pre>
+<script>
+  window.__nettest = {done:false, msg:'', error:null};
+  const params = new URLSearchParams(location.search);
+  const role = params.get('role') === 'client' ? 'client' : 'host';
+  const room = params.get('room') || 'test-room';
+  globalThis.xbConfig = {mode:role, room};
+
+  function pageFailure(error) {
+    const msg = error && error.message ? error.message : String(error);
+    window.__nettest = {done:true, msg:'fail:page:' + msg, error:msg};
+  }
+
+  window.Module = {
+    noInitialRun: true,
+    onRuntimeInitialized() {
+      try {
+        const result = Module._xb_test_run();
+        if (result && typeof result.then === 'function') result.catch(pageFailure);
+      } catch (error) {
+        pageFailure(error);
+      }
+    },
+  };
+</script>
+<script type="module">
+  try {
+    await import('./net.js');
+    if (!globalThis.XBNet) throw new Error('XBNet is undefined');
+    XBNet.enter(role, room);
+    document.getElementById('status').textContent =
+      `role=${role} room=${room} self=${XBNet.status().selfId}`;
+    const script = document.createElement('script');
+    script.src = './nettest.js';
+    script.onerror = () => pageFailure(new Error('could not load nettest.js'));
+    document.body.appendChild(script);
+  } catch (error) {
+    pageFailure(error);
+  }
+</script>
+</body>
+</html>

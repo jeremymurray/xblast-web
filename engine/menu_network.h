@@ -35,6 +35,12 @@ extern XBBool CreateSearchLanMenu (void *par);
 extern XBBool CreateSearchCentralMenu (void *par);	// XBCC
 extern void setAutoCentral2 (XBBool set);
 
+#ifdef __EMSCRIPTEN__
+/* web port: page-owned room entry points (see menu_network.c). */
+extern XBBool XBWeb_ServerListen (void *par);
+extern XBBool XBWeb_ClientConnect (void *par);
+#endif
+
 #endif
 /*
  * end of file menu_network.h

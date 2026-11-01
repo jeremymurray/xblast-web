@@ -42,7 +42,7 @@ sdl_joystick.c sdl_sound.c
 "
 
 WEB_GLUE="
-net_stub.c sdl_web.c
+net_web.c sdl_web.c
 "
 
 SOURCES=""
@@ -55,6 +55,7 @@ CFLAGS=(
 	-DHAVE_CONFIG_H
 	-DXBLAST_SOUND
 	-I"$ROOT/build/gen"
+	-I"$ROOT/web"
 	-I"$ROOT/web/compat"
 	-I"$ROOT/engine"
 	-Wno-implicit-function-declaration
@@ -89,3 +90,8 @@ emcc "${CFLAGS[@]}" $SOURCES "${LDFLAGS[@]}" -o "$OUT/xblast.js"
 
 echo "built $OUT/xblast.js"
 cp "$ROOT/web/index.html" "$OUT/index.html"
+if [ -f "$ROOT/web/net.js" ]; then
+	cp "$ROOT/web/net.js" "$OUT/net.js"
+fi
+mkdir -p "$OUT/vendor"
+cp -R "$ROOT/web/vendor/." "$OUT/vendor/"

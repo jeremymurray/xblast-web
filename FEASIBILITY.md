@@ -1,7 +1,7 @@
 # XBlast in the browser with P2P multiplayer — feasibility report
 
 Date: 2026-10-31
-Status: M0 (build spike) in progress
+Status: M2 done (two-player P2P, release 0.3.0)
 Target: a publicly publishable, browser-playable XBlast TNT with peer-to-peer multiplayer
 Source: XBlast TNT 2.10.4 (upstream release + Debian patches), data from the Debian GPL-2+ packages
 
@@ -191,6 +191,10 @@ Do **not** attempt rollback netcode, a new level editor, or a rewrite before M1 
 ---
 
 ## 7. Missing features and gaps
+
+> **Superseded at M2 (0.3.0):** the lobby UI, WebRTC transport shim and lobby
+> lifecycle listed below are implemented; see `PROGRESS.md` for current status.
+> This section is kept as the original M1 gap analysis.
 
 Engine-level (must add):
 - **Lobby/matchmaking UI** — no room codes, player discovery, or "waiting for players" flow for
