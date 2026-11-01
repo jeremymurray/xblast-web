@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Two-browser acceptance test for the room-code host/join lobby.
+"""Multi-browser acceptance test for the room-code host/join lobby.
 
-Builds the web bundle, serves it locally, drives a host and a guest page
-through two headless Chromes, and proves that the host starts listening in
-the page-owned room, the guest connects before the host leaves its setup
-menu, and both pages exchange reliable control and unreliable action traffic
+Builds the web bundle, serves it locally, drives a host and up to five guest
+pages through headless Chromes, and proves that the host starts listening in
+the page-owned room, the guests connect before the host leaves its setup
+menu, and every page exchanges reliable control and unreliable action traffic
 on the playfield.
 
-Usage: python3 scripts/netplaytest.py [outdir]
+Usage: python3 scripts/netplaytest.py [--scenario match|guests|six|refresh|midmatch] [outdir]
+
+`guests` (host + two guests) is the default; `six` needs six pages and is slow.
 
 Set XB_TEST_OFFLINE=1 to skip (the test needs public Nostr relays).
 """
@@ -554,12 +556,13 @@ def run_six(base, outdir):
         # page needs no engine to prove the refusal.
         light = Page(f"{base}/test/net.html?role=client&room={room}&scenario=full", "light")
         light.wait_js("globalThis.XBNet && __test.ready === true", 30, "light guest ready")
+        light.ev("__test.configure({connectTimeoutMs: 90000})")
         light.ev("__test.open(301, 'stream')")
         light.ev("__test.connect(301)")
         light.wait_js(
             "(() => { const st = __test.connectState(301); const s = XBNet.status(); "
             "return st === -1 && s.connectError === 'The room is full (6 players).'; })()",
-            30, "seventh guest refused")
+            60, "seventh guest refused")
         if light.ev("XBNet.stats().peers") != 0:
             raise AssertionError("refused guest still counts a connected peer")
         if host.ev("globalThis.__xbnet.stats().peers") != 5:
