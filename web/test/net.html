@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="importmap">
+{"imports":{
+  "@trystero-p2p/nostr":"../vendor/trystero/nostr/index.mjs",
+  "@trystero-p2p/core":"../vendor/trystero/core/index.mjs",
+  "@noble/secp256k1":"../vendor/trystero/noble/index.js"
+}}
+</script>
+<title>XBlast net.js transport test</title>
+<style>
+  body { background: #111; color: #ddd; font: 13px/1.5 monospace; padding: 1em; }
+  h1 { font-size: 1.1em; color: #ffd400; }
+  #lines { white-space: pre-wrap; }
+  .ok { color: #6f6; }
+  .bad { color: #f66; }
+</style>
+</head>
+<body>
+<h1>XBlast net.js transport test</h1>
+<div id="meta"></div>
+<div id="lines"></div>
+<script>
+  /*
+   * Test-only page for web/net.js. The Python harness drives the steps;
+   * this page only exposes serialisable wrappers and the run state.
+   */
+  const params = new URLSearchParams(location.search);
+  const role = params.get('role') === 'client' ? 'client' : 'host';
+  const room = params.get('room') || 'test-room';
+  const scenario = params.get('scenario') || 'basic';
+
+  const T = {
+    role, room, scenario,
+    ready: false, done: false, ok: false, lines: [], error: null,
+    log(line) {
+      this.lines.push(String(line));
+      const el = document.getElementById('lines');
+      if (el) el.textContent = this.lines.join('\n');
+      console.log('xbtest:', line);
+    },
+    finish(ok, error) {
+      this.ok = !!ok;
+      this.error = error ? String(error) : null;
+      this.done = true;
+      this.log(ok ? 'PASS' : 'FAIL: ' + this.error);
+    },
+    requireNet() {
+      const net = globalThis.XBNet;
+      if (!net) throw new Error('XBNet is undefined');
+      return net;
+    },
+    recv(fd, max) {
+      const r = this.requireNet().recv(fd, max);
+      if (r && r.kind === 'data') return {kind: 'data', data: Array.from(r.data)};
+      return {kind: r ? r.kind : 'error'};
+    },
+    send(fd, bytes) { return this.requireNet().send(fd, Uint8Array.from(bytes)); },
+    open(fd, kind) { this.requireNet().open(fd, kind); return true; },
+    listen(fd, room_) { return this.requireNet().listen(fd, room_); },
+    connect(fd, room_) { this.requireNet().connect(fd, room_); return this.requireNet().connectState(fd); },
+    connectState(fd) { return this.requireNet().connectState(fd); },
+    cancelConnect(fd) { this.requireNet().cancelConnect(fd); return true; },
+    accept(listenFd, newFd) { return this.requireNet().accept(listenFd, newFd); },
+    attachPeer(fd, peer) { return this.requireNet().attachPeer(fd, peer); },
+    shutdownWrite(fd) { this.requireNet().shutdownWrite(fd); return true; },
+    closeFd(fd) { this.requireNet().close(fd); return true; },
+    status() { return this.requireNet().status(); },
+    stats() { return this.requireNet().stats(); },
+    peerIds() { return this.requireNet().peerIds(); },
+    localName(fd) { return this.requireNet().localName(fd); },
+    remoteName(fd) { return this.requireNet().remoteName(fd); },
+    localPort(fd) { return this.requireNet().localPort(fd); },
+    remotePort(fd) { return this.requireNet().remotePort(fd); },
+    configure(opts) { this.requireNet().configure(opts); return true; },
+    leave() { this.requireNet().leave(); return true; },
+  };
+  globalThis.__test = T;
+  document.getElementById('meta').textContent =
+    `role=${role} room=${room} scenario=${scenario}`;
+</script>
+<script type="module">
+  const T = globalThis.__test;
+  try {
+    // Importing first makes a missing/blocked net.js visible as a module
+    // error instead of an obscure "undefined" during the scenario.
+    await import('../net.js');
+    const XB = globalThis.XBNet;
+    if (!XB) throw new Error('XBNet is undefined after importing ../net.js');
+
+    if (T.scenario === 'wrong-room') XB.configure({connectTimeoutMs: 500});
+    XB.enter(T.role, T.room);
+    if (T.scenario === 'wrong-room') {
+      XB.open(301, 'stream');
+      XB.connect(301);
+    }
+    T.ready = true;
+    T.log(`session ready: role=${T.role} room=${T.room} self=${XB.status().selfId}`);
+  } catch (e) {
+    T.error = e && e.message ? e.message : String(e);
+    T.log('module failure: ' + T.error);
+  }
+</script>
+</body>
+</html>
