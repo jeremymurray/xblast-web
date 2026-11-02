@@ -770,6 +770,24 @@ CreateJoinNetGameMenu (void *par)
 	MenuAddCyclic (PollStartGame, par);
 	/* --- */
 	MenuSetLinks ();
+#ifdef __EMSCRIPTEN__
+	/* web port: a takeover reload can auto-connect if the guest already has a
+	 * local player; otherwise fall back to the normal join menu. */
+	if (XBWeb_AutoJoin ()) {
+		int i;
+		XBBool hasPlayer = XBFalse;
+		for (i = 0; i < NUM_LOCAL_PLAYER; i++) {
+			if (ATOM_INVALID != _gamePlayers[i]) {
+				hasPlayer = XBTrue;
+				break;
+			}
+		}
+		XBWeb_ClearAutoJoin ();
+		if (hasPlayer) {
+			return ButtonStartClient (par);
+		}
+	}
+#endif
 	/* that's all */
 	return XBFalse;
 }								/* CreateJoinNetGameMenu */

@@ -34,7 +34,22 @@ GPL-2.0-or-later.
 - **Reconnect/replace (0.3.1):** hello v2 carries a stable per-tab client id; the host replaces an
   old peer with the same id, closing its channels so the engine frees the slot. A host stage
   status (`setup`/`listening`/`match`/`idle`) makes a mid-match refresh fail clearly. The lobby
-  stores the last room and offers Rejoin/Re-host; no auto-load. Mid-match resume/replay is later.
+  stores the last room and offers Rejoin/Re-host.
+- **Host takeover (M3):** pre-match only. If the host leaves, every guest gets a Take over
+  prompt; a 500 ms claim window and lowest-client-id tie-break pick one. The winner reloads as
+  host, the others wait for `listening` then auto-rejoin/auto-connect. The page flushes the
+  engine config first; `xb:takeover` carries the intent across the reload. The same new-host
+  path covers a host that refreshes and clicks **Re-host**. If the new host never reaches
+  `listening`, the wait times out and a guest can retry. A two-host collision is resolved by
+  `(clientId, selfId)`; the higher host leaves, rewrites the room intent to client mode and
+  offers Rejoin as guest. Mid-match migration is **not planned**; that match ends and takeover
+  starts a new one.
+- **Backgrounding warning:** the host broadcasts `hostVisible`; guests warn in the netbar, and
+  the host page reminds you to keep the tab in the foreground. A hidden host is never treated as
+  gone or evicted.
+- **Room codes (M3):** `adjective-noun-NNN` from 64 five-letter adjectives and 64 animal nouns
+  of 3–5 letters; 3,686,400 combinations. Custom codes still work. Generated in the lobby, no
+  registry.
 - **Hosting:** plain static files, deployable to GitHub Pages. No server-side code anywhere in the
   default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
   Nostr relays; **TURN is optional and hoster/player supplied** for the NAT pairs that need it.
@@ -68,7 +83,8 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
 ## Versioning
-- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.3.1** (M2 done; M3 reconnect/replace slice).
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.3.1**; M3 is complete on the branch.
+  0.4.0 is the next tag when the human partner asks.
 - Bump MINOR when a milestone lands (M3 → 0.4.0), PATCH for playtest fixes.
 - Tag annotated releases on `main` after the merge. Only git tags record the version; there is no
   version file, so keep this line and `PROGRESS.md` current.
@@ -86,14 +102,11 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M3: host migration and backgrounding warning. Optional TURN landed: deployer `turn.json`
-(static or credential endpoint) plus a local player override; our own deployment stays
-Tier 0. Six players landed (five guests + host) with a room-full refusal. A lobby chat UI
-and a per-round desync hash are deliberately deferred (possible future work, see
-`PROGRESS.md`); a two-browser diagnostic matched state exactly over 710 frames, and the
-engine's in-game chat covers matches. Mid-match resume/replay is a later item. An optional
-16-player `-DSMPF` build is a later, M4-era idea (see `PROGRESS.md`); the web build stays
-6-player until then.
+M4. M3 is complete: six players, reconnect/replace, optional TURN, host takeover,
+backgrounding warning and readable room codes. A lobby chat UI, a per-round desync hash and
+mid-match host migration/resume are deliberately not planned (see `PROGRESS.md`); the
+takeover flow starts a new match after a mid-match host loss. An optional 16-player `-DSMPF`
+build is the main M4-era idea; the web build stays 6-player until then.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

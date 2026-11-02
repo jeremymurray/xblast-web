@@ -1,6 +1,7 @@
 # Progress
 
-Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace, six-player and optional-TURN slices done, 0.3.1)
+Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace, six-player, optional-TURN and
+host-takeover slices done, 0.3.1)
 
 ## Milestones
 
@@ -9,7 +10,7 @@ Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace, six-player and option
 | M0 — engine boots in browser | **done** (0.1.0) |
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
-| M3 — 6-player, reconnect, TURN, host migration | in progress (reconnect/replace, six players and optional TURN done, 0.3.1) |
+| M3 — 6-player, reconnect, TURN, host takeover | **done** (0.3.1 slices; mid-match migration not planned) |
 | M4 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
 
 ## M2 checklist
@@ -75,6 +76,27 @@ hanging. Host migration and mid-match resume remain future work.
 - [x] Tests: `turn-config` and `turn-ui` transport scenarios
 - [ ] Real relay verification with coturn is manual; not part of the default suite
 
+## M3 host takeover, backgrounding and room codes
+
+- [x] Every guest gets a takeover prompt when the host leaves; a 500 ms claim window
+      and lowest-client-id tie-break decide simultaneous claims
+- [x] The winner reloads into the same room as host; other guests wait for `listening`
+      and auto-rejoin/auto-connect
+- [x] Config is flushed before the reload, so the player selection survives
+- [x] The new-host path also covers the original host returning via **Re-host**
+- [x] Two-host collision: the higher `(clientId, selfId)` steps down, leaves the room,
+      rewrites the stored intent to client mode and offers **Rejoin as guest**
+- [x] A new host that never reaches `listening` times out; guests can retry, and a
+      stuck host in `setup` can be superseded
+- [x] Host visibility is broadcast to guests; the netbar warns when the host tab is
+      in the background
+- [x] Room codes are `adjective-noun-NNN` from 64 five-letter adjectives and 64
+      animal nouns of 3–5 letters (3,686,400 combinations)
+- [x] Tests: `roomcode`, `visibility`, `hostleave`, `claim`, `collision`; netplay
+      `autojoin`, `takeover`, `hostback`, `hostgone`
+- [x] Mid-match migration is **not planned**; a host leaving ends the match and the
+      takeover flow starts a new one
+
 ## How to run (dev)
 
 ```sh
@@ -98,7 +120,14 @@ python3 scripts/netplaytest.py --scenario six       # six players + a refused se
 python3 scripts/netplaytest.py --scenario match     # two-browser regression
 python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
 python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
-python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full, turn-config, turn-ui
+python3 scripts/netplaytest.py --scenario autojoin  # flushed guest auto-connects after reload
+python3 scripts/netplaytest.py --scenario takeover  # host leaves, guest hosts, others auto-rejoin
+python3 scripts/netplaytest.py --scenario takeover-stuck  # a stuck new host is superseded
+python3 scripts/netplaytest.py --scenario hostback  # host re-hosts, guest auto-rejoins
+python3 scripts/netplaytest.py --scenario hostgone  # host leaves mid-match, new match starts
+python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full,
+                                      # turn-config, turn-ui, roomcode, visibility, hostleave,
+                                      # claim, collision, peerleave
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with
@@ -110,14 +139,24 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 - **TURN is optional and hoster/player supplied.** Without a relay, some NAT pairs cannot
   connect. Public Nostr relays are signalling only; they do not relay game traffic. The project's
   own deployment runs no TURN; `docs/hosting.md` covers self-hosting and the player override.
-- **Host tab backgrounding can stall the match**: browsers throttle background timers and
-  the engine loop is timer-driven. Keep the host tab in the foreground.
-- **No host migration.** Closing the host tab ends the match; a dropped guest is gone. There is
-  no lobby chat UI (deferred, see Possible future work); the engine's in-game chat still works.
+- **Host tab backgrounding can still stall the match**: browsers throttle background timers
+  and the engine loop is timer-driven. The netbar warns guests and the host page reminds you,
+  but keep the host tab in the foreground.
+- **Host takeover is pre-match only.** If the host leaves before a match, every guest gets a
+  Take over prompt; the winner reloads as host and the others auto-rejoin. If the host leaves
+  mid-match, the match ends and the takeover flow starts a new one. **Mid-match migration is not
+  planned** (client→server role switch, host-id remapping, level progression and desync risk).
+  There is no lobby chat UI (deferred, see Possible future work); the engine's in-game chat
+  still works.
 - **Refresh/rejoin:** a guest who refreshes before the match starts gets a Rejoin prompt and
   the host replaces the old client (0.3.1). A refresh after the match starts fails with a
-  clear message; **mid-match resume/replay is not implemented** and is the remaining reconnect
-  item. A refreshed host restarts the room; guests must rejoin.
+  clear message; mid-match resume/replay is not implemented. A refreshed host that clicks
+  **Re-host** now brings guests back automatically.
+- **Auto-rejoin reloads the page.** Config is flushed first, but the engine still reloads
+  (assets are cached). If no local player was saved, the guest lands in the join menu.
+- **Room codes are random and have no registry.** `adjective-noun-NNN` has 3.69 M
+  combinations; a collision means two groups meet in the same room and the existing role
+  checks apply.
 - **Public Nostr relays can be down.** `nostr.robosats.org` was returning 502 during the
   playtest; the browser logs the failed WebSocket, but the other default relays carry the
   room, so it is cosmetic. Signalling is still a public dependency (see TURN/NAT above).
@@ -155,24 +194,31 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
   time and no CDN at runtime.
 - TURN is optional: deployer `turn.json` (static or credential endpoint) or a player override
   in the lobby. The project runs no TURN service or credential endpoint.
+- Host takeover is pre-match only: open prompt, 500 ms claim window, lowest client id wins;
+  the winner reloads as host and the others auto-rejoin after a config flush. A hidden host is
+  warned about but never evicted.
+- Room codes are `adjective-noun-NNN`: 64 five-letter adjectives and 64 animal nouns of
+  3–5 letters.
+- Mid-match migration is not planned.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2.
 - Attribution: every commit carries an `Assisted-by:` trailer.
 
-## Next tasks (M3)
+## Next tasks (M4)
 
-1. Host migration and a host-backgrounding warning.
-2. **Later:** mid-match resume/replay — a refreshed guest rejoining an in-progress match. Needs
-   an engine state snapshot/replay and is separate from the pre-match reconnect/replace slice.
-3. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
+1. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
    `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
    scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
    `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the
    engine instead of the 6-player constant, and more action datagrams per frame (the engine's
-   `MAX_MASK_BYTES` already allows it). It is off in `scripts/build-web.sh` and is not part of
+   `MAX_MASK_BYTES` already allows it). It is off in `scripts/build-web.sh` and was not part of
    M3; revisit as an opt-in build in M4.
 
 ## Possible future work (not planned)
 
+- **Mid-match host migration / resume.** Not planned. It needs a client→server role switch,
+  host-id/player remapping, level-progression state and a desync guard; the engine cost is
+  disproportionate for a casual match. The takeover flow starts a new match after a mid-match
+  host loss.
 - **Lobby chat UI.** Deferred 2026-11-01: the engine's in-game chat is adequate and there is no
   separate web lobby to host a chat panel. Revisit only if a persistent lobby/social screen
   exists; it would ride `xb.ctl` with host relay.

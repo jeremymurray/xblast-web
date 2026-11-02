@@ -77,6 +77,7 @@ LDFLAGS=(
 	-sFORCE_FILESYSTEM=1
 	-sLZ4=1
 	-sEXIT_RUNTIME=1
+	"-sEXPORTED_FUNCTIONS=['_main','_XBWeb_FlushConfig']"
 	-sEXPORTED_RUNTIME_METHODS=['FS']
 	-sSTACK_SIZE=1048576
 	--preload-file "$ROOT/data/image@/data/image"

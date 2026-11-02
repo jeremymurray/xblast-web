@@ -37,6 +37,10 @@
   #landing { z-index: 20; }
   #overlay { z-index: 30; text-align: center; }
   #overlay button { margin-top: 1em; }
+  #host-gone { z-index: 35; }
+  #host-gone .actions { display: flex; gap: 0.8em; margin-top: 1.2em; }
+  #host-gone .actions button { margin-top: 0; }
+  #host-gone-status { color: #aaa; font-size: 13px; min-height: 1.3em; }
 
   /* Lobby cards */
   .panel .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin-top: 1em; }
@@ -155,11 +159,13 @@
       <section class="card">
         <h2>Multiplayer</h2>
         <p>Share one room code. The host runs the game; traffic goes directly
-           between browsers over WebRTC.</p>
+           between browsers over WebRTC. Keep the host tab in the foreground;
+           background tabs can pause the game.</p>
         <label for="room">Room code</label>
         <div class="row">
           <input id="room" type="text" autocomplete="off" autocapitalize="off"
-                 spellcheck="false" maxlength="32" aria-label="Room code">
+                 spellcheck="false" maxlength="32" placeholder="quiet-otter-482"
+                 aria-label="Room code">
           <button id="shuffle" type="button" title="Generate a new room code">New</button>
         </div>
         <div class="row">
@@ -213,6 +219,18 @@
   </div>
 </div>
 
+<div id="host-gone" class="screen" role="alertdialog" aria-live="assertive">
+  <div class="panel">
+    <h1 id="host-gone-title">Host left</h1>
+    <p id="host-gone-text"></p>
+    <p id="host-gone-status"></p>
+    <div class="actions">
+      <button id="takeover" type="button">Take over</button>
+      <button id="host-gone-leave" type="button">Leave</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const statusEl = document.getElementById('status');
   const overlayEl = document.getElementById('overlay');
@@ -239,6 +257,12 @@
   const turnCredEl = document.getElementById('turn-cred');
   const turnForgetEl = document.getElementById('turn-forget');
   const turnErrorEl = document.getElementById('turn-error');
+  const hostGoneEl = document.getElementById('host-gone');
+  const hostGoneTitleEl = document.getElementById('host-gone-title');
+  const hostGoneTextEl = document.getElementById('host-gone-text');
+  const hostGoneStatusEl = document.getElementById('host-gone-status');
+  const takeoverEl = document.getElementById('takeover');
+  const hostGoneLeaveEl = document.getElementById('host-gone-leave');
 
   document.getElementById('again').addEventListener('click', () => location.reload());
 
@@ -318,26 +342,38 @@
     if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
   }
 
-  const WORDS = [
-    'amber', 'bison', 'cobalt', 'delta', 'ember', 'frost', 'glide', 'hazel',
-    'ivory', 'jolly', 'karma', 'lunar', 'maple', 'noble', 'ocean', 'pixel',
-    'quartz', 'rapid', 'solar', 'tango', 'ultra', 'vivid', 'wheat', 'yonder',
+  const ADJECTIVES = [
+    'amber', 'azure', 'beige', 'black', 'brave', 'brown', 'clean', 'clear',
+    'coral', 'crisp', 'dusty', 'eager', 'early', 'fancy', 'fresh', 'funny',
+    'fuzzy', 'giant', 'grand', 'great', 'green', 'happy', 'hazel', 'ivory',
+    'jolly', 'large', 'light', 'lucky', 'lunar', 'maple', 'merry', 'minty',
+    'misty', 'noble', 'olive', 'peach', 'plain', 'polar', 'proud', 'quick',
+    'quiet', 'rapid', 'ready', 'royal', 'sandy', 'sharp', 'shiny', 'short',
+    'silky', 'small', 'smart', 'snowy', 'solar', 'solid', 'spicy', 'sunny',
+    'super', 'sweet', 'swift', 'white', 'windy', 'witty', 'young', 'zesty',
+  ];
+
+  const ANIMALS = [
+    'ant', 'ape', 'bat', 'bee', 'cat', 'cod', 'cow', 'dog', 'eel', 'elk',
+    'emu', 'fox', 'hen', 'owl', 'pig', 'ram', 'rat', 'yak', 'bear', 'bird',
+    'boar', 'colt', 'crab', 'crow', 'deer', 'dove', 'duck', 'fawn', 'fish',
+    'frog', 'goat', 'hawk', 'hare', 'ibex', 'kiwi', 'lamb', 'lark', 'lion',
+    'lynx', 'mole', 'moth', 'mule', 'newt', 'orca', 'pike', 'pony', 'puma',
+    'seal', 'swan', 'toad', 'tuna', 'wasp', 'wolf', 'worm', 'wren', 'otter',
+    'bison', 'panda', 'koala', 'zebra', 'tiger', 'gecko', 'moose', 'eagle',
   ];
 
   function randInt(n) {
+    const limit = Math.floor(0x100000000 / n) * n;
     const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
     return buf[0] % n;
   }
 
-  /* Three words plus two digits; short enough for a room code. */
+  /* Five-letter adjective, short animal, three-digit number. */
   function makeCode() {
-    return [
-      WORDS[randInt(WORDS.length)],
-      WORDS[randInt(WORDS.length)],
-      WORDS[randInt(WORDS.length)],
-      String(10 + randInt(90)),
-    ].join('-');
+    return `${ADJECTIVES[randInt(ADJECTIVES.length)]}-` +
+      `${ANIMALS[randInt(ANIMALS.length)]}-${100 + randInt(900)}`;
   }
 
   function normalizeRoom(value) {
@@ -350,6 +386,7 @@
   }
 
   const LAST_ROOM_KEY = 'xb:lastRoom';
+  const TAKEOVER_KEY = 'xb:takeover';
 
   function readLastRoom() {
     try {
@@ -380,6 +417,40 @@
     }
   }
 
+  function readTakeover() {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(TAKEOVER_KEY) || 'null');
+      if (value && (value.mode === 'host' || value.mode === 'client') &&
+          typeof value.room === 'string' && value.room) {
+        return value;
+      }
+    } catch (e) {
+      // private mode or a malformed value
+    }
+    return null;
+  }
+
+  function clearTakeover() {
+    try {
+      sessionStorage.removeItem(TAKEOVER_KEY);
+    } catch (e) {
+      // nothing to clear
+    }
+  }
+
+  /* Flush the engine's in-memory config, then mirror the filesystem before a
+   * takeover reload can lose the player selection. */
+  function flushConfig() {
+    try {
+      if (Module && typeof Module._XBWeb_FlushConfig === 'function') {
+        Module._XBWeb_FlushConfig();
+      }
+    } catch (e) {
+      console.warn('xb: engine config flush failed', e);
+    }
+    saveConfig();
+  }
+
   function hideRejoinBanner() {
     rejoinBannerEl.classList.remove('show');
   }
@@ -396,12 +467,195 @@
     rejoinBannerEl.classList.add('show');
   }
 
+  function storeTakeover(flag) {
+    try {
+      sessionStorage.setItem(TAKEOVER_KEY, JSON.stringify(flag));
+    } catch (e) {
+      // private mode: the reload will fall back to the lobby
+    }
+  }
+
+  function flushAndReload(flag, delay) {
+    if (hostGoneReloading) return;
+    hostGoneReloading = true;
+    const go = () => {
+      flushConfig();
+      storeTakeover(flag);
+      location.reload();
+    };
+    if (delay) hostGoneReloadTimer = setTimeout(go, delay);
+    else go();
+  }
+
+  function setHostGoneAction(text, action) {
+    hostGoneAction = action || 'none';
+    takeoverEl.textContent = text || '';
+    takeoverEl.style.display = text ? '' : 'none';
+    takeoverEl.disabled = false;
+  }
+
+  function showHostGone(title, text, status, actionText, action) {
+    hostGoneTitleEl.textContent = title;
+    hostGoneTextEl.textContent = text || '';
+    hostGoneStatusEl.textContent = status || '';
+    setHostGoneAction(actionText, action);
+    hostGoneEl.classList.add('show');
+  }
+
+  function hideHostGone() {
+    hostGoneEl.classList.remove('show');
+    if (hostGoneReloadTimer && !hostGoneReloading) {
+      clearTimeout(hostGoneReloadTimer);
+      hostGoneReloadTimer = null;
+    }
+  }
+
+  function updateHostGone(status) {
+    if (hostGoneRoom) {
+      showHostGone('Another player is hosting',
+        'This room already has a host. Rejoin as a guest.', '',
+        'Rejoin as guest', 'rejoin');
+      return;
+    }
+    if (!status) {
+      hideHostGone();
+      return;
+    }
+    if (status.takeover === 'host') {
+      showHostGone('Taking over room ' + status.room, 'Reloading as the host…', '', null, 'none');
+      flushAndReload({ mode: 'host', room: status.room }, 250);
+      return;
+    }
+    if (status.stepDown) {
+      sawHostLoss = true;
+      hostGoneRoom = status.room;
+      storeLastRoom('client', status.room);
+      clearTakeover();
+      showHostGone('Another player is hosting',
+        'This room already has a host. Rejoin as a guest.', '',
+        'Rejoin as guest', 'rejoin');
+      const api = globalThis.XBNet;
+      if (api) api.leave();
+      return;
+    }
+    if (status.hostWaitFailed) {
+      sawHostLoss = true;
+      if (status.newHostId && status.newHostStage !== 0) {
+        showHostGone('New host', 'The new host is not accepting players.', '',
+          null, 'none');
+        return;
+      }
+      showHostGone('Takeover failed',
+        'The new host did not start the room.',
+        'You can take the room over instead.', 'Take over instead', 'claim');
+      return;
+    }
+    if (status.hostLost) {
+      sawHostLoss = true;
+      if (status.claim && status.claim.state === 'want') {
+        showHostGone('Host left', 'Claiming the host role…', '', null, 'none');
+        return;
+      }
+      if (status.claim && status.claim.winner && !status.claim.self) {
+        showHostGone('Host left', 'Another guest is taking over…', '', null, 'none');
+        return;
+      }
+      if (status.claim && status.claim.self) {
+        showHostGone('Host left', 'Taking over…', '', null, 'none');
+        return;
+      }
+      const failed = status.claim && status.claim.state === 'failed';
+      const text = status.hostLostStage === 2
+        ? 'The match ended because the host left.'
+        : 'The host left the room.';
+      showHostGone('Host left', text,
+        failed ? 'The new host did not start the room.' : '',
+        failed ? 'Take over instead' : 'Take over', 'claim');
+      return;
+    }
+    if (status.newHostId) {
+      if (!sawHostLoss && status.takeover !== 'join') {
+        hideHostGone();
+        return;
+      }
+      sawHostLoss = true;
+      if (status.newHostStage === 1) {
+        showHostGone('Rejoining room ' + status.room,
+          'Bringing you back to the room…', '', null, 'none');
+        flushAndReload({ mode: 'client', room: status.room, autoJoin: true }, 2000);
+        return;
+      }
+      if (status.newHostStage === 0) {
+        showHostGone('New host', 'Waiting for the new host to start the room…',
+          '', null, 'none');
+        return;
+      }
+      showHostGone('New host', 'The new host is not accepting players.', '',
+        null, 'none');
+      return;
+    }
+    if (sawHostLoss && status.claim && status.claim.winner && !status.claim.self) {
+      showHostGone('Host left', 'Another guest is taking over…', '', null, 'none');
+      return;
+    }
+    hideHostGone();
+  }
+
+  takeoverEl.addEventListener('click', () => {
+    const api = globalThis.XBNet;
+    if (!api) return;
+    if (hostGoneAction === 'claim') {
+      takeoverEl.disabled = true;
+      if (!api.claimHost()) {
+        const status = api.status();
+        if (status && status.newHostId) {
+          hostGoneRoom = status.room;
+          storeLastRoom('client', status.room);
+          clearTakeover();
+          showHostGone('Another player is hosting',
+            'This room already has a host. Rejoin as a guest.', '',
+            'Rejoin as guest', 'rejoin');
+        } else {
+          takeoverEl.disabled = false;
+          hostGoneStatusEl.textContent = 'Could not claim the host role.';
+        }
+      }
+    } else if (hostGoneAction === 'rejoin') {
+      const status = api.status();
+      const room = hostGoneRoom || (status && status.room);
+      if (room) {
+        flushAndReload({ mode: 'client', room, autoJoin: true }, 0);
+      }
+    }
+  });
+
+  hostGoneLeaveEl.addEventListener('click', () => {
+    if (hostGoneReloadTimer) clearTimeout(hostGoneReloadTimer);
+    hostGoneReloadTimer = null;
+    hostGoneReloading = false;
+    hostGoneRoom = null;
+    const api = globalThis.XBNet;
+    if (api) {
+      api.cancelClaim();
+      api.leave();
+    }
+    clearTakeover();
+    clearLastRoom();
+    location.reload();
+  });
+
   let engineLoaded = false;
   let lobbyStarting = false;
   let netTimer = null;
   let netStartedAt = 0;
   let toastHoldUntil = 0;
   const SIGNAL_GRACE_MS = 4000;
+
+  let sawHostLoss = false;
+  let hostGoneAction = 'none';
+  let hostGoneReloadTimer = null;
+  let hostGoneReloading = false;
+  let hostGoneRoom = null;
 
   let turnModulePromise = null;
   let turnFilePromise = null;
@@ -493,6 +747,10 @@
     if (status.error) {
       stateText = status.error;
       dot = 'err';
+    } else if (status.role === 'client' && status.hostVisible === false &&
+               !status.hostLost) {
+      stateText = 'host tab is in the background — game may pause';
+      dot = 'warn';
     } else if (status.role === 'host' && status.full) {
       stateText = `room full — ${peers} of ${status.maxClients} guests`;
       dot = 'warn';
@@ -516,6 +774,7 @@
     netRoomEl.textContent = status.room || '';
     netStateEl.textContent = stateText;
     netDotEl.className = 'dot ' + dot;
+    updateHostGone(status);
 
     if (Date.now() < toastHoldUntil) return;
     if (peers > 0) {
@@ -545,7 +804,8 @@
     loadEngine();
   }
 
-  async function startNet(mode) {
+  async function startNet(mode, options) {
+    const opts = options || {};
     if (!window.isSecureContext || !window.crypto || !window.crypto.subtle) {
       const message = 'Multiplayer needs HTTPS or localhost.';
       statusEl.textContent = message;
@@ -557,7 +817,7 @@
     lobbyStarting = true;
     const room = normalizeRoom(roomEl.value) || makeCode();
     roomEl.value = room;
-    globalThis.xbConfig = { mode, room };
+    globalThis.xbConfig = { mode, room, autoJoin: Boolean(opts.autoJoin) };
     storeLastRoom(mode, room);
     hideRejoinBanner();
     try {
@@ -657,9 +917,16 @@
     loadEngine();
   }
 
-  const lastRoom = readLastRoom();
-  if (lastRoom) showRejoinBanner(lastRoom);
-  else roomEl.value = makeCode();
+  const takeover = readTakeover();
+  if (takeover) {
+    clearTakeover();
+    roomEl.value = takeover.room;
+    startNet(takeover.mode, { autoJoin: takeover.autoJoin });
+  } else {
+    const lastRoom = readLastRoom();
+    if (lastRoom) showRejoinBanner(lastRoom);
+    else roomEl.value = makeCode();
+  }
 
   loadTurnModule().then((turn) => {
     if (turn) applyStoredTurnOverride(turn);
@@ -828,8 +1095,21 @@
   setInterval(renderHints, 1500);
 
   setInterval(saveConfig, 30000);
+  let hostWasHidden = false;
   window.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') saveConfig();
+    const api = globalThis.XBNet;
+    const hosting = Boolean(api && api.status().role === 'host');
+    if (document.visibilityState === 'hidden') {
+      saveConfig();
+      if (hosting) {
+        hostWasHidden = true;
+        document.title = 'XBlast TNT — host in background';
+      }
+    } else if (hostWasHidden && hosting) {
+      hostWasHidden = false;
+      document.title = 'XBlast TNT';
+      showNotice('The host tab was in the background; the match may have paused.');
+    }
   });
 
   window.addEventListener('error', (e) => {

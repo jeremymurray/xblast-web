@@ -143,6 +143,24 @@ EM_JS(void, xb_web_reload_lobby, (void), {
 	location.reload();
 });
 
+EM_JS(int, xb_web_auto_join, (void), {
+	const config = globalThis.xbConfig;
+	return config && config.autoJoin ? 1 : 0;
+});
+
+EM_JS(void, xb_web_clear_auto_join, (void), {
+	globalThis.xbConfig = globalThis.xbConfig || {};
+	globalThis.xbConfig.autoJoin = false;
+});
+
+/* web port: flush the in-memory config to the Emscripten filesystem before
+ * the page mirrors it and reloads for a takeover. */
+EMSCRIPTEN_KEEPALIVE void
+XBWeb_FlushConfig (void)
+{
+	SaveConfig ();
+}
+
 static XBSocket *
 FindFd (int fd)
 {
@@ -204,6 +222,18 @@ void
 XBWeb_ClearIntent (void)
 {
 	xb_web_clear_intent ();
+}
+
+int
+XBWeb_AutoJoin (void)
+{
+	return xb_web_auto_join ();
+}
+
+void
+XBWeb_ClearAutoJoin (void)
+{
+	xb_web_clear_auto_join ();
 }
 
 void

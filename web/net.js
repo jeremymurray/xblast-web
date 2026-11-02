@@ -32,6 +32,8 @@ const CTL_EOF = 3;
 const CTL_CLOSE = 4;
 const CTL_STATUS = 5;
 const CTL_REJECT = 6;
+const CTL_CLAIM = 7;
+const CTL_HOST_LEAVING = 8;
 
 const REJECT_FULL = 1;
 
@@ -51,12 +53,21 @@ const PORT = 16168;
 const CTL_BUFFER_LIMIT = 512 * 1024;
 const DEFAULT_CONNECT_TIMEOUT_MS = 20000;
 
+const DEFAULT_CLAIM_WINDOW_MS = 500;
+const DEFAULT_CLAIM_SETTLE_MS = 500;
+const DEFAULT_HOST_READY_TIMEOUT_MS = 30000;
+
 const TURN_SOURCES = new Set(['file', 'endpoint', 'player']);
 
 const config = {
   connectTimeoutMs: DEFAULT_CONNECT_TIMEOUT_MS,
   turnConfig: [],
   turnSource: null,
+  takeover: {
+    claimWindowMs: DEFAULT_CLAIM_WINDOW_MS,
+    claimSettleMs: DEFAULT_CLAIM_SETTLE_MS,
+    hostReadyTimeoutMs: DEFAULT_HOST_READY_TIMEOUT_MS,
+  },
 };
 
 /* The single active page session; rooms are page-owned, not fd-owned. */
@@ -106,6 +117,18 @@ function newSession(role, room) {
     localRole: localRoleOf(role),
     clientId: loadClientId(),
     hostStage: role === 'host' ? STAGE_SETUP : 0,
+    hostVisible: true,
+    hostLost: false,
+    hostLostStage: 0,
+    newHostId: null,
+    newHostStage: 0,
+    everSawHost: false,
+    hostReadyTimer: null,
+    stepDown: false,
+    steppedDownBy: null,
+    claim: null,
+    takeover: null,
+    hostWaitFailed: false,
     roomObj: null,
     peers: new Map(),      // peerId -> peer record
     pending: [],           // host: clients with a valid hello, not yet accepted
@@ -221,6 +244,12 @@ function ctlSend(s, peer, bytes) {
 }
 
 function findHostPeer(s) {
+  if (s.newHostId) {
+    const preferred = s.peers.get(s.newHostId);
+    if (isActivePeer(preferred) && preferred.helloOk && preferred.remoteRole === ROLE_HOST) {
+      return preferred;
+    }
+  }
   for (const peer of s.peers.values()) {
     if (isActivePeer(peer) && peer.helloOk && peer.remoteRole === ROLE_HOST) return peer;
   }
@@ -250,11 +279,212 @@ function setHostStage(s, stage) {
 
 function sendStatus(s) {
   if (!s || s.role !== 'host' || session !== s) return;
-  const frame = new Uint8Array([CTL_STATUS, s.hostStage]);
+  const frame = new Uint8Array([CTL_STATUS, s.hostStage, s.hostVisible ? 1 : 0]);
   for (const peer of activePeers(s)) {
     if (peer.remoteRole === ROLE_CLIENT && peer.ctlOpen && !peer.closed) {
       ctlSend(s, peer, frame);
     }
+  }
+}
+
+function sendHostLeaving(s) {
+  if (!s || s.role !== 'host') return;
+  const frame = new Uint8Array([CTL_HOST_LEAVING, s.hostStage]);
+  for (const peer of activePeers(s)) {
+    // Only this host's accepted clients. In a two-host room the other host's
+    // guests are peers here too, but their real host is still alive.
+    if (peer.accepted && peer.remoteRole === ROLE_CLIENT &&
+        peer.ctlOpen && !peer.closed) {
+      ctlSend(s, peer, frame);
+    }
+  }
+}
+
+function broadcastHello(s) {
+  for (const peer of s.peers.values()) {
+    if (peer.helloOk && !peer.closed && !peer.invalid) sendHello(s, peer);
+  }
+}
+
+function noteHostLost(s, peer) {
+  if (!s || s.role !== 'client' || !peer || peer.remoteRole !== ROLE_HOST) return;
+  if (!s.everSawHost || findHostPeer(s)) return;
+  s.hostLost = true;
+  s.hostLostStage = peer.hostStage || 0;
+  s.newHostId = null;
+  s.newHostStage = 0;
+  clearTimeout(s.hostReadyTimer);
+  s.hostReadyTimer = null;
+  if (s.claim && (s.claim.state === 'want' || s.claim.state === 'won')) {
+    // Keep an in-flight claim: a late peer-leave for the old host must not
+    // cancel the takeover the user just started.
+    return;
+  }
+  clearClaimTimers(s);
+  s.claim = null;
+  s.takeover = null;
+  s.hostWaitFailed = false;
+}
+
+function claimFrame(state, clientId) {
+  const frame = new Uint8Array(4 + CLIENT_ID_LEN);
+  frame[0] = CTL_CLAIM;
+  frame[1] = state;
+  frame[2] = CLIENT_ID_LEN;
+  frame.set(clientIdBytes(clientId), 3);
+  return frame;
+}
+
+function broadcastCtl(s, bytes) {
+  for (const peer of s.peers.values()) {
+    if (peer.ctl && peer.ctl.readyState === 'open' && !peer.closed) {
+      ctlSend(s, peer, bytes);
+    }
+  }
+}
+
+function clearClaimTimers(s) {
+  if (!s) return;
+  if (s.claim) clearTimeout(s.claim.timer);
+  clearTimeout(s.hostReadyTimer);
+  s.hostReadyTimer = null;
+  if (s.claim) s.claim.timer = null;
+}
+
+function startHostReadyTimer(s) {
+  if (!s) return;
+  clearTimeout(s.hostReadyTimer);
+  s.hostReadyTimer = setTimeout(() => {
+    if (session !== s) return;
+    if (s.newHostId && s.newHostStage >= STAGE_LISTENING) return;
+    s.hostWaitFailed = true;
+    if (s.claim) {
+      s.claim.state = 'failed';
+      s.claim.winner = null;
+      s.claim.self = false;
+    }
+    s.takeover = null;
+  }, config.takeover.hostReadyTimeoutMs);
+}
+
+function noteHostReady(s, peer) {
+  if (!s) return;
+  if (peer && s.newHostId && peer.id !== s.newHostId) return;
+  clearTimeout(s.hostReadyTimer);
+  s.hostReadyTimer = null;
+  s.hostWaitFailed = false;
+}
+
+function finishClaimWindow(s) {
+  if (!s || !s.claim || s.claim.state !== 'want') return;
+  s.claim.timer = null;
+  const entries = Array.from(s.claim.entries.keys()).sort();
+  const winner = entries[0] || s.clientId;
+  s.claim.winner = winner;
+  s.claim.self = winner === s.clientId;
+  s.claim.state = 'won';
+  if (s.claim.self) {
+    broadcastCtl(s, claimFrame(2, s.clientId));
+    startHostReadyTimer(s);
+    setTimeout(() => {
+      if (session === s && s.claim && s.claim.state === 'won' && s.claim.self) {
+        s.takeover = 'host';
+      }
+    }, config.takeover.claimSettleMs);
+  } else {
+    s.takeover = 'join';
+    startHostReadyTimer(s);
+  }
+}
+
+function handleClaim(s, bytes) {
+  if (!s || s.role !== 'client') return;
+  if (findHostPeer(s) && !s.hostWaitFailed && !s.claim) return;
+  if (!bytes || bytes.length < 4 + CLIENT_ID_LEN) return;
+  if (bytes[2] !== CLIENT_ID_LEN) return;
+  const state = bytes[1];
+  const id = bytesToClientId(bytes.subarray(3, 3 + CLIENT_ID_LEN));
+  if (state === 1) {
+    if (!s.claim) return;
+    s.claim.entries.set(id, Date.now());
+    if (s.claim.state === 'won' && id < s.claim.winner) {
+      s.claim.winner = id;
+      s.claim.self = id === s.clientId;
+      s.takeover = s.claim.self ? 'host' : 'join';
+      if (s.claim.self) {
+        broadcastCtl(s, claimFrame(2, s.clientId));
+        startHostReadyTimer(s);
+      }
+    }
+    return;
+  }
+  if (state === 2) {
+    if (!s.claim) {
+      s.claim = {
+        state: 'won', winner: id, self: false, entries: new Map(), timer: null,
+      };
+    } else if (!s.claim.winner || id < s.claim.winner) {
+      s.claim.winner = id;
+    } else if (s.claim.winner !== id) {
+      return;
+    }
+    s.claim.self = s.claim.winner === s.clientId;
+    s.claim.state = 'won';
+    clearTimeout(s.claim.timer);
+    s.claim.timer = null;
+    s.takeover = s.claim.self ? 'host' : 'join';
+    startHostReadyTimer(s);
+    return;
+  }
+  if (state === 3 && s.claim) {
+    s.claim.entries.delete(id);
+    if (s.claim.winner === id) {
+      s.claim.winner = null;
+      s.claim.self = false;
+      s.takeover = null;
+      s.claim.state = s.claim.timer ? 'want' : 'failed';
+    }
+  }
+}
+
+function claimHost() {
+  const s = session;
+  if (!s || s.role !== 'client') return false;
+  const host = findHostPeer(s);
+  // A host in setup after a failed takeover may be superseded; a listening
+  // host is authoritative and must not be claimed.
+  if (host && !(s.hostWaitFailed && host.hostStage === STAGE_SETUP)) return false;
+  if (!s.hostLost && !s.hostWaitFailed) return false;
+  if (s.claim && (s.claim.winner || s.claim.timer)) return false;
+  if (s.claim) clearClaimTimers(s);
+  s.hostWaitFailed = false;
+  s.claim = {
+    state: 'want',
+    winner: null,
+    self: true,
+    entries: new Map([[s.clientId, Date.now()]]),
+    timer: null,
+  };
+  broadcastCtl(s, claimFrame(1, s.clientId));
+  s.claim.timer = setTimeout(() => finishClaimWindow(s), config.takeover.claimWindowMs);
+  return true;
+}
+
+function cancelClaim() {
+  const s = session;
+  if (!s || !s.claim) return false;
+  broadcastCtl(s, claimFrame(3, s.clientId));
+  clearClaimTimers(s);
+  s.claim = null;
+  s.takeover = null;
+  s.hostWaitFailed = false;
+  return true;
+}
+
+function setTakeoverTimings(opts) {
+  if (!opts || typeof opts !== 'object') return;
+  for (const key of ['claimWindowMs', 'claimSettleMs', 'hostReadyTimeoutMs']) {
+    if (Number.isFinite(opts[key]) && opts[key] > 0) config.takeover[key] = opts[key];
   }
 }
 
@@ -305,6 +535,28 @@ function handleHello(s, peer, bytes) {
   const remoteRole = bytes[2];
   const idLen = bytes[3];
   const validRole = remoteRole === ROLE_HOST || remoteRole === ROLE_CLIENT;
+  if (s.role === 'host' && remoteRole === ROLE_HOST &&
+      version === HELLO_VERSION && idLen === CLIENT_ID_LEN &&
+      bytes.length >= 4 + idLen + 1) {
+    const remoteClientId = bytesToClientId(bytes.subarray(4, 4 + idLen));
+    const remoteWins = remoteClientId < s.clientId ||
+      (remoteClientId === s.clientId && peer.id < selfId);
+    peer.invalid = true;
+    clearHelloTimers(peer);
+    if (remoteWins) {
+      s.stepDown = true;
+      s.steppedDownBy = remoteClientId;
+      s.hostStage = STAGE_IDLE;
+      s.engineListening = false;
+      sendHostLeaving(s);
+      for (const other of s.peers.values()) {
+        if (other !== peer) closePeerChannels(s, other, true);
+      }
+    } else {
+      broadcastHello(s);
+    }
+    return;
+  }
   if (version !== HELLO_VERSION || !validRole || remoteRole === s.localRole ||
       idLen !== CLIENT_ID_LEN || bytes.length < 4 + idLen + 1) {
     // Another host/client in the same room or a stale build is ignored; its
@@ -335,6 +587,8 @@ function handleHello(s, peer, bytes) {
     // can be lost. Echo ours first: a guest must read the stage before any
     // reject frame that follows on the same ordered channel.
     sendHello(s, peer);
+    // A joiner needs the current visibility too, not just the stage.
+    if (s.role === 'host') sendStatus(s);
   }
   if (s.role === 'host' && remoteRole === ROLE_CLIENT) {
     replaceClientPeer(s, peer, remoteClientId);
@@ -349,6 +603,19 @@ function handleHello(s, peer, bytes) {
       s.pending.push(peer.id);
     }
   } else if (s.role === 'client' && remoteRole === ROLE_HOST) {
+    const wasLost = s.hostLost || s.hostWaitFailed;
+    s.newHostId = peer.id;
+    s.newHostStage = remoteStage;
+    s.everSawHost = true;
+    s.hostLost = false;
+    if (s.claim && s.claim.self && s.claim.state === 'won') {
+      // Another host appeared before this client reloaded. Stand down.
+      clearClaimTimers(s);
+      s.claim = null;
+      s.takeover = null;
+    }
+    if (remoteStage >= STAGE_LISTENING) noteHostReady(s, peer);
+    else if (wasLost) startHostReadyTimer(s);
     bindConnectFds(s, peer);
   }
 }
@@ -387,7 +654,24 @@ function handleCtlMessage(s, peer, data) {
     case CTL_STATUS:
       if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
         peer.hostStage = bytes[1];
+        peer.hostVisible = bytes.length >= 3 ? bytes[2] === 1 : true;
+        if (s.role === 'client' && peer.id === s.newHostId) {
+          s.newHostStage = peer.hostStage;
+          if (peer.hostStage === STAGE_LISTENING) noteHostReady(s, peer);
+        }
       }
+      break;
+    case CTL_HOST_LEAVING:
+      if (peer.remoteRole === ROLE_HOST && bytes.length >= 2 &&
+          (!s.newHostId || peer.id === s.newHostId)) {
+        s.hostLost = true;
+        s.hostLostStage = bytes[1];
+        s.newHostId = null;
+        s.newHostStage = 0;
+      }
+      break;
+    case CTL_CLAIM:
+      if (s.role === 'client') handleClaim(s, bytes);
       break;
     case CTL_REJECT:
       /* Only the host refuses; the hello precedes it on the same ordered
@@ -455,6 +739,7 @@ function setupPeer(s, peerId, pc) {
     remoteRole: 0,
     clientId: null,
     hostStage: 0,
+    hostVisible: true,
     ctlQueue: [],
     actQueue: [],
     eof: false,
@@ -486,6 +771,7 @@ function setupPeer(s, peerId, pc) {
     clearHelloTimers(peer);
     removePending(s, peer);
     refreshHostStage(s);
+    noteHostLost(s, peer);
   };
   ctl.onerror = (event) => {
     console.warn('xbnet: ctl channel error for', peerId, event);
@@ -544,6 +830,7 @@ function handlePeerLeave(s, peerId) {
   // Fds keep a direct peer reference, so bound sockets still observe eof.
   s.peers.delete(peerId);
   refreshHostStage(s);
+  noteHostLost(s, peer);
 }
 
 function enter(role, room) {
@@ -598,6 +885,8 @@ function enter(role, room) {
 function leave() {
   const s = session;
   if (!s) return;
+  sendHostLeaving(s);
+  clearClaimTimers(s);
   session = null;
   if (s.recheck) {
     clearTimeout(s.recheck);
@@ -642,7 +931,7 @@ function listen(fd, room) {
     enter('host', room);
   }
   const s = session;
-  if (!s || s.role !== 'host') return false;
+  if (!s || s.role !== 'host' || s.stepDown) return false;
   const f = ensureFd(s, fd, 'stream');
   f.listening = true;
   f.role = 'listen';
@@ -752,7 +1041,7 @@ function cancelConnect(fd) {
 
 function accept(listenFd, newFd) {
   const s = session;
-  if (!s || s.role !== 'host') return null;
+  if (!s || s.role !== 'host' || s.stepDown) return null;
   const lf = s.fds.get(listenFd);
   if (!lf || !lf.listening) return null;
   while (s.pending.length) {
@@ -1014,6 +1303,18 @@ function status() {
     clientId: s ? s.clientId : null,
     /* The host's own stage, or the stage its hello told a guest. */
     hostStage: s ? (s.role === 'host' ? s.hostStage : (hostPeer ? hostPeer.hostStage : 0)) : null,
+    hostVisible: s ? (s.role === 'host' ? s.hostVisible : (hostPeer ? hostPeer.hostVisible : true)) : null,
+    hostLost: s ? s.hostLost : false,
+    hostLostStage: s ? s.hostLostStage : 0,
+    newHostId: s ? s.newHostId : null,
+    newHostStage: s ? s.newHostStage : 0,
+    stepDown: s ? s.stepDown : false,
+    steppedDownBy: s ? s.steppedDownBy : null,
+    claim: s && s.claim
+      ? { state: s.claim.state, winner: s.claim.winner, self: s.claim.self }
+      : { state: 'idle', winner: null, self: false },
+    takeover: s ? s.takeover : null,
+    hostWaitFailed: s ? s.hostWaitFailed : false,
     error: s ? s.error : null,
     lastError: s ? s.lastError : null,
     connectError: s ? s.connectError : null,
@@ -1057,6 +1358,31 @@ function engineListening() {
   if (session) session.engineListening = true;
 }
 
+/* Test hook: every room peer, including same-role clients that are invalid for
+ * engine traffic. */
+function peerCount() {
+  return session ? session.peers.size : 0;
+}
+
+function setHostVisible(value) {
+  const s = session;
+  if (!s) return false;
+  s.hostVisible = Boolean(value);
+  if (s.role === 'host') sendStatus(s);
+  return true;
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    const s = session;
+    if (!s || s.role !== 'host') return;
+    const visible = document.visibilityState !== 'hidden';
+    if (s.hostVisible === visible) return;
+    s.hostVisible = visible;
+    sendStatus(s);
+  });
+}
+
 /* Test hook: retransmit our hello to one peer, as the retry timers do. Used to
  * prove a retransmit cannot change an accepted peer's slot. */
 function resendHello(peerId) {
@@ -1092,6 +1418,11 @@ const XBNet = {
   peerIds,
   stats,
   engineListening,
+  __peerCount: peerCount,
+  claimHost,
+  cancelClaim,
+  __setTakeoverTimings: setTakeoverTimings,
+  __setHostVisible: setHostVisible,
   __resendHello: resendHello,
 };
 

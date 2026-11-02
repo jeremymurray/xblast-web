@@ -20,6 +20,7 @@ import functools
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -702,6 +703,223 @@ def dump_pages(pages):
             print("console:", line, file=sys.stderr)
 
 
+def run_roomcode(base):
+    page = open_lobby(base)
+    try:
+        page.wait_js("typeof makeCode === 'function'", 10, "room-code generator")
+        codes = page.ev("Array.from({length: 200}, () => makeCode())")
+        for code in codes:
+            check(re.fullmatch(r"[a-z]{5}-[a-z]{3,5}-[1-9][0-9]{2}", code) is not None,
+                  f"bad room code {code!r}")
+            adj, noun, num = code.split("-")
+            check(100 <= int(num) <= 999, f"bad number in {code!r}")
+            check(page.ev(f"ADJECTIVES.includes({json.dumps(adj)})"),
+                  f"unknown adjective {adj!r}")
+            check(page.ev(f"ANIMALS.includes({json.dumps(noun)})"),
+                  f"unknown animal {noun!r}")
+        check(page.ev("normalizeRoom(' Quiet Otter 482 ')") == "quiet-otter-482",
+              "normalizeRoom did not normalize spaces/case")
+    finally:
+        page.close()
+
+
+def run_visibility(base):
+    room = unique_room("xbvis")
+    host = Page(f"{base}/test/net.html?role=host&room={room}&scenario=basic")
+    client = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    late = None
+    try:
+        require_net(host, "host"); require_net(client, "client")
+        client.wait_js(peer_ready_expr(1), 60, "client peer")
+        check(host.ev("XBNet.status().hostVisible") is True, "host did not start visible")
+        host.ev("XBNet.__setHostVisible(false)")
+        client.wait_js("XBNet.status().hostVisible === false", 10, "client saw hidden host")
+        check(client.ev("XBNet.status().hostLost") is False,
+              "a hidden host was treated as gone")
+        late = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+        require_net(late, "late")
+        late.wait_js(peer_ready_expr(1), 60, "late client peer")
+        late.wait_js("XBNet.status().hostVisible === false", 10,
+                     "late client saw hidden host")
+        host.ev("XBNet.__setHostVisible(true)")
+        client.wait_js("XBNet.status().hostVisible === true", 10, "client saw visible host")
+    finally:
+        for page in [host, client, late]:
+            if page is not None:
+                page.close()
+
+
+def run_hostleave(base):
+    room = unique_room("xbleave")
+    host = Page(f"{base}/test/net.html?role=host&room={room}&scenario=basic")
+    client = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    try:
+        require_net(host, "host"); require_net(client, "client")
+        client.wait_js(peer_ready_expr(1), 60, "client peer")
+        check(host.ev("__test.open(101, 'stream')") is True, "host open failed")
+        check(host.ev("__test.listen(101)") is True, "host listen failed")
+        check(client.ev("__test.open(201, 'stream')") is True, "client open failed")
+        client.ev("__test.connect(201)")
+        wait_connect(client, 201)
+        wait_accept(host, 101, 102)
+        host.ev("XBNet.leave()")
+        client.wait_js("XBNet.status().hostLost === true", 10, "client hostLost")
+        check(client.ev("XBNet.status().hostLostStage") == 1, "wrong lost stage")
+        check(client.ev("XBNet.status().newHostId") is None, "unexpected new host")
+        check(client.ev("XBNet.status().state") == "joined", "client left the room")
+        finish_pages([("host", host), ("client", client)], True)
+    finally:
+        host.close(); client.close()
+
+
+def run_peerleave(base):
+    room = unique_room("xbpeerleave")
+    a = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    b = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    try:
+        require_net(a, "a"); require_net(b, "b")
+        a.wait_js("XBNet.__peerCount() === 1", 60, "a sees the client peer")
+        b.close()
+        time.sleep(1.5)
+        check(a.ev("XBNet.status().hostLost") is False,
+              "a client leaving was treated as the host leaving")
+    finally:
+        a.close()
+
+
+def run_claim(base):
+    def open_room(prefix, ids=None, timings=None):
+        room = unique_room(prefix)
+        pages = {}
+        for label, role in (("host", "host"), ("a", "client"), ("b", "client")):
+            query = f"role={role}&room={room}&scenario=basic"
+            if ids and label in ids:
+                query += f"&clientId={ids[label]}"
+            page = Page(f"{base}/test/net.html?{query}")
+            pages[label] = page
+        for label, page in pages.items():
+            require_net(page, label)
+        if timings:
+            for label in ("a", "b"):
+                pages[label].ev(
+                    "XBNet.__setTakeoverTimings(" + json.dumps(timings) + ")")
+        pages["host"].wait_js(peer_ready_expr(2), 60, "host peers")
+        for label in ("a", "b"):
+            pages[label].wait_js(peer_ready_expr(1), 60, f"{label} peer")
+        return pages
+
+    # Case A: one claimant wins, the other sees the winner.
+    pages = open_room("xbclaim")
+    try:
+        a_id = pages["a"].ev("XBNet.status().clientId")
+        pages["host"].ev("XBNet.leave()")
+        for label in ("a", "b"):
+            pages[label].wait_js("XBNet.status().hostLost === true", 10,
+                                 f"{label} hostLost")
+        pages["a"].ev("XBNet.claimHost()")
+        pages["a"].wait_js("XBNet.status().takeover === 'host'", 5, "A won")
+        pages["b"].wait_js("XBNet.status().takeover === 'join'", 5, "B saw A win")
+        check(pages["b"].ev("XBNet.status().claim.winner") == a_id,
+              "B has the wrong winner")
+    finally:
+        for page in pages.values():
+            page.close()
+
+    # Case B: simultaneous claims; the lower client id wins.
+    low_id, high_id = "a" * 32, "b" * 32
+    pages = open_room("xbclaimsim", {"a": low_id, "b": high_id},
+                      {"claimWindowMs": 1000})
+    try:
+        pages["host"].ev("XBNet.leave()")
+        for label in ("a", "b"):
+            pages[label].wait_js("XBNet.status().hostLost === true", 10,
+                                 f"{label} hostLost")
+        pages["a"].ev("XBNet.claimHost()")
+        pages["b"].ev("XBNet.claimHost()")
+        pages["a"].wait_js("XBNet.status().takeover === 'host'", 8, "A won")
+        pages["b"].wait_js("XBNet.status().takeover === 'join'", 8, "B saw A win")
+        check(pages["b"].ev("XBNet.status().claim.winner") == low_id,
+              "the lower client id did not win")
+    finally:
+        for page in pages.values():
+            page.close()
+
+    # Case C: no host reaches listening; the claim times out.
+    pages = open_room("xbclaimtimeout", None,
+                      {"claimWindowMs": 100, "claimSettleMs": 50,
+                       "hostReadyTimeoutMs": 300})
+    try:
+        pages["host"].ev("XBNet.leave()")
+        for label in ("a", "b"):
+            pages[label].wait_js("XBNet.status().hostLost === true", 10,
+                                 f"{label} hostLost")
+        pages["a"].ev("XBNet.claimHost()")
+        pages["a"].wait_js("XBNet.status().takeover === 'host'", 5, "A won")
+        for label in ("a", "b"):
+            pages[label].wait_js(
+                "XBNet.status().hostWaitFailed === true && "
+                "XBNet.status().claim.state === 'failed'",
+                5, f"{label} claim failed")
+            check(pages[label].ev("XBNet.status().claim.winner") is None,
+                  f"{label} kept a stale claim winner after the timeout")
+            check(pages[label].ev("XBNet.status().claim.self") is False,
+                  f"{label} kept a stale self claim after the timeout")
+
+        # A stuck host in setup must not block a retry claim.
+        stuck = Page(f"{base}/test/net.html?role=host&room={pages['a'].ev('XBNet.status().room')}"
+                     "&scenario=basic")
+        try:
+            require_net(stuck, "stuck")
+            pages["b"].wait_js("XBNet.status().newHostId !== null", 30, "stuck host hello")
+            check(pages["b"].ev("XBNet.status().newHostStage") == 0,
+                  "stuck host did not report setup")
+            check(pages["b"].ev("XBNet.claimHost()") is True,
+                  "a stuck setup host blocked a retry claim")
+            pages["b"].wait_js("XBNet.status().takeover === 'host'", 5,
+                               "retry claim won")
+            pages["b"].ev("XBNet.cancelClaim()")
+            check(stuck.ev("__test.open(101, 'stream')") is True,
+                  "stuck host open failed")
+            check(stuck.ev("__test.listen(101)") is True,
+                  "stuck host listen failed")
+            pages["b"].wait_js("XBNet.status().newHostStage === 1", 15,
+                               "B saw the host listening")
+            pages["b"].wait_js("XBNet.status().hostWaitFailed === false", 15,
+                               "B cleared the failed wait")
+            check(pages["b"].ev("XBNet.claimHost()") is False,
+                  "a listening host was still claimable")
+        finally:
+            stuck.close()
+    finally:
+        for page in pages.values():
+            page.close()
+
+
+def run_collision(base):
+    room = unique_room("xbcollide")
+    low_id, high_id = "a" * 32, "b" * 32
+    host_a = Page(f"{base}/test/net.html?role=host&room={room}"
+                  f"&scenario=basic&clientId={low_id}")
+    host_b = Page(f"{base}/test/net.html?role=host&room={room}"
+                  f"&scenario=basic&clientId={high_id}")
+    client = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    try:
+        require_net(host_a, "host-a")
+        require_net(host_b, "host-b")
+        require_net(client, "client")
+        host_a.wait_js("XBNet.status().stepDown === false", 60, "low host stays")
+        host_b.wait_js("XBNet.status().stepDown === true", 60, "high host steps down")
+        check(host_b.ev("XBNet.status().steppedDownBy") == low_id,
+              "wrong steppedDownBy")
+        low_self = host_a.ev("XBNet.status().selfId")
+        client.wait_js(f"XBNet.status().newHostId === {json.dumps(low_self)}", 30,
+                       "client kept the surviving host")
+        check(client.ev("XBNet.status().hostLost") is False,
+              "the surviving host was reported as gone")
+    finally:
+        host_a.close(); host_b.close(); client.close()
+
+
 def run_turn_config(base):
     page = Page(f"{base}/test/net.html?scenario=turn-config")
     try:
@@ -811,12 +1029,19 @@ SCENARIOS = {
     "full": run_full,
     "turn-config": run_turn_config,
     "turn-ui": run_turn_ui,
+    "roomcode": run_roomcode,
+    "visibility": run_visibility,
+    "hostleave": run_hostleave,
+    "claim": run_claim,
+    "peerleave": run_peerleave,
+    "collision": run_collision,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
+        "roomcode", "visibility", "hostleave", "claim", "collision", "peerleave",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:

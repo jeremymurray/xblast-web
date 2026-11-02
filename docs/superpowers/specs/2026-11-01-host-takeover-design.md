@@ -1,7 +1,7 @@
 # Host takeover, backgrounding warning, readable room codes — design
 
 Date: 2026-11-01
-Status: awaiting approval
+Status: approved 2026-11-01
 Scope: M3 slice — pre-match host takeover with auto-rejoin, host-backgrounding warning,
 readable room codes
 Related: `docs/superpowers/specs/2026-10-31-reconnect-replace-design.md`,
