@@ -163,7 +163,9 @@ from 0.4.0.
 - [x] Netbar **Invite** copies the absolute URL; clicking the room code copies the code
 - [x] `nettest_js.py roomcode` covers URL building, sanitization, prefill, consumed
       query and no auto-connect
-- [ ] Manual two-browser invite + mid-match-refusal check on the public site
+- [x] Local two-browser check: invite prefills, Join starts the client, room-code
+      click copies/falls back; `netplaytest --scenario midmatch` still refuses
+- [ ] Public-site invite smoke test after the next deploy
 
 ## M5 build targets (local only)
 
