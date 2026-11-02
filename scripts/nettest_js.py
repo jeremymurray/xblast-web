@@ -94,7 +94,7 @@ def start_server():
 
 
 class Page:
-    def __init__(self, url, wait_for="window.__test !== undefined"):
+    def __init__(self, url, wait_for="window.__test && (window.__test.ready || window.__test.done)"):
         self.port = free_port()
         self.profile = tempfile.mkdtemp(prefix="xb-nettest-profile-")
         self.proc = subprocess.Popen(

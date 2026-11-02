@@ -256,6 +256,8 @@
   } catch (e) {
     T.error = e && e.message ? e.message : String(e);
     T.log('module failure: ' + T.error);
+    T.ready = true;
+    T.finish(false, T.error);
   }
 </script>
 </body>
