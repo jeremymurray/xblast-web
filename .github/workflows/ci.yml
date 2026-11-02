@@ -39,6 +39,13 @@ jobs:
       - name: Check the artifact
         run: ./scripts/check-web-dist.sh web/dist
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: web/dist
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Syntax-check scripts
         run: |
           bash -n scripts/build-web.sh
@@ -54,22 +61,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read the pinned Emscripten version
-        id: emsdk
-        run: |
-          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: actions/download-artifact@v4
         with:
-          version: ${{ steps.emsdk.outputs.version }}
-          actions-cache-folder: emsdk-cache
+          name: release-dist
+          path: web/dist
 
       - name: Run transport scenarios
         # Public Nostr relays occasionally fail; retry only the failed scenario.
         env:
-          XB_TEST_RETRIES: '2'
+          XB_TEST_NO_BUILD: '1'
+          XB_TEST_RETRIES: '1'
         run: python3 scripts/nettest_js.py
 
   netplay:

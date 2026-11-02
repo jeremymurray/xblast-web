@@ -70,8 +70,11 @@ def check(cond, msg):
 
 
 def build():
-    print("== building web/dist ==", flush=True)
-    subprocess.run([os.path.join(SCRIPTS, "build-web.sh")], cwd=ROOT, check=True)
+    if os.environ.get("XB_TEST_NO_BUILD") == "1":
+        print("== using existing web/dist (XB_TEST_NO_BUILD=1) ==", flush=True)
+    else:
+        print("== building web/dist ==", flush=True)
+        subprocess.run([os.path.join(SCRIPTS, "build-web.sh")], cwd=ROOT, check=True)
     os.makedirs(os.path.dirname(TEST_DST), exist_ok=True)
     shutil.copyfile(TEST_SRC, TEST_DST)
 
