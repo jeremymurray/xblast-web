@@ -53,6 +53,10 @@ GPL-2.0-or-later.
 - **Room codes (M3):** `adjective-noun-NNN` from 64 five-letter adjectives and 64 animal nouns
   of 3–5 letters; 3,686,400 combinations. Custom codes still work. Generated in the lobby, no
   registry.
+- **Invite links (0.5.x):** `?room=<code>` fills the room field and shows an invite prompt with
+  **Join**; it never auto-connects and consumes the parameter with `replaceState`. The netbar
+  **Invite** button copies the absolute URL for host and guest; clicking the room code copies the
+  code. Joining is still only possible while the host is waiting.
 - **Build targets (M5):** `scripts/build-web.sh` has local targets `release`, `16p`, `debug`,
   `debug-16p`, `lite`, `lite-16p`, `lite-debug`, `lite-debug-16p`, `small`, `small-16p`, `mini`,
   `mini-16p`. `release` writes `web/dist`; variants write `web/dist-<target>`. The build generates

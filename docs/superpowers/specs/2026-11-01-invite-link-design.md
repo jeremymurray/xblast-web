@@ -61,8 +61,8 @@ refuses it with the existing message. Mid-match join/resume is not in scope.
   (the netbar only exists once in a room).
 - The invite action builds the absolute URL from `location.href` + `room`, then
   copies it with `navigator.clipboard.writeText()`. If that fails, fall back to a
-  temporary textarea + `document.execCommand('copy')`; if both fail, show the URL
-  in the existing notice so it can be copied by hand.
+  temporary textarea + `document.execCommand('copy')`; if both fail, show a
+  `prompt()` with the URL selected so it can be copied by hand.
 - Success notice: `Invite link copied.` The code never contains credentials.
 
 ### Errors and limits

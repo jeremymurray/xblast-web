@@ -111,10 +111,12 @@
 
   #net-toast {
     position: fixed; top: 54px; left: 10px; z-index: 25; display: none;
-    align-items: center; gap: 10px; padding: 6px 10px; font: 12px/1.4 monospace;
+    align-items: center; gap: 10px; max-width: calc(100vw - 20px);
+    padding: 6px 10px; font: 12px/1.4 monospace;
     color: #ffd400; background: rgba(17, 17, 17, 0.92); border: 1px solid #555; border-radius: 6px;
   }
   #net-toast.show { display: flex; }
+  #net-toast-text { overflow-wrap: anywhere; }
   #net-toast button {
     margin: 0; padding: 2px 8px; font: 11px monospace; cursor: pointer;
     color: #111; background: #ffd400; border: 0; border-radius: 4px;
@@ -425,7 +427,11 @@
     try {
       const params = new URLSearchParams(location.search);
       if (!params.has('room')) return '';
-      const code = normalizeRoom(params.get('room'));
+      const raw = params.get('room') || '';
+      const cleaned = String(raw).toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      const code = cleaned && cleaned.length <= 32 ? normalizeRoom(raw) : '';
       params.delete('room');
       const query = params.toString();
       history.replaceState(null, '', location.pathname +
@@ -454,16 +460,23 @@
       // fall through to the legacy path
     }
     try {
+      const previous = document.activeElement;
       const field = document.createElement('textarea');
       field.value = text;
       field.setAttribute('readonly', '');
       field.style.position = 'fixed';
+      field.style.top = '0';
+      field.style.left = '0';
+      field.style.fontSize = '16px';
       field.style.opacity = '0';
       document.body.appendChild(field);
-      field.select();
-      const ok = document.execCommand('copy');
-      field.remove();
-      return ok;
+      try {
+        field.select();
+        return document.execCommand('copy');
+      } finally {
+        field.remove();
+        if (previous && typeof previous.focus === 'function') previous.focus();
+      }
     } catch (error) {
       return false;
     }
@@ -855,7 +868,12 @@
       stateText = 'waiting for a guest…';
     }
     netRoleEl.textContent = status.role === 'client' ? 'Guest' : 'Host';
-    netRoomEl.textContent = status.room || '';
+    const roomText = status.room || '';
+    if (netRoomEl.textContent !== roomText) netRoomEl.textContent = roomText;
+    const roomLabel = roomText ? `Copy room code ${roomText}` : 'Copy room code';
+    if (netRoomEl.getAttribute('aria-label') !== roomLabel) {
+      netRoomEl.setAttribute('aria-label', roomLabel);
+    }
     netStateEl.textContent = stateText;
     netDotEl.className = 'dot ' + dot;
     updateHostGone(status);
@@ -1003,13 +1021,13 @@
     loadEngine();
   }
 
+  const invitedRoom = readInviteRoom();
   const takeover = readTakeover();
   if (takeover) {
     clearTakeover();
     roomEl.value = takeover.room;
     startNet(takeover.mode, { autoJoin: takeover.autoJoin });
   } else {
-    const invitedRoom = readInviteRoom();
     const lastRoom = readLastRoom();
     if (invitedRoom) {
       hideRejoinBanner();
@@ -1029,6 +1047,7 @@
   for (const field of [turnUrlsEl, turnUserEl, turnCredEl]) {
     field.addEventListener('input', () => showTurnError(''));
   }
+  roomEl.addEventListener('input', hideInviteBanner);
   turnForgetEl.addEventListener('click', async () => {
     const turn = await loadTurnModule();
     if (turn) turn.clearPlayerOverride(turnStorage());
@@ -1040,6 +1059,7 @@
 
   playEl.addEventListener('click', startSolo);
   shuffleEl.addEventListener('click', () => {
+    hideInviteBanner();
     roomEl.value = makeCode();
     roomEl.focus();
     roomEl.select();
@@ -1065,7 +1085,7 @@
     const room = globalThis.xbConfig && globalThis.xbConfig.room;
     if (!room) return;
     if (await copyText(room)) showNotice('Room code copied.');
-    else showNotice(`Room code: ${room}`);
+    else window.prompt('Copy this room code:', room);
   });
 
   netInviteEl.addEventListener('click', async () => {
@@ -1073,7 +1093,7 @@
     const url = inviteUrlFor(room);
     if (!url) return;
     if (await copyText(url)) showNotice('Invite link copied.');
-    else showNotice('Invite link: ' + url);
+    else window.prompt('Copy this invite link:', url);
   });
 
   document.getElementById('leave').addEventListener('click', () => {

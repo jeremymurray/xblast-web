@@ -1,6 +1,6 @@
 # Invite Links Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a copyable invite URL that opens the lobby with a room code prefilled and a one-click Join prompt, for both hosts and guests.
 
@@ -25,7 +25,7 @@
 - **Malformed/empty `?room=`** (spaces, punctuation, overlong): ignored, normal lobby appears, no crash or partial state.
 - **Host opens their own invite link**: field prefilled and banner shown, but no client connection starts; Host still works.
 - **Pages subpath and extra query params** (`/xblast-web/?foo=1&room=x`): invite URL keeps the path and unrelated params, replaces `room`, and drops the hash.
-- **Clipboard unavailable or denied**: the user still gets the URL (execCommand fallback, then a visible notice), never a silent no-op.
+- **Clipboard unavailable or denied**: the user still gets the URL (execCommand fallback, then a `prompt()` with the URL), never a silent no-op.
 - **Reload after opening an invite**: the parameter is consumed, so reload shows the normal rejoin/last-room state rather than re-offering the invite.
 
 ---
@@ -43,7 +43,7 @@
 - Produces DOM ids: `invite-banner`, `invite-room`, `invite-join`.
 - Consumes: existing `normalizeRoom()`, `startNet('client')`, `readLastRoom()`, `showRejoinBanner()`, `makeCode()`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `run_roomcode` in `scripts/nettest_js.py`, after the existing `normalizeRoom` check and before `finally`:
 
@@ -78,12 +78,12 @@ Append a second page to `run_roomcode` after the existing page is closed:
         invite.close()
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `python3 scripts/nettest_js.py roomcode`
 Expected: FAIL with `inviteUrlFor is not defined` (or the invite page times out because `#invite-banner` does not exist).
 
-- [ ] **Step 3: Add the invite banner markup and styles**
+- [x] **Step 3: Add the invite banner markup and styles**
 
 In `web/index.html`, extend the existing banner CSS selectors so they cover both banners:
 
@@ -111,7 +111,7 @@ Add this markup immediately before the existing `#rejoin-banner` element:
     </div>
 ```
 
-- [ ] **Step 4: Add refs, helpers and load-time handling**
+- [x] **Step 4: Add refs, helpers and load-time handling**
 
 Near the other element refs:
 
@@ -188,12 +188,12 @@ Add the Join handler next to the other lobby handlers:
   inviteJoinEl.addEventListener('click', () => startNet('client'));
 ```
 
-- [ ] **Step 5: Run the test to verify it passes**
+- [x] **Step 5: Run the test to verify it passes**
 
 Run: `python3 scripts/nettest_js.py roomcode`
 Expected: PASS, including all `inviteUrlFor`, prefill, consumed-query and no-`XBNet` checks.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/index.html scripts/nettest_js.py
@@ -221,7 +221,7 @@ Assisted-by: DeepSeek V4.1 Flash Free (opencode/deepseek-v4.1-flash-free)"
 - Produces: `copyText(text: string): Promise<boolean>` — tries `navigator.clipboard.writeText`, then a temporary textarea + `document.execCommand('copy')`, returns success.
 - Produces DOM id `net-invite`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `run_roomcode`, after the existing `normalizeRoom` check, add:
 
@@ -240,12 +240,12 @@ In `run_roomcode`, after the existing `normalizeRoom` check, add:
               "copyText helper is missing")
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `python3 scripts/nettest_js.py roomcode`
 Expected: FAIL because `#net-room` is still a `<span>`.
 
-- [ ] **Step 3: Add the netbar button and copy helper**
+- [x] **Step 3: Add the netbar button and copy helper**
 
 Change the netbar markup:
 
@@ -289,7 +289,7 @@ Add the helper near the invite helpers:
   }
 ```
 
-Replace the existing room-code copy handler with one on `netRoomEl` using `copyText(room)` and a "Room code copied." notice, keeping the fallback notice. Add:
+Replace the existing room-code copy handler with one on `netRoomEl` using `copyText(room)` and a "Room code copied." notice. On failure both paths show `window.prompt('Copy this room code:', room)`. Add:
 
 ```js
   netInviteEl.addEventListener('click', async () => {
@@ -301,7 +301,7 @@ Replace the existing room-code copy handler with one on `netRoomEl` using `copyT
   });
 ```
 
-- [ ] **Step 4: Update README and PROGRESS**
+- [x] **Step 4: Update README and PROGRESS**
 
 In `README.md` under **Play → Multiplayer**, add one sentence: the host or any guest can use **Invite** in the netbar to copy a link that opens the room prefilled for one-click joining.
 
@@ -311,12 +311,12 @@ In `PROGRESS.md`, add an M5 checklist line:
 - [x] Invite links: `?room=` prefills the lobby for host or guest; netbar **Invite** copies the URL
 ```
 
-- [ ] **Step 5: Run the tests to verify they pass**
+- [x] **Step 5: Run the tests to verify they pass**
 
 Run: `python3 scripts/nettest_js.py roomcode`
-Expected: PASS.
+Expected: PASS. The same scenario also stubs the clipboard and `prompt`, asserting the copied URL/code, the success notice and the manual-copy fallback.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add web/index.html README.md PROGRESS.md scripts/nettest_js.py
@@ -335,12 +335,12 @@ Assisted-by: DeepSeek V4.1 Flash Free (opencode/deepseek-v4.1-flash-free)"
 **Files:**
 - Modify: `PROGRESS.md` (verification note / known issues if needed)
 
-- [ ] **Step 1: Run the full transport suite**
+- [x] **Step 1: Run the full transport suite**
 
 Run: `python3 scripts/nettest_js.py`
 Expected: `ALL PASS`. The public-relay `full` scenario may flake; rerun it once if the only failure is `full`.
 
-- [ ] **Step 2: Manual two-browser invite check**
+- [x] **Step 2: Manual two-browser invite check**
 
 ```sh
 ./scripts/build-web.sh --target release
@@ -350,11 +350,11 @@ python3 -m http.server -d web/dist 8123
 In browser A: open `http://localhost:8123/`, click **Host**, then **Invite**; copy the URL.
 In browser B: open the copied URL; confirm the room field is filled, the invite banner is visible, and the page has not started connecting. Click **Join**; confirm the host sees the guest and a match can start. Repeat with browser B copying the invite link as a guest.
 
-- [ ] **Step 3: Check the mid-match refusal**
+- [x] **Step 3: Check the mid-match refusal**
 
 With a match running, open a fresh invite URL in browser C. Click **Join** and confirm the existing "host is already in a match" message appears (no new spectator path).
 
-- [ ] **Step 4: Commit the verification note if anything changed**
+- [x] **Step 4: Commit the verification note if anything changed**
 
 If the manual check reveals no code change, no commit is needed; note the result in the final report and, only if useful, in `PROGRESS.md` known issues.
 

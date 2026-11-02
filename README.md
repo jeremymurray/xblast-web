@@ -84,8 +84,8 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
   sixth guest is told the room is full. Once in a room, either the host or a guest can
   click **Invite** in the netbar to copy a link that opens the room prefilled for
   one-click joining; clicking the room code itself copies the code. Traffic goes
-  directly between the browsers
-  over WebRTC; Trystero only exchanges connection details over public Nostr relays.
+  directly between the browsers over WebRTC; Trystero only exchanges connection
+  details over public Nostr relays.
   TURN is optional and supplied by the hoster or by the player; without one, a few
   network combinations cannot connect. See `docs/hosting.md`.
 - **Host leaves** — before a match, every guest gets a **Take over** prompt. One
