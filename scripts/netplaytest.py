@@ -833,6 +833,113 @@ def run_midmatch(base, outdir):
             page.close()
 
 
+def run_takeover(base, outdir):
+    """Host leaves pre-match; a guest takes over and the other auto-rejoins."""
+    room = f"m2-takeover-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    a = Page(f"{base}/", "guest-a")
+    b = Page(f"{base}/", "guest-b")
+    pages = [host, a, b]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                20, f"{page.label} lobby")
+        print(f"== takeover room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        for guest in (a, b):
+            if not start_lobby_page(guest, "join", room):
+                raise AssertionError(f"could not click #join for {guest.label}")
+        for page in pages:
+            wait_engine(page)
+            dismiss_intro(page)
+
+        for guest in (a, b):
+            choose_first_player(guest)
+            guest.key("return")
+            guest.wait_js(
+                "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                60, f"{guest.label} connected in the host setup")
+            guest.ev("""XBNet.__setTakeoverTimings(
+                {claimWindowMs: 1000, claimSettleMs: 500, hostReadyTimeoutMs: 90000})""")
+        print("both guests connected", flush=True)
+
+        # The guest warning is driven by the host's visibility status.
+        host.ev("XBNet.__setHostVisible(false)")
+        b.wait_js(
+            "document.getElementById('net-state').textContent.indexOf('background') >= 0",
+            10, "guest saw the background warning")
+        host.ev("XBNet.__setHostVisible(true)")
+        b.wait_js(
+            "document.getElementById('net-state').textContent.indexOf('background') < 0",
+            10, "guest cleared the background warning")
+
+        print("killing the host", flush=True)
+        host.close()
+        host = None
+        for guest in (a, b):
+            guest.wait_js(
+                "document.getElementById('host-gone').classList.contains('show')",
+                20, f"{guest.label} takeover overlay")
+            text = guest.ev(
+                "document.getElementById('host-gone').textContent.toLowerCase()")
+            if "host left" not in text:
+                raise AssertionError(f"{guest.label} overlay does not say host left: {text!r}")
+            if guest.ev("getComputedStyle(document.getElementById('takeover')).display") == "none":
+                raise AssertionError(f"{guest.label} has no Take over button")
+
+        print("guest A takes over", flush=True)
+        a.ev("document.getElementById('takeover').click(); true")
+        a.wait_js("globalThis.__xbnet && __xbnet.status().role === 'host'",
+                  90, "A reloaded as host")
+        a.wait_js(f"__xbnet.status().room === {json.dumps(room)}", 30, "A kept the room")
+        wait_engine(a)
+        dismiss_intro(a)
+        choose_first_player(a)
+        a.key("return")          # Continue -> listen; B may now auto-rejoin
+
+        wait_engine(b)
+        dismiss_intro(b)
+        b.wait_js("globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                  60, "B auto-rejoined without a click")
+        print("B auto-rejoined", flush=True)
+
+        a.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 1",
+                  60, "new host sees B")
+        time.sleep(1.5)
+        act_before = {page.label: page.ev("__xbnet.stats().actTx") for page in (a, b)}
+        a.key("return")          # Start
+        time.sleep(3.0)
+        for page in (a, b):
+            page.key("space")    # dismiss level intro
+        time.sleep(2.0)
+        for name in ("left", "right", "space"):
+            for page in (a, b):
+                page.key(name)
+            time.sleep(0.4)
+        time.sleep(2.0)
+
+        for page in (a, b):
+            stats = page.ev("__xbnet.stats()")
+            if stats.get("actTx", 0) - act_before[page.label] < 100:
+                raise AssertionError(
+                    f"{page.label}: no match action traffic after takeover")
+            if page.ev("__xbnet.stats().peers") != 1:
+                raise AssertionError(f"{page.label}: peer count changed after takeover")
+        print("takeover: PASS (new host, auto-rejoined guest, match traffic)", flush=True)
+        return 0
+    except Exception:
+        for page in [p for p in (host, a, b) if p is not None]:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        return 1
+    finally:
+        for page in [p for p in (host, a, b) if p is not None]:
+            page.close()
+
+
 def run_autojoin(base, outdir):
     """A guest with a flushed player config auto-connects from a takeover flag."""
     room = f"m2-autojoin-{random.randrange(16 ** 6):06x}"
@@ -924,7 +1031,8 @@ def main():
             print("--scenario needs a value", file=sys.stderr)
             return 2
         del args[index:index + 2]
-    if scenario not in ("match", "guests", "six", "refresh", "midmatch", "autojoin"):
+    if scenario not in ("match", "guests", "six", "refresh", "midmatch", "autojoin",
+                        "takeover"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -946,6 +1054,8 @@ def main():
             return run_midmatch(base, outdir)
         if scenario == "autojoin":
             return run_autojoin(base, outdir)
+        if scenario == "takeover":
+            return run_takeover(base, outdir)
         if scenario == "guests":
             return run_guests(base, outdir)
         if scenario == "six":
