@@ -5,6 +5,7 @@ web/turn.json
 web/dist/
 web/dist-*/
 build/out/
+build/release/
 *.o
 *.wasm
 *.wasm.map

@@ -206,6 +206,27 @@ EOF
 	if [ -f "$ROOT/web/turn.json" ]; then cp "$ROOT/web/turn.json" "$out/turn.json"; fi
 	mkdir -p "$out/vendor"
 	cp -R "$ROOT/web/vendor/." "$out/vendor/"
+
+	# Licence notices and source offer travel with every build (GPL compliance).
+	cp "$ROOT/COPYING" "$out/COPYING"
+	cp "$ROOT/THIRD_PARTY.md" "$out/THIRD_PARTY.md"
+	mkdir -p "$out/LICENSE"
+	cp -R "$ROOT/LICENSE/." "$out/LICENSE/"
+	local source_url=${XB_SOURCE_URL:-"(local build; repository URL not set)"}
+	local commit
+	commit=$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)
+	{
+		echo "xblast-web build $target ($cap players, $profile)"
+		echo "commit: $commit"
+		echo "source: $source_url"
+		echo "built:  $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+		echo
+		echo "The complete corresponding source is this build's repository at the"
+		echo "commit above. Licence texts are in COPYING, THIRD_PARTY.md and LICENSE/."
+	} > "$out/SOURCE.txt"
+	if [ -f "$out/turn.json" ]; then
+		echo "note: this build includes a local turn.json (do not publish it)" >&2
+	fi
 	echo "built $out (target $target)"
 }
 
