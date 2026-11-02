@@ -51,6 +51,12 @@ GPL-2.0-or-later.
 - **Room codes (M3):** `adjective-noun-NNN` from 64 five-letter adjectives and 64 animal nouns
   of 3–5 letters; 3,686,400 combinations. Custom codes still work. Generated in the lobby, no
   registry.
+- **Build targets (M5):** `scripts/build-web.sh` has local targets `release`, `16p`, `debug`,
+  `debug-16p`, `lite`, `lite-16p`, `lite-debug`, `lite-debug-16p`, `small`, `small-16p`, `mini`,
+  `mini-16p`. `release` writes `web/dist`; variants write `web/dist-<target>`. The build generates
+  `build-info.js` with `maxPlayers`; `web/net.js` derives `maxClients = maxPlayers - 1`. Variant
+  artifacts are local-only and must not be published by CI. `lite-debug` is the preferred local
+  test build.
 - **Hosting:** plain static files, deployable to GitHub Pages. No server-side code anywhere in the
   default path. Multiplayer needs HTTPS or localhost (secure context). Signalling uses public
   Nostr relays; **TURN is optional and hoster/player supplied** for the NAT pairs that need it.

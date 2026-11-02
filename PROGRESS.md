@@ -112,14 +112,26 @@ match and the takeover flow starts a new one.
 The 0.4.0 tag exists locally, but the repository is **not public yet**. The blocking checklist is
 in `docs/publishing.md`.
 
-- [ ] Licence decision: GPL-2.0-or-later (recommended) or GPL-3.0-or-later
-- [ ] Add a top-level `COPYING` and a `NOTICE`/`THIRD_PARTY.md`; `LICENSE/` is a directory
+- [x] Licence decision: GPL-2.0-or-later (kept; matches upstream and is already open source)
+- [x] Add a top-level `COPYING`; still add a `NOTICE`/`THIRD_PARTY.md` (`LICENSE/` is a directory)
 - [ ] Audit asset provenance; confirm no music tracks are bundled; correct the README/AGENTS
       "music" claim; the separate `xblast-tnt-musics` package is not included
 - [ ] Include LGPL-2+ text for the SDL-derived files and the Bitstream Vera notice
 - [ ] Publish complete corresponding source with the build; release source + checksums
 - [ ] Scan history/secrets, add CI/Pages, verify the public build and licence detection
 - [ ] Push `main` and the `0.4.0` tag only after sign-off
+
+## M5 build targets (local only)
+
+- [x] `scripts/build-web.sh --target …` for `release`, `16p`, `debug`, `debug-16p`,
+      `lite`, `lite-16p`, `lite-debug`, `lite-debug-16p`, `small`, `small-16p`,
+      `mini`, `mini-16p`
+- [x] `--list`, `--all`; `release` writes `web/dist`, variants write `web/dist-<target>`
+- [x] Generated `build-info.js` publishes `maxPlayers`; `web/net.js` derives
+      `maxClients = maxPlayers - 1`
+- [x] `debug`/`lite-debug` compile with `-DDEBUG` after the SDL2 debug-print guard
+- [x] Variant outputs are gitignored and must not be published by CI
+- [ ] 16-player gameplay acceptance; the build target and 15-guest transport cap are ready
 
 ## How to run (dev)
 
@@ -229,13 +241,10 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 
 ## Next tasks (M5)
 
-1. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
-   `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
-   scoreboard, intro and host menu to their 2D layouts (`status.c`, `intro.c`,
-   `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the
-   engine instead of the 6-player constant, and more action datagrams per frame (the engine's
-   `MAX_MASK_BYTES` already allows it). It is off in `scripts/build-web.sh` and was not part of
-   M3; revisit as an opt-in build in M5.
+1. **16-player build acceptance.** The `16p` build target and generated capacity are ready
+   (`-DSMPF`, `MAX_PLAYER`/`MAX_HOSTS` 16, 2D layouts, `maxPlayers: 16` in `build-info.js`).
+   Remaining work is a real 16-player layout/match test and a transport capacity test at
+   15 guests. The engine's `MAX_MASK_BYTES` already covers 16 players.
 
 ## Possible future work (not planned)
 

@@ -26,11 +26,32 @@ Requires the Emscripten SDK pinned in `.tool-versions`:
 ```sh
 asdf plugin add emsdk
 asdf install
-./scripts/build-web.sh
+./scripts/build-web.sh                 # release, six players, writes web/dist
 python3 -m http.server -d web/dist 8123
 ```
 
-Then open <http://localhost:8123>. Solo works over plain HTTP. Multiplayer needs
+Then open <http://localhost:8123>.
+
+Build targets are local-only; CI must not publish the variant artifacts:
+
+```sh
+./scripts/build-web.sh --list          # target, capacity, profile, output
+./scripts/build-web.sh --target 16p    # 16-player engine + 15-guest cap
+./scripts/build-web.sh --target lite-debug  # no sounds data + debug logging
+./scripts/build-web.sh --all           # all twelve targets
+```
+
+| Targets | Capacity | Notes |
+|---|---|---|
+| `release`, `debug`, `lite`, `lite-debug`, `small`, `mini` | 6 players | default `web/dist` for `release`, others `web/dist-<target>` |
+| `16p`, `debug-16p`, `lite-16p`, `lite-debug-16p`, `small-16p`, `mini-16p` | 16 players | `-DSMPF`; separate wasm |
+
+`lite` and `lite-debug` omit the sounds package; `debug` and `lite-debug` add
+logs/assertions. `small` uses `-Oz`/emmalloc and `mini` uses compact geometry.
+The build writes `build-info.js` with `maxPlayers`; `web/net.js` derives
+`maxClients = maxPlayers - 1`. `web/dist-*` is ignored and is not published by CI.
+
+Solo works over plain HTTP. Multiplayer needs
 a secure context — HTTPS, or `localhost` as above — because it uses Web Crypto
 and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
 
@@ -115,4 +136,4 @@ Their licences are in `web/vendor/trystero/LICENSE.trystero` and
 The whole work is distributed under GPL-2.0-or-later. Upstream code is
 GPL-2.0-or-later (parts LGPL-2+); data packages are GPL-2+; vendored Trystero
 and noble remain MIT; the Bitstream Vera font keeps its own licence. See
-`LICENSE/`, `docs/publishing.md` and the headers in `engine/`.
+`COPYING`, `LICENSE/data/`, `docs/publishing.md` and the headers in `engine/`.

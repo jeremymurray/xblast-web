@@ -8,8 +8,9 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
 
 ## 1. License decision (blocking)
 
-- [ ] Choose the **combined-work** license: **GPL-2.0-or-later** (recommended; matches upstream)
-      or **GPL-3.0-or-later** (allowed because the components are GPL-2+ or compatible).
+- [x] **Decision (2026-11-01): keep GPL-2.0-or-later.** It matches upstream, is already
+      open source, and remains compatible with GPLv2-only downstream code. GPL-3.0-or-later is
+      feasible but not needed; revisit only before accepting outside contributions.
 - [ ] Record the decision and the audit table in this file.
 - [ ] Confirm no GPL-2-only code, no non-free asset, and no unreviewed music track is included.
 - [ ] Decide the contribution policy (inbound=outbound / DCO is enough for GPL; no CLA needed).
@@ -33,8 +34,9 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
 
 ## 2. Top-level licence and notices (blocking)
 
-- [ ] Add a top-level `COPYING` with the full chosen licence text. `LICENSE/` is currently a
-      directory of Debian/third-party copyrights, not a licence file; GitHub will not detect it.
+- [x] Add a top-level `COPYING` (GPLv2 text; the project is GPL-2.0-or-later). `LICENSE/` is
+      the directory of Debian/third-party copyrights, not a licence file; GitHub now detects
+      `COPYING`.
 - [ ] Keep `engine/COPYING` (GPLv2) for the upstream engine and explain the combined-work licence
       in `NOTICE`/`README`.
 - [ ] Add `NOTICE` or `THIRD_PARTY.md` covering:
@@ -86,7 +88,8 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
 - [ ] Add `CONTRIBUTING.md` and (optionally) `SECURITY.md`; state the AI-attribution policy and
       the GPL inbound=outbound rule.
 - [ ] Add CI for the build and JS transport tests; mark netplay tests (internet + Chrome) as
-      optional/manual so public-relay flakiness does not block every PR.
+      optional/manual so public-relay flakiness does not block every PR. CI must **not** upload
+      the variant build artifacts (`16p`, `debug`, `lite`, `small`, `mini`) — build/test only.
 - [ ] Verify GitHub Pages serves `.wasm` as `application/wasm`, `.data` correctly, and does not
       ship `turn.json`.
 
@@ -101,10 +104,9 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
 
 ## 7. Open decisions
 
-1. **GPL-2.0-or-later (recommended) or GPL-3.0-or-later?**
-   Both are feasible today. GPL-2+ matches upstream and is maximally compatible with GPLv2-only
-   downstream code; GPLv3 adds an explicit patent grant and anti-tivoization but can complicate
-   mixing with GPLv2-only code. Switching is cheapest now, before outside contributions.
+1. **Licence: decided GPL-2.0-or-later (2026-11-01).**
+   GPL-2+ matches upstream and is maximally compatible with GPLv2-only downstream code; GPLv3
+   remains feasible but is not needed. Revisit only before accepting outside contributions.
 2. **Ship music later or never?** Current build ships no music; keep the separate music package
    out until its tracks are audited.
 3. **Public build targets:** default six-player first; 16-player/lite/debug are M5 work.
