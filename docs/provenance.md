@@ -40,14 +40,18 @@ following archive hashes are listed for completeness:
 
 ## What is shipped
 
-| Repository path | Files | Bytes (disk) | Source package | Licence |
+| Repository path | Files | Logical size | Source package | Licence |
 |---|---:|---:|---|---|
-| `data/image/{misc,score,explosion,block}` | 343 | 12 MB (with sprites) | `xblast-tnt-images` | GPL-2+ |
-| `data/image/sprite` (`.epm` + `.pbm`) | 1,252 | (included above) | `xblast-tnt-models` | GPL-2+ |
-| `data/level/*.xal` | 1,188 | 4.6 MB | `xblast-tnt-levels` | GPL-2+ |
-| `data/sounds/*.raw` (effects) | 50 | 2.6 MB | `xblast-tnt-sounds` | GPL-2+ |
-| `data/sounds/xbsng{1..6}.raw` (music) | 6 | 8.2 MB | `xblast-tnt-musics` | GPL-2+ |
-| `data/Vera.ttf` | 1 | 68 KB | `ttf-bitstream-vera` | Bitstream Vera licence |
+| `data/image/{misc,score,explosion,block}` | 343 | 2.60 MiB | `xblast-tnt-images` | GPL-2+ |
+| `data/image/sprite` (`.epm` + `.pbm`) | 1,252 | 5.10 MiB | `xblast-tnt-models` | GPL-2+ |
+| `data/level/*.xal` | 1,188 | 1.48 MiB | `xblast-tnt-levels` | GPL-2+ |
+| `data/sounds/*.raw` (effects) | 50 | 2.55 MiB | `xblast-tnt-sounds` | GPL-2+ |
+| `data/sounds/xbsng{1..6}.raw` (music) | 6 | 8.18 MiB | `xblast-tnt-musics` | GPL-2+ |
+| `data/Vera.ttf` | 1 | 65,932 bytes (64.4 KiB) | `ttf-bitstream-vera` | Bitstream Vera licence |
+
+Disk usage is higher than the logical sizes because many small files each occupy a
+filesystem block (about 29 MiB of content fits in ~36 MiB on disk). The LZ4 data pack
+in the release build is about 15.5 MB.
 
 Per-package notes:
 
@@ -113,21 +117,29 @@ Findings:
 
 ## Verification recipe
 
-With the Debian packages and source archives in `.downloads/` (ignored):
+The binary packages used for the comparison are in `.downloads/` (ignored). The
+data-package source archives were downloaded from the Debian pool for the audit
+and are not kept there, but the pool URLs and SHA-256 values above let you fetch
+and verify them again. Every `.dsc` was checked against its archives.
 
 ```sh
-# 1. Compare every shipped asset with the binary package payload
+# 1. Binary payload
 dpkg-deb -x .downloads/xblast-tnt-images_20050106-5_all.deb /tmp/xb-images
 # ... repeat for levels, sounds, models, musics, ttf ...
-# 2. Compare the upstream source archive
-tar -xzf .downloads/xblast-tnt-images_20050106.orig.tar.gz -C /tmp/xb-src
+
+# 2. Upstream source archive, verified against the table above
+curl -fsSLO https://deb.debian.org/debian/pool/main/x/xblast-tnt-images/xblast-tnt-images_20050106.orig.tar.gz
+sha256sum xblast-tnt-images_20050106.orig.tar.gz
+tar -xzf xblast-tnt-images_20050106.orig.tar.gz -C /tmp/xb-src
+# ... repeat for levels (repack.orig.tar.xz), sounds, models, musics ...
+
 # 3. Hash both sides; every asset must match, with only Imakefile and the two
 #    .pos metadata files excluded.
 ```
 
 The audit used `sha256sum`/`shasum -a 256` over every file, not spot checks.
-Records of the exact commands are kept in the M4 working notes; the hashes above
-are the durable record.
+The hashes in the tables above are the durable record; no hidden working notes are
+needed to re-run it.
 
 ## If provenance changes
 

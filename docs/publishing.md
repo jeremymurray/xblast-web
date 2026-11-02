@@ -1,10 +1,11 @@
 # Publishing to public GitHub — M4 checklist
 
 Status as of 2026-11-01: **documentation, licensing and release engineering are
-complete; the repository is not public yet.** M4 is tagged **0.5.0** on `main`;
-`0.4.0` remains the historical M3 tag. The remaining steps need the human partner:
-choose the public name/description, create the remote, push, enable Pages, and cut
-the release. Do not push, publish or recreate a tag without sign-off.
+complete; the repository is not public yet.** The M4 release is **0.5.0**; create the
+annotated tag on `main` after the merge (step 2). `0.4.0` remains the historical M3
+tag. The remaining steps need the human partner: choose the public name/description,
+create the remote, tag, push, enable Pages, and cut the release. Do not push or
+publish without sign-off.
 
 This is an engineering/licensing checklist, not legal advice. If a point is
 uncertain, exclude the asset or get qualified advice.
@@ -28,21 +29,24 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 
 - **Engine:** GPL-2+ headers. `bot.c` and `xbsndsrv.c` say "either version 2 or
   later". `sdl_ppm.c` and `SDL_vkeys.h` are LGPL-2.0-or-later; compatible.
-  `engine/m4/*.m4` are GPL-3+ build macros, not part of the wasm runtime.
+  `engine/m4/*.m4` are permissive build macros (FSF unlimited copy/distribute
+  permission), not part of the wasm runtime; `sdl.m4` has no separate grant and is
+  build-only.
 - **Data:** every file in `data/` was compared byte-for-byte (SHA-256) with both the
   Debian binary package and the upstream source tarball. All match; no edits.
   Full table: `docs/provenance.md`.
   - images, levels, sounds and model sprites: GPL-2+ from the Debian packages;
-  - **music: six tracks are bundled** (`xbsng1..6.raw`, 8.2 MB) and audited; the
+  - **music: six tracks are bundled** (`xbsng1..6.raw`, 8.18 MiB) and audited; the
     Debian package and upstream tarball grant GPL-2+. No per-track authorship
     record exists upstream; the limitation is stated in `THIRD_PARTY.md` and
     `docs/provenance.md`.
   - `data/Vera.ttf` is Bitstream Vera (permissive, not GPL), unmodified, name kept.
 - **Vendored JS:** Trystero 0.26.0 and `@noble/secp256k1` 3.2.0, MIT.
-- **Linked toolchain:** Emscripten 6.0.13 (MIT/NCSA), SDL2 2.32.10, SDL2_image
-  2.6.0, SDL2_ttf 2.20.2, SDL2_mixer 2.8.0, SDL2_gfx 2b147ffe (zlib), FreeType
-  2.14.3 (FTL), HarfBuzz 3.2.0, libpng 1.6.59, zlib 1.3.2, libogg 1.3.5,
-  libvorbis 1.3.7. Texts in `LICENSE/third-party/`. No proprietary dependency.
+- **Linked toolchain:** Emscripten 6.0.13 (MIT/NCSA), musl libc (MIT), SDL2
+  2.32.10, SDL2_image 2.6.0, SDL2_ttf 2.20.2, SDL2_mixer 2.8.0, SDL2_gfx
+  2b147ffe (zlib), FreeType 2.14.3 (dual FTL/GPLv2; the project elects GPLv2),
+  HarfBuzz 3.2.0, libpng 1.6.59, zlib 1.3.2, libogg 1.3.5, libvorbis 1.3.7.
+  Texts in `LICENSE/third-party/`. No proprietary dependency.
 - **GPL-2+ permits** distribution of the combined work under GPL-3.0-or-later. It
   does **not** relicense upstream code, which remains available under GPL-2+.
   GPL-3 is not compatible with GPL-2-only components; none were found.
@@ -126,18 +130,21 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 - [x] `CONTRIBUTING.md` and `SECURITY.md`: no outside contributions or issues for now,
       fork guidance, AI-attribution policy, and a best-effort private security path.
 - [x] CI: build + artifact checks + JS transport tests (`.github/workflows/ci.yml`);
-      netplay is `workflow_dispatch` only so relay flakiness does not block PRs. CI
-      never uploads variant artifacts; Pages uploads only `web/dist`.
-- [ ] Verify GitHub Pages serves `.wasm` as `application/wasm`, `.data` correctly,
-      and no `turn.json`. The Pages workflow does this automatically after deploy;
-      it has not run yet.
+      the transport job retries once on relay failure, and netplay is
+      `workflow_dispatch` only so relay flakiness does not block PRs. CI never uploads
+      variant artifacts; Pages uploads only `web/dist`.
+- [ ] Verify GitHub Pages serves `.wasm` as `application/wasm`, returns `.data`
+      successfully, and has no `turn.json`. The Pages workflow runs this smoke test
+      after deploy; it has not run yet.
 
 ## 6. Public release steps (human-gated)
 
 1. [ ] Decide the public repository name/description/topics and whether to keep the
        personal author email in history (see open decisions). The description should
        call it a fun side project with no support; disable Issues and Discussions.
-2. [ ] Create the public repository and push `main` with both tags:
+2. [ ] Create the public repository. On the merged `main`, create the annotated M4
+       tag and push everything:
+       `git tag -a 0.5.0 -m "0.5.0: M4 public publication"`
        `git remote add origin <url>`
        `git push -u origin main`
        `git push origin 0.4.0 0.5.0`

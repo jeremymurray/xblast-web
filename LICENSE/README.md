@@ -10,8 +10,8 @@ repository root is the readable index; this file explains the layout.
 | `../engine/COPYING` (source tree) | Upstream copy of GPLv2 kept with the vendored XBlast TNT engine; the source archive carries it. |
 | `LGPL-2.0.txt` | GNU Library General Public License v2 (LGPL-2.0), for `engine/sdl_ppm.c` and `engine/SDL_vkeys.h` (LGPL-2.0-or-later). |
 | `Bitstream-Vera.txt` | Bitstream Vera font licence, for `data/Vera.ttf`. |
-| `data/*.copyright` | Debian copyright files for the engine and each data package (images, levels, sounds, models, music, font). These name the upstream authors and the GPL-2+ grant. |
-| `third-party/` | Licence texts for the SDL stack, FreeType, HarfBuzz, libpng, zlib, libogg, libvorbis and the Emscripten runtime linked into the web build. |
+| `data/*.copyright` | Debian copyright files for the engine and each data package (images, levels, sounds, models, music); they grant GPL-2+. The font copyright grants the Bitstream Vera licence instead. |
+| `third-party/` | Licence texts for the SDL stack, FreeType, HarfBuzz, libpng, zlib, libogg, libvorbis, musl libc and the Emscripten runtime linked into the web build. |
 | `../web/vendor/trystero/LICENSE.*` | MIT licences for the vendored Trystero and noble JavaScript. |
 
 ## Why some texts are GPLv2 and some say "or later"
@@ -30,10 +30,13 @@ repository root is the readable index; this file explains the layout.
 ## Licence texts for linked build dependencies
 
 The release `.wasm` statically links SDL2, SDL2_image, SDL2_ttf, SDL2_mixer,
-SDL2_gfx and their dependencies from the pinned Emscripten SDK. Their licences
-are permissive (zlib, MIT/NCSA, BSD-3-Clause, libpng-2.0, FreeType licence); the
-texts are copied into `third-party/`. Exact versions are listed in
-`THIRD_PARTY.md`. The toolchain itself is not redistributed.
+SDL2_gfx, FreeType, HarfBuzz, libpng, zlib, musl libc and the Emscripten
+runtime from the pinned Emscripten SDK. Their licences are permissive (zlib,
+MIT/NCSA, BSD-3-Clause, libpng-2.0) except FreeType, which is dual-licensed; this
+project elects its **GPLv2-or-later** option so the combined work stays
+GPL-2.0-or-later. The texts are copied into `third-party/`. Exact versions are
+listed in `THIRD_PARTY.md`. The compiler toolchain itself is not redistributed,
+although its runtime and C library are linked into the wasm.
 
 ## What is not here
 
