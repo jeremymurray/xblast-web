@@ -940,6 +940,112 @@ def run_takeover(base, outdir):
             page.close()
 
 
+def run_hostgone(base, outdir):
+    """The host leaves mid-match; the match ends and a guest hosts a new one."""
+    room = f"m2-hostgone-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    a = Page(f"{base}/", "guest-a")
+    b = Page(f"{base}/", "guest-b")
+    pages = [host, a, b]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                20, f"{page.label} lobby")
+        print(f"== hostgone room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        for guest in (a, b):
+            if not start_lobby_page(guest, "join", room):
+                raise AssertionError(f"could not click #join for {guest.label}")
+        for page in pages:
+            wait_engine(page)
+            dismiss_intro(page)
+
+        for guest in (a, b):
+            choose_first_player(guest)
+            guest.key("return")
+            guest.wait_js("globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                          60, f"{guest.label} connected")
+        choose_first_player(host)
+        host.key("return")          # Continue -> listen
+        host.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 2",
+                     60, "host sees both guests")
+        time.sleep(1.5)
+        host.key("return")          # Start
+        time.sleep(3.0)
+        for page in pages:
+            page.key("space")
+        time.sleep(2.0)
+        for name in ("left", "right", "space"):
+            for page in pages:
+                page.key(name)
+            time.sleep(0.4)
+        time.sleep(2.0)
+        for page in pages:
+            if page.ev("__xbnet.stats().actTx") < 1:
+                raise AssertionError(f"{page.label}: no action traffic in the first match")
+        for guest in (a, b):
+            guest.ev("XBNet.__setTakeoverTimings({hostReadyTimeoutMs: 90000})")
+
+        print("killing the host mid-match", flush=True)
+        host.close()
+        host = None
+        for guest in (a, b):
+            guest.wait_js(
+                "document.getElementById('host-gone').classList.contains('show')",
+                20, f"{guest.label} takeover overlay")
+            text = guest.ev(
+                "document.getElementById('host-gone').textContent.toLowerCase()")
+            if "match ended" not in text:
+                raise AssertionError(
+                    f"{guest.label} overlay does not say the match ended: {text!r}")
+
+        print("guest A starts a new match", flush=True)
+        a.ev("document.getElementById('takeover').click(); true")
+        a.wait_js("globalThis.__xbnet && __xbnet.status().role === 'host'",
+                  90, "A reloaded as host")
+        wait_engine(a)
+        dismiss_intro(a)
+        choose_first_player(a)
+        a.key("return")             # Continue -> listen
+        wait_engine(b)
+        dismiss_intro(b)
+        b.wait_js("globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                  60, "B auto-rejoined the new room")
+        a.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 1",
+                  60, "new host sees B")
+        time.sleep(1.5)
+
+        act_before = {page.label: page.ev("__xbnet.stats().actTx") for page in (a, b)}
+        a.key("return")             # Start the new match
+        time.sleep(3.0)
+        for page in (a, b):
+            page.key("space")
+        time.sleep(2.0)
+        for name in ("left", "right", "space"):
+            for page in (a, b):
+                page.key(name)
+            time.sleep(0.4)
+        time.sleep(2.0)
+        for page in (a, b):
+            stats = page.ev("__xbnet.stats()")
+            if stats.get("actTx", 0) - act_before[page.label] < 100:
+                raise AssertionError(
+                    f"{page.label}: no action traffic in the new match")
+        print("hostgone: PASS (match ended, new host started a fresh match)", flush=True)
+        return 0
+    except Exception:
+        for page in [p for p in (host, a, b) if p is not None]:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        return 1
+    finally:
+        for page in [p for p in (host, a, b) if p is not None]:
+            page.close()
+
+
 def run_hostback(base, outdir):
     """The host refreshes and re-hosts; the guest auto-rejoins."""
     room = f"m2-hostback-{random.randrange(16 ** 6):06x}"
@@ -1108,7 +1214,7 @@ def main():
             return 2
         del args[index:index + 2]
     if scenario not in ("match", "guests", "six", "refresh", "midmatch", "autojoin",
-                        "takeover", "hostback"):
+                        "takeover", "hostback", "hostgone"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -1134,6 +1240,8 @@ def main():
             return run_takeover(base, outdir)
         if scenario == "hostback":
             return run_hostback(base, outdir)
+        if scenario == "hostgone":
+            return run_hostgone(base, outdir)
         if scenario == "guests":
             return run_guests(base, outdir)
         if scenario == "six":
