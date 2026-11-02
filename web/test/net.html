@@ -86,6 +86,12 @@
     localPort(fd) { return this.requireNet().localPort(fd); },
     remotePort(fd) { return this.requireNet().remotePort(fd); },
     configure(opts) { this.requireNet().configure(opts); return true; },
+    claimHost() { return this.requireNet().claimHost(); },
+    cancelClaim() { return this.requireNet().cancelClaim(); },
+    setTakeoverTimings(opts) {
+      this.requireNet().__setTakeoverTimings(opts);
+      return true;
+    },
     leave() { this.requireNet().leave(); return true; },
   };
   globalThis.__test = T;

@@ -53,12 +53,21 @@ const PORT = 16168;
 const CTL_BUFFER_LIMIT = 512 * 1024;
 const DEFAULT_CONNECT_TIMEOUT_MS = 20000;
 
+const DEFAULT_CLAIM_WINDOW_MS = 500;
+const DEFAULT_CLAIM_SETTLE_MS = 500;
+const DEFAULT_HOST_READY_TIMEOUT_MS = 30000;
+
 const TURN_SOURCES = new Set(['file', 'endpoint', 'player']);
 
 const config = {
   connectTimeoutMs: DEFAULT_CONNECT_TIMEOUT_MS,
   turnConfig: [],
   turnSource: null,
+  takeover: {
+    claimWindowMs: DEFAULT_CLAIM_WINDOW_MS,
+    claimSettleMs: DEFAULT_CLAIM_SETTLE_MS,
+    hostReadyTimeoutMs: DEFAULT_HOST_READY_TIMEOUT_MS,
+  },
 };
 
 /* The single active page session; rooms are page-owned, not fd-owned. */
@@ -112,6 +121,9 @@ function newSession(role, room) {
     hostLost: false,
     hostLostStage: 0,
     newHostId: null,
+    claim: null,
+    takeover: null,
+    hostWaitFailed: false,
     roomObj: null,
     peers: new Map(),      // peerId -> peer record
     pending: [],           // host: clients with a valid hello, not yet accepted
@@ -279,6 +291,159 @@ function noteHostLost(s, stage) {
   s.hostLost = true;
   s.hostLostStage = stage || 0;
   s.newHostId = null;
+  clearClaimTimers(s);
+  s.claim = null;
+  s.takeover = null;
+  s.hostWaitFailed = false;
+}
+
+function claimFrame(state, clientId) {
+  const frame = new Uint8Array(4 + CLIENT_ID_LEN);
+  frame[0] = CTL_CLAIM;
+  frame[1] = state;
+  frame[2] = CLIENT_ID_LEN;
+  frame.set(clientIdBytes(clientId), 3);
+  return frame;
+}
+
+function broadcastCtl(s, bytes) {
+  for (const peer of s.peers.values()) {
+    if (peer.ctl && peer.ctl.readyState === 'open' && !peer.closed) {
+      ctlSend(s, peer, bytes);
+    }
+  }
+}
+
+function clearClaimTimers(s) {
+  if (!s || !s.claim) return;
+  clearTimeout(s.claim.timer);
+  clearTimeout(s.claim.readyTimer);
+}
+
+function startHostReadyTimer(s) {
+  if (!s || !s.claim) return;
+  clearTimeout(s.claim.readyTimer);
+  s.claim.readyTimer = setTimeout(() => {
+    if (session !== s || !s.claim || s.claim.state !== 'won') return;
+    if (s.newHostId && s.hostStage >= STAGE_LISTENING) return;
+    s.hostWaitFailed = true;
+    s.claim.state = 'failed';
+    s.takeover = null;
+  }, config.takeover.hostReadyTimeoutMs);
+}
+
+function noteHostReady(s) {
+  if (!s || !s.claim) return;
+  clearTimeout(s.claim.readyTimer);
+  s.hostWaitFailed = false;
+}
+
+function finishClaimWindow(s) {
+  if (!s || !s.claim || s.claim.state !== 'want') return;
+  s.claim.timer = null;
+  const entries = Array.from(s.claim.entries.keys()).sort();
+  const winner = entries[0] || s.clientId;
+  s.claim.winner = winner;
+  s.claim.self = winner === s.clientId;
+  s.claim.state = 'won';
+  if (s.claim.self) {
+    broadcastCtl(s, claimFrame(2, s.clientId));
+    startHostReadyTimer(s);
+    setTimeout(() => {
+      if (session === s && s.claim && s.claim.state === 'won' && s.claim.self) {
+        s.takeover = 'host';
+      }
+    }, config.takeover.claimSettleMs);
+  } else {
+    s.takeover = 'join';
+    startHostReadyTimer(s);
+  }
+}
+
+function handleClaim(s, bytes) {
+  if (!bytes || bytes.length < 4 + CLIENT_ID_LEN) return;
+  const state = bytes[1];
+  const id = bytesToClientId(bytes.subarray(3, 3 + CLIENT_ID_LEN));
+  if (state === 1) {
+    if (!s.claim) return;
+    s.claim.entries.set(id, Date.now());
+    if (s.claim.state === 'won' && id < s.claim.winner) {
+      s.claim.winner = id;
+      s.claim.self = id === s.clientId;
+      s.takeover = s.claim.self ? 'host' : 'join';
+      if (s.claim.self) {
+        broadcastCtl(s, claimFrame(2, s.clientId));
+        startHostReadyTimer(s);
+      }
+    }
+    return;
+  }
+  if (state === 2) {
+    if (!s.claim) {
+      s.claim = {
+        state: 'won', winner: id, self: false, entries: new Map(),
+        timer: null, readyTimer: null,
+      };
+    } else if (!s.claim.winner || id < s.claim.winner) {
+      s.claim.winner = id;
+    } else if (s.claim.winner !== id) {
+      return;
+    }
+    s.claim.self = s.claim.winner === s.clientId;
+    s.claim.state = 'won';
+    clearTimeout(s.claim.timer);
+    s.claim.timer = null;
+    s.takeover = s.claim.self ? 'host' : 'join';
+    startHostReadyTimer(s);
+    return;
+  }
+  if (state === 3 && s.claim) {
+    s.claim.entries.delete(id);
+    if (s.claim.winner === id) {
+      s.claim.winner = null;
+      s.claim.self = false;
+      s.takeover = null;
+      s.claim.state = s.claim.timer ? 'want' : 'failed';
+    }
+  }
+}
+
+function claimHost() {
+  const s = session;
+  if (!s || s.role !== 'client' || findHostPeer(s)) return false;
+  if (!s.hostLost && !s.hostWaitFailed) return false;
+  if (s.claim && (s.claim.winner || s.claim.timer)) return false;
+  if (s.claim) clearClaimTimers(s);
+  s.hostWaitFailed = false;
+  s.claim = {
+    state: 'want',
+    winner: null,
+    self: true,
+    entries: new Map([[s.clientId, Date.now()]]),
+    timer: null,
+    readyTimer: null,
+  };
+  broadcastCtl(s, claimFrame(1, s.clientId));
+  s.claim.timer = setTimeout(() => finishClaimWindow(s), config.takeover.claimWindowMs);
+  return true;
+}
+
+function cancelClaim() {
+  const s = session;
+  if (!s || !s.claim) return false;
+  broadcastCtl(s, claimFrame(3, s.clientId));
+  clearClaimTimers(s);
+  s.claim = null;
+  s.takeover = null;
+  s.hostWaitFailed = false;
+  return true;
+}
+
+function setTakeoverTimings(opts) {
+  if (!opts || typeof opts !== 'object') return;
+  for (const key of ['claimWindowMs', 'claimSettleMs', 'hostReadyTimeoutMs']) {
+    if (Number.isFinite(opts[key]) && opts[key] > 0) config.takeover[key] = opts[key];
+  }
 }
 
 /* The engine closes the listen socket at match start and on cancel. Accepted
@@ -376,6 +541,7 @@ function handleHello(s, peer, bytes) {
   } else if (s.role === 'client' && remoteRole === ROLE_HOST) {
     s.newHostId = peer.id;
     s.hostLost = false;
+    if (remoteStage >= STAGE_LISTENING) noteHostReady(s);
     bindConnectFds(s, peer);
   }
 }
@@ -415,6 +581,7 @@ function handleCtlMessage(s, peer, data) {
       if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
         peer.hostStage = bytes[1];
         peer.hostVisible = bytes.length >= 3 ? bytes[2] === 1 : true;
+        if (peer.hostStage >= STAGE_LISTENING) noteHostReady(s);
       }
       break;
     case CTL_HOST_LEAVING:
@@ -423,6 +590,9 @@ function handleCtlMessage(s, peer, data) {
         s.hostLostStage = bytes[1];
         s.newHostId = null;
       }
+      break;
+    case CTL_CLAIM:
+      handleClaim(s, bytes);
       break;
     case CTL_REJECT:
       /* Only the host refuses; the hello precedes it on the same ordered
@@ -637,6 +807,7 @@ function leave() {
   const s = session;
   if (!s) return;
   sendHostLeaving(s);
+  clearClaimTimers(s);
   session = null;
   if (s.recheck) {
     clearTimeout(s.recheck);
@@ -1057,6 +1228,11 @@ function status() {
     hostLost: s ? s.hostLost : false,
     hostLostStage: s ? s.hostLostStage : 0,
     newHostId: s ? s.newHostId : null,
+    claim: s && s.claim
+      ? { state: s.claim.state, winner: s.claim.winner, self: s.claim.self }
+      : { state: 'idle', winner: null, self: false },
+    takeover: s ? s.takeover : null,
+    hostWaitFailed: s ? s.hostWaitFailed : false,
     error: s ? s.error : null,
     lastError: s ? s.lastError : null,
     connectError: s ? s.connectError : null,
@@ -1154,6 +1330,9 @@ const XBNet = {
   peerIds,
   stats,
   engineListening,
+  claimHost,
+  cancelClaim,
+  __setTakeoverTimings: setTakeoverTimings,
   __setHostVisible: setHostVisible,
   __resendHello: resendHello,
 };

@@ -772,6 +772,84 @@ def run_hostleave(base):
         host.close(); client.close()
 
 
+def run_claim(base):
+    def open_room(prefix, ids=None, timings=None):
+        room = unique_room(prefix)
+        pages = {}
+        for label, role in (("host", "host"), ("a", "client"), ("b", "client")):
+            query = f"role={role}&room={room}&scenario=basic"
+            if ids and label in ids:
+                query += f"&clientId={ids[label]}"
+            page = Page(f"{base}/test/net.html?{query}")
+            pages[label] = page
+        for label, page in pages.items():
+            require_net(page, label)
+        if timings:
+            for label in ("a", "b"):
+                pages[label].ev(
+                    "XBNet.__setTakeoverTimings(" + json.dumps(timings) + ")")
+        pages["host"].wait_js(peer_ready_expr(2), 60, "host peers")
+        for label in ("a", "b"):
+            pages[label].wait_js(peer_ready_expr(1), 60, f"{label} peer")
+        return pages
+
+    # Case A: one claimant wins, the other sees the winner.
+    pages = open_room("xbclaim")
+    try:
+        a_id = pages["a"].ev("XBNet.status().clientId")
+        pages["host"].ev("XBNet.leave()")
+        for label in ("a", "b"):
+            pages[label].wait_js("XBNet.status().hostLost === true", 10,
+                                 f"{label} hostLost")
+        pages["a"].ev("XBNet.claimHost()")
+        pages["a"].wait_js("XBNet.status().takeover === 'host'", 5, "A won")
+        pages["b"].wait_js("XBNet.status().takeover === 'join'", 5, "B saw A win")
+        check(pages["b"].ev("XBNet.status().claim.winner") == a_id,
+              "B has the wrong winner")
+    finally:
+        for page in pages.values():
+            page.close()
+
+    # Case B: simultaneous claims; the lower client id wins.
+    low_id, high_id = "a" * 32, "b" * 32
+    pages = open_room("xbclaimsim", {"a": low_id, "b": high_id},
+                      {"claimWindowMs": 1000})
+    try:
+        pages["host"].ev("XBNet.leave()")
+        for label in ("a", "b"):
+            pages[label].wait_js("XBNet.status().hostLost === true", 10,
+                                 f"{label} hostLost")
+        pages["a"].ev("XBNet.claimHost()")
+        pages["b"].ev("XBNet.claimHost()")
+        pages["a"].wait_js("XBNet.status().takeover === 'host'", 8, "A won")
+        pages["b"].wait_js("XBNet.status().takeover === 'join'", 8, "B saw A win")
+        check(pages["b"].ev("XBNet.status().claim.winner") == low_id,
+              "the lower client id did not win")
+    finally:
+        for page in pages.values():
+            page.close()
+
+    # Case C: no host reaches listening; the claim times out.
+    pages = open_room("xbclaimtimeout", None,
+                      {"claimWindowMs": 100, "claimSettleMs": 50,
+                       "hostReadyTimeoutMs": 300})
+    try:
+        pages["host"].ev("XBNet.leave()")
+        for label in ("a", "b"):
+            pages[label].wait_js("XBNet.status().hostLost === true", 10,
+                                 f"{label} hostLost")
+        pages["a"].ev("XBNet.claimHost()")
+        pages["a"].wait_js("XBNet.status().takeover === 'host'", 5, "A won")
+        for label in ("a", "b"):
+            pages[label].wait_js(
+                "XBNet.status().hostWaitFailed === true && "
+                "XBNet.status().claim.state === 'failed'",
+                5, f"{label} claim failed")
+    finally:
+        for page in pages.values():
+            page.close()
+
+
 def run_turn_config(base):
     page = Page(f"{base}/test/net.html?scenario=turn-config")
     try:
@@ -884,13 +962,14 @@ SCENARIOS = {
     "roomcode": run_roomcode,
     "visibility": run_visibility,
     "hostleave": run_hostleave,
+    "claim": run_claim,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
-        "roomcode", "visibility", "hostleave",
+        "roomcode", "visibility", "hostleave", "claim",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
