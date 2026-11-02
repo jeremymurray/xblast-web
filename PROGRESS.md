@@ -191,7 +191,8 @@ from 0.4.0.
 - [x] Pages deploys from the same artifact in `ci.yml`; the separate `pages.yml` is gone
 - [x] Per-scenario retries (`XB_TEST_RETRIES`), not whole-suite reruns; refused-guest
       EOF wait widened
-- [ ] Confirm the first public CI run after the change (artifact path, Pages smoke test)
+- [x] First public CI run confirmed: build 2m14s, transport 1m56s (artifact reused),
+      Pages deployed from the same artifact, smoke test passed; total run 3m27s
 
 ## M5 build targets (local only)
 
