@@ -65,6 +65,8 @@ GPL-2.0-or-later.
   The project's own deployment runs no TURN and no credential endpoint; `docs/hosting.md` covers
   `turn.json`, coturn, the credential endpoint contract and the player override. Player TURN
   credentials are local (`sessionStorage`) and never shared.
+  **Published 2026-11-02:** source <https://github.com/jeremymurray/xblast-web>, site
+  <https://jeremymurray.github.io/xblast-web/> (Pages from Actions, release 0.5.0).
 - **Room capacity:** five guests + host = six players (`MAX_PLAYER` 6; `-DSMPF` would make it 16
   and is off). A sixth client gets `CTL_REJECT` → "The room is full (6 players)."; a rejoin by
   client id still replaces. `--scenario guests` (3 browsers) is the default netplay test,
@@ -116,14 +118,11 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M4 is complete locally: documentation, licensing and release tooling are done
-(`THIRD_PARTY.md`, `LICENSE/`, `docs/provenance.md`, CI/Pages/release workflows,
-`scripts/{check-web-dist,make-release}.sh`), with release **0.5.0** tagged locally on
-`main` and not pushed. Remaining: human sign-off on the public name/identity, create the
-repo, push `main` + `0.4.0` (historical) + `0.5.0`, enable Pages, smoke-test
-(`docs/publishing.md` §6). M5: local build targets are done; 16-player runtime acceptance
-remains. A lobby chat UI, a per-round desync hash and mid-match host migration/resume
-remain deliberately not planned.
+M4 is **done and public**: <https://github.com/jeremymurray/xblast-web> and
+<https://jeremymurray.github.io/xblast-web/>, release 0.5.0. The 0.5.0 tag's CI check is
+red from a transport-harness race fixed on `main` afterwards; the artifact and site are
+unaffected. M5 is next: 16-player runtime acceptance, then polish/PWA. A lobby chat UI, a
+per-round desync hash and mid-match host migration/resume remain deliberately not planned.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

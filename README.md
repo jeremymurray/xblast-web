@@ -9,6 +9,10 @@ Edge, and other Chromium derivatives); three browsers are covered by the default
 six by an opt-in one. Host takeover, readable room codes and the backgrounding warning
 are in; chat, a desync hash and mid-match host migration are not planned.
 
+**Play:** <https://jeremymurray.github.io/xblast-web/> — desktop Chromium; open a second
+tab or device with the same room code for multiplayer. Source:
+<https://github.com/jeremymurray/xblast-web>.
+
 ## About this project
 
 This is a **fun side project**: a vibecoded experiment to see whether a 2005 C game

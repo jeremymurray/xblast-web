@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-01 (M4 work complete locally, release 0.5.0 tagged locally; public push awaiting sign-off)
+Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 released; M5 next)
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Updated: 2026-11-01 (M4 work complete locally, release 0.5.0 tagged locally; pub
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
-| M4 — public source publication (license audit, GitHub, Pages) | **done locally** (0.5.0 tagged locally; public push awaiting sign-off) |
+| M4 — public source publication (license audit, GitHub, Pages) | **done** (0.5.0 public) |
 | M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets done; 16-player acceptance pending) |
 
 ## M2 checklist
@@ -109,10 +109,15 @@ match and the takeover flow starts a new one.
 
 ## M4 public publication (0.5.0)
 
-The M4 work is complete locally as release **0.5.0**, tagged on `main` but not pushed.
-The repository is **not
-public yet**; the remaining steps are the human-gated publication actions in
-`docs/publishing.md` §6. `0.4.0` stays where it is as the M3 tag.
+M4 is **published**: source at <https://github.com/jeremymurray/xblast-web>, site at
+<https://jeremymurray.github.io/xblast-web/>, release `0.5.0` with source archive, web
+bundle and `SHA256SUMS`. Pages serves `.wasm` as `application/wasm`, has no
+`turn.json`, and `SOURCE.txt` names the tagged commit. `0.4.0` stays as the M3 tag.
+
+The `0.5.0` tag's CI check is red from a test-harness race (the harness polled for
+`__test` before `net.js` finished importing); the fix landed on `main` after the tag
+and the site/artifact are unaffected. The transport suite still has a known
+public-relay flake, mitigated by one retry.
 
 - [x] Licence decision: GPL-2.0-or-later (kept; matches upstream and is already open source)
 - [x] `NOTICE`/`THIRD_PARTY.md` covering engine, data, sprites, music, font, vendored JS,
@@ -130,9 +135,9 @@ public yet**; the remaining steps are the human-gated publication actions in
 - [x] CI (build + artifact checks + JS transport; netplay manual) and Pages workflow;
       variant artifacts are never uploaded
 - [x] Release tooling: `scripts/check-web-dist.sh`, `scripts/make-release.sh`, release workflow
-- [ ] Choose repo name/identity, create the public repo, push `main` + `0.4.0`
-      (historical) + `0.5.0`, enable Pages, create the release and smoke-test it — human
-      sign-off required
+- [x] Public repo `jeremymurray/xblast-web` with Issues/Discussions disabled; `main`,
+      `0.4.0` and `0.5.0` pushed; Pages enabled from GitHub Actions; release `0.5.0`
+      published; public build boots and the Pages smoke test passes
 
 ## Release notes — 0.5.0
 

@@ -1,10 +1,11 @@
 # Publishing to public GitHub — M4 checklist
 
-Status as of 2026-11-01: **documentation, licensing and release engineering are
-complete; the repository is not public yet.** The M4 release is **0.5.0**, tagged
-locally on `main` and not pushed. `0.4.0` remains the historical M3 tag. The remaining
-steps need the human partner: choose the public name/description, create the remote,
-push, enable Pages, and cut the release. Do not push or publish without sign-off.
+Status as of 2026-11-02: **published.** Source:
+<https://github.com/jeremymurray/xblast-web>; site:
+<https://jeremymurray.github.io/xblast-web/>; release `0.5.0` with source archive, web
+bundle and `SHA256SUMS`. `0.4.0` remains the historical M3 tag. The 0.5.0 tag's CI check
+is red from a transport-harness race fixed on `main` after the tag; the artifact and site
+are unaffected (see §8).
 
 This is an engineering/licensing checklist, not legal advice. If a point is
 uncertain, exclude the asset or get qualified advice.
@@ -122,42 +123,33 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 - [x] No telemetry, analytics, backend or hidden network calls. The public Nostr
       relay dependency and optional TURN are documented in `README.md` and
       `docs/hosting.md`.
-- [ ] Choose the public repo name/description, add topics, disable Issues and
-      Discussions, verify GitHub detects the licence. **Needs the human partner**
-      (name and remote are a publication choice); describe it as a fun side project
-      with no support.
+- [x] Public repo `jeremymurray/xblast-web`: description "A browser port of XBlast TNT",
+      Issues and Discussions disabled, GitHub detects GPL-2.0, topics can be added later.
 - [x] `CONTRIBUTING.md` and `SECURITY.md`: no outside contributions or issues for now,
       fork guidance, AI-attribution policy, and a best-effort private security path.
 - [x] CI: build + artifact checks + JS transport tests (`.github/workflows/ci.yml`);
       the transport job retries once on relay failure, and netplay is
       `workflow_dispatch` only so relay flakiness does not block PRs. CI never uploads
       variant artifacts; Pages uploads only `web/dist`.
-- [ ] Verify GitHub Pages serves `.wasm` as `application/wasm`, returns `.data`
-      successfully, and has no `turn.json`. The Pages workflow runs this smoke test
-      after deploy; it has not run yet.
+- [x] GitHub Pages serves `.wasm` as `application/wasm`, returns `.data` successfully,
+      has no `turn.json`, and the workflow smoke test passed after deploy.
 
 ## 6. Public release steps (human-gated)
 
-1. [ ] Decide the public repository name/description/topics and whether to keep the
-       personal author email in history (see open decisions). The description should
-       call it a fun side project with no support; disable Issues and Discussions.
-2. [ ] Create the public repository. The annotated `0.5.0` tag already exists locally
-       on `main`; push it with the branch:
-       `git remote add origin <url>`
-       `git push -u origin main`
-       `git push origin 0.4.0 0.5.0`
-       (0.4.0 is the historical M3 tag and produces no artifact release; 0.5.0 is M4.)
-3. [ ] Enable GitHub Pages with **GitHub Actions** as the source; run the Pages
-       workflow; confirm the smoke test passes (wasm MIME, `.data`, notices, no
-       `turn.json`).
-4. [ ] The `0.5.0` tag push runs `.github/workflows/release.yml`, which attaches the
-       source archive, web bundle and `SHA256SUMS` to the GitHub release. Edit the
-       release notes if the one-line tag message is too thin.
-5. [ ] Smoke-test the public site: solo, host/join, host takeover, room codes, a real
-       match, DevTools shows no credentials.
-6. [ ] Verify the public build has no TURN credentials and no local config; verify
-       `SOURCE.txt` points at the public repository and the tagged commit.
-7. [ ] Re-check the uploaded release against this checklist; update `PROGRESS.md`.
+1. [x] Public repository name/description/topics and author identity decided by the
+       maintainer; Issues and Discussions disabled.
+2. [x] Public repository created; `main`, `0.4.0` and `0.5.0` pushed.
+3. [x] GitHub Pages enabled with **GitHub Actions** as the source; the Pages workflow
+       and its smoke test pass.
+4. [x] `0.5.0` release published with the source archive, web bundle and `SHA256SUMS`.
+       The notes were corrected after the first upload (the workflow captured the commit
+       message instead of the tag annotation; fixed in `release.yml`).
+5. [x] Public site loads, boots to the game menus and serves all notices; the Pages smoke
+       test passes. A human host/join/takeover match on the public URL remains the final
+       manual acceptance step.
+6. [x] The public build has no TURN credentials or local config; `SOURCE.txt` names
+       commit `a38f966` and the public repository.
+7. [x] Release artifact and site re-checked against this checklist.
 
 ## 7. Open decisions
 
@@ -168,7 +160,22 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
    `data/sounds` (the `lite` targets), do not claim music is present.
 3. **Public build target:** `release` (six players) only. 16-player/lite/debug
    remain local M5 work and must not be uploaded by CI.
-4. **Public name and git identity:** not decided. The commit author is a personal
-   address and the history contains early local paths. Accepting that is normal for
-   an open-source repo; rewriting history would change every commit and every tag,
-   so it is not done silently. Decide before the first push.
+4. **Public name and git identity (resolved 2026-11-02):** published as
+   `jeremymurray/xblast-web` with the maintainer's personal author address. History
+   was not rewritten; this is accepted for a hobby repo.
+
+## 8. Post-publication check (2026-11-02)
+
+- Repo public, default branch `main`, GPL-2.0 detected, Issues and Discussions disabled.
+- Pages: `https://jeremymurray.github.io/xblast-web/`; `.wasm` →
+  `application/wasm`, `.data` HTTP 200, `turn.json` HTTP 404, notices and
+  `docs/provenance.md` HTTP 200.
+- `SOURCE.txt`: repository URL plus commit `a38f966`; built from the tag's tree.
+- Release `0.5.0`: source tarball 11.2 MB, web zip 12.4 MB, `SHA256SUMS`; notes match
+  the annotated tag after correction.
+- Public build boots to the XBlast menus; the game loads ~19 MB on first click.
+- Known red check: the `0.5.0` tag's **CI** run failed because the transport harness
+  checked `XBNet` before `net.js` finished importing. Fixed on `main` (wait for
+  `ready`/`done`, and treat module failure as done). The tag is public and is not being
+  moved; the build and site were unaffected. The known public-relay `full` flake
+  remains, mitigated by the workflow's single retry.
