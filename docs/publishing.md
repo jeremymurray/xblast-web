@@ -178,4 +178,5 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
   checked `XBNet` before `net.js` finished importing. Fixed on `main` and released as
   **0.5.1** (wait for `ready`/`done`, and treat module failure as done); 0.5.0 is not
   moved because it is public. The build and site were unaffected. The known
-  public-relay `full` flake remains, mitigated by the workflow's single retry.
+  public-relay `full` flake remains, mitigated by per-scenario retries
+  (`XB_TEST_RETRIES=2` in CI).

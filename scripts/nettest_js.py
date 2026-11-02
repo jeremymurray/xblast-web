@@ -608,7 +608,7 @@ def run_full(base):
               "host peer count changed after the reject")
         check(host.ev("XBNet.status().full") is True,
               "host does not report the room as full")
-        extra.wait_js("__test.recv(301, 64).kind === 'eof'", 15,
+        extra.wait_js("__test.recv(301, 64).kind === 'eof'", 30,
                       "the refused guest's stream ended")
 
         print("3b. a later Connect on the refused page fails at once", flush=True)
@@ -1155,6 +1155,10 @@ def main():
         print(f"unknown scenario(s): {', '.join(unknown)}", file=sys.stderr)
         return 2
     try:
+        retries = max(0, int(os.environ.get("XB_TEST_RETRIES", "0")))
+    except ValueError:
+        retries = 0
+    try:
         build()
     except subprocess.CalledProcessError as e:
         print(f"build failed: {e}", file=sys.stderr)
@@ -1164,13 +1168,21 @@ def main():
     failures = []
     try:
         for name in wanted:
-            print(f"\n===== {name} =====", flush=True)
-            try:
-                SCENARIOS[name](base)
-            except Exception as e:
-                failures.append((name, e))
-                print(f"{name}: FAIL: {e}", file=sys.stderr)
-                traceback.print_exc()
+            for attempt in range(retries + 1):
+                suffix = f" (attempt {attempt + 1})" if attempt else ""
+                print(f"\n===== {name} ====={suffix}", flush=True)
+                try:
+                    SCENARIOS[name](base)
+                    break
+                except Exception as e:
+                    if attempt < retries:
+                        print(f"{name}: retry {attempt + 1}/{retries}: {e}",
+                              file=sys.stderr, flush=True)
+                        time.sleep(5)
+                        continue
+                    failures.append((name, e))
+                    print(f"{name}: FAIL: {e}", file=sys.stderr)
+                    traceback.print_exc()
     finally:
         server.shutdown()
         server.server_close()

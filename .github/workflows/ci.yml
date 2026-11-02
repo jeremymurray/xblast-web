@@ -67,13 +67,10 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: Run transport scenarios
-        # Public Nostr relays occasionally fail; retry once before failing the job.
-        run: |
-          python3 scripts/nettest_js.py || {
-            echo "retrying once after a relay failure" >&2
-            sleep 10
-            python3 scripts/nettest_js.py
-          }
+        # Public Nostr relays occasionally fail; retry only the failed scenario.
+        env:
+          XB_TEST_RETRIES: '2'
+        run: python3 scripts/nettest_js.py
 
   netplay:
     name: Netplay (manual)

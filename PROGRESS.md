@@ -117,7 +117,7 @@ bundle and `SHA256SUMS`. Pages serves `.wasm` as `application/wasm`, has no
 The `0.5.0` tag's CI check is red from a test-harness race (the harness polled for
 `__test` before `net.js` finished importing). It is fixed and released as **0.5.1**;
 0.5.0 stays as the M4 publication tag. The transport suite still has a known
-public-relay flake, mitigated by one retry.
+public-relay flake, mitigated by per-scenario retries (`XB_TEST_RETRIES=2` in CI).
 
 - [x] Licence decision: GPL-2.0-or-later (kept; matches upstream and is already open source)
 - [x] `NOTICE`/`THIRD_PARTY.md` covering engine, data, sprites, music, font, vendored JS,
