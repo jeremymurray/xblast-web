@@ -37,10 +37,14 @@ const CTL_HOST_LEAVING = 8;
 
 const REJECT_FULL = 1;
 
-/* Six players: the host plus five guests. Kept in JS because the room is
- * joined before the engine loads; this build has MAX_PLAYER 6. */
-const MAX_CLIENTS = 5;
-const ROOM_FULL_MESSAGE = `The room is full (${MAX_CLIENTS + 1} players).`;
+/* The room is joined before the engine loads, so capacity comes from the
+ * generated build-info.js. The fallback is the six-player build. */
+const BUILD = globalThis.XB_BUILD || {};
+const MAX_PLAYERS = Number.isInteger(BUILD.maxPlayers) && BUILD.maxPlayers > 1
+  ? BUILD.maxPlayers
+  : 6;
+const MAX_CLIENTS = MAX_PLAYERS - 1;
+const ROOM_FULL_MESSAGE = `The room is full (${MAX_PLAYERS} players).`;
 
 const STAGE_SETUP = 0;
 const STAGE_LISTENING = 1;
@@ -213,7 +217,7 @@ function clientCount(s, exceptPeer) {
   return count;
 }
 
-/* The room is at its six-player cap: tell the guest why and keep it out. */
+/* The room is at its build cap: tell the guest why and keep it out. */
 function rejectClient(s, peer) {
   if (!ctlSend(s, peer, new Uint8Array([CTL_REJECT, REJECT_FULL]))) {
     console.warn('xbnet: could not send the room-full reject to', peer.id);

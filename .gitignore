@@ -3,6 +3,7 @@ web/turn.json
 
 # build artefacts
 web/dist/
+web/dist-*/
 build/out/
 *.o
 *.wasm

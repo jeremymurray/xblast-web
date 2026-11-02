@@ -269,8 +269,11 @@ InitDisplay (void)
 	Dbg_Out ("  Gmask:..........%08x\n", videoInfo->vfmt->Gmask);
 	Dbg_Out ("  Bmask:..........%08x\n", videoInfo->vfmt->Bmask);
 	Dbg_Out ("  Amask:..........%08x\n", videoInfo->vfmt->Amask);
+#ifndef __EMSCRIPTEN__
+	/* web port: SDL2 has no per-pixel-format colorkey/alpha fields. */
 	Dbg_Out ("  Colorkey:.......%08x\n", videoInfo->vfmt->colorkey);
 	Dbg_Out ("  Alpha:..........%08x\n", videoInfo->vfmt->alpha);
+#endif
 
 	/* Try Hardware surfaces if available. */
 	video_flags |= (videoInfo->hw_available ? SDL_HWSURFACE : SDL_SWSURFACE);
