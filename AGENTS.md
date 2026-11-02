@@ -110,10 +110,12 @@ known issues, next tasks, how to run. Keep it concise and current; it is the han
 
 ## Next milestone
 M4: public source publication. The 0.4.0 tag exists locally but the repository is not public.
-`docs/publishing.md` is the blocking license/GitHub checklist; choose GPL-2.0-or-later or
-GPL-3.0-or-later before publishing. No music is bundled. After publication, M5 covers polish,
-PWA and the optional 16-player `-DSMPF` build. A lobby chat UI, a per-round desync hash and
-mid-match host migration/resume remain deliberately not planned.
+The combined-work licence is **GPL-2.0-or-later** (decided 2026-11-01). Finish
+`docs/publishing.md`: top-level `COPYING` is in; still needs `NOTICE`/`THIRD_PARTY.md`, the
+asset/provenance audit, LGPL/Bitstream notices, history/secrets scan, CI/Pages setup, then
+push and tag. No music is bundled. M5 has the local build targets; 16-player acceptance
+remains. A lobby chat UI, a per-round desync hash and mid-match host migration/resume remain
+deliberately not planned.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

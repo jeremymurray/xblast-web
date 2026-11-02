@@ -10,8 +10,8 @@ Updated: 2026-11-01 (M3 complete, 0.4.0)
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
-| M4 — public source publication (license audit, GitHub, Pages) | in progress (blocked on license decision) |
-| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
+| M4 — public source publication (license audit, GitHub, Pages) | in progress (GPL-2.0-or-later decided; publication checklist open) |
+| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets done; 16-player acceptance pending) |
 
 ## M2 checklist
 
