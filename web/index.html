@@ -511,6 +511,12 @@
   }
 
   function updateHostGone(status) {
+    if (hostGoneRoom) {
+      showHostGone('Another player is hosting',
+        'This room already has a host. Rejoin as a guest.', '',
+        'Rejoin as guest', 'rejoin');
+      return;
+    }
     if (!status) {
       hideHostGone();
       return;
@@ -522,9 +528,21 @@
     }
     if (status.stepDown) {
       sawHostLoss = true;
+      hostGoneRoom = status.room;
+      storeLastRoom('client', status.room);
+      clearTakeover();
       showHostGone('Another player is hosting',
         'This room already has a host. Rejoin as a guest.', '',
         'Rejoin as guest', 'rejoin');
+      const api = globalThis.XBNet;
+      if (api) api.leave();
+      return;
+    }
+    if (status.hostWaitFailed) {
+      sawHostLoss = true;
+      showHostGone('Takeover failed',
+        'The new host did not start the room.',
+        'You can take the room over instead.', 'Take over instead', 'claim');
       return;
     }
     if (status.hostLost) {
@@ -541,8 +559,7 @@
         showHostGone('Host left', 'Taking over…', '', null, 'none');
         return;
       }
-      const failed = status.hostWaitFailed ||
-        (status.claim && status.claim.state === 'failed');
+      const failed = status.claim && status.claim.state === 'failed';
       const text = status.hostLostStage === 2
         ? 'The match ended because the host left.'
         : 'The host left the room.';
@@ -557,15 +574,22 @@
         return;
       }
       sawHostLoss = true;
-      if (status.hostStage < 1) {
-        showHostGone('New host', 'Waiting for the new host to start the room…', '', null, 'none');
+      if (status.newHostStage === 1) {
+        showHostGone('Rejoining room ' + status.room,
+          'Bringing you back to the room…', '', null, 'none');
+        flushAndReload({ mode: 'client', room: status.room, autoJoin: true }, 2000);
         return;
       }
-      showHostGone('Rejoining room ' + status.room, 'Bringing you back to the room…', '', null, 'none');
-      flushAndReload({ mode: 'client', room: status.room, autoJoin: true }, 2000);
+      if (status.newHostStage === 0) {
+        showHostGone('New host', 'Waiting for the new host to start the room…',
+          '', null, 'none');
+        return;
+      }
+      showHostGone('New host', 'The new host is not accepting players.', '',
+        null, 'none');
       return;
     }
-    if (status.claim && status.claim.winner && !status.claim.self) {
+    if (sawHostLoss && status.claim && status.claim.winner && !status.claim.self) {
       showHostGone('Host left', 'Another guest is taking over…', '', null, 'none');
       return;
     }
@@ -577,11 +601,25 @@
     if (!api) return;
     if (hostGoneAction === 'claim') {
       takeoverEl.disabled = true;
-      api.claimHost();
+      if (!api.claimHost()) {
+        const status = api.status();
+        if (status && status.newHostId) {
+          hostGoneRoom = status.room;
+          storeLastRoom('client', status.room);
+          clearTakeover();
+          showHostGone('Another player is hosting',
+            'This room already has a host. Rejoin as a guest.', '',
+            'Rejoin as guest', 'rejoin');
+        } else {
+          takeoverEl.disabled = false;
+          hostGoneStatusEl.textContent = 'Could not claim the host role.';
+        }
+      }
     } else if (hostGoneAction === 'rejoin') {
       const status = api.status();
-      if (status && status.room) {
-        flushAndReload({ mode: 'client', room: status.room, autoJoin: true }, 0);
+      const room = hostGoneRoom || (status && status.room);
+      if (room) {
+        flushAndReload({ mode: 'client', room, autoJoin: true }, 0);
       }
     }
   });
@@ -590,6 +628,7 @@
     if (hostGoneReloadTimer) clearTimeout(hostGoneReloadTimer);
     hostGoneReloadTimer = null;
     hostGoneReloading = false;
+    hostGoneRoom = null;
     const api = globalThis.XBNet;
     if (api) {
       api.cancelClaim();
@@ -611,6 +650,7 @@
   let hostGoneAction = 'none';
   let hostGoneReloadTimer = null;
   let hostGoneReloading = false;
+  let hostGoneRoom = null;
 
   let turnModulePromise = null;
   let turnFilePromise = null;

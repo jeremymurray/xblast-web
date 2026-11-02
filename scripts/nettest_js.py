@@ -772,6 +772,21 @@ def run_hostleave(base):
         host.close(); client.close()
 
 
+def run_peerleave(base):
+    room = unique_room("xbpeerleave")
+    a = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    b = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    try:
+        require_net(a, "a"); require_net(b, "b")
+        a.wait_js("XBNet.__peerCount() === 1", 60, "a sees the client peer")
+        b.close()
+        time.sleep(1.5)
+        check(a.ev("XBNet.status().hostLost") is False,
+              "a client leaving was treated as the host leaving")
+    finally:
+        a.close()
+
+
 def run_claim(base):
     def open_room(prefix, ids=None, timings=None):
         room = unique_room(prefix)
@@ -845,6 +860,25 @@ def run_claim(base):
                 "XBNet.status().hostWaitFailed === true && "
                 "XBNet.status().claim.state === 'failed'",
                 5, f"{label} claim failed")
+            check(pages[label].ev("XBNet.status().claim.winner") is None,
+                  f"{label} kept a stale claim winner after the timeout")
+            check(pages[label].ev("XBNet.status().claim.self") is False,
+                  f"{label} kept a stale self claim after the timeout")
+
+        # A stuck host in setup must not block a retry claim.
+        stuck = Page(f"{base}/test/net.html?role=host&room={pages['a'].ev('XBNet.status().room')}"
+                     "&scenario=basic")
+        try:
+            require_net(stuck, "stuck")
+            pages["b"].wait_js("XBNet.status().newHostId !== null", 30, "stuck host hello")
+            check(pages["b"].ev("XBNet.status().newHostStage") == 0,
+                  "stuck host did not report setup")
+            check(pages["b"].ev("XBNet.claimHost()") is True,
+                  "a stuck setup host blocked a retry claim")
+            pages["b"].wait_js("XBNet.status().takeover === 'host'", 5,
+                               "retry claim won")
+        finally:
+            stuck.close()
     finally:
         for page in pages.values():
             page.close()
@@ -857,15 +891,22 @@ def run_collision(base):
                   f"&scenario=basic&clientId={low_id}")
     host_b = Page(f"{base}/test/net.html?role=host&room={room}"
                   f"&scenario=basic&clientId={high_id}")
+    client = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
     try:
         require_net(host_a, "host-a")
         require_net(host_b, "host-b")
+        require_net(client, "client")
         host_a.wait_js("XBNet.status().stepDown === false", 60, "low host stays")
         host_b.wait_js("XBNet.status().stepDown === true", 60, "high host steps down")
         check(host_b.ev("XBNet.status().steppedDownBy") == low_id,
               "wrong steppedDownBy")
+        low_self = host_a.ev("XBNet.status().selfId")
+        client.wait_js(f"XBNet.status().newHostId === {json.dumps(low_self)}", 30,
+                       "client kept the surviving host")
+        check(client.ev("XBNet.status().hostLost") is False,
+              "the surviving host was reported as gone")
     finally:
-        host_a.close(); host_b.close()
+        host_a.close(); host_b.close(); client.close()
 
 
 def run_turn_config(base):
@@ -981,6 +1022,7 @@ SCENARIOS = {
     "visibility": run_visibility,
     "hostleave": run_hostleave,
     "claim": run_claim,
+    "peerleave": run_peerleave,
     "collision": run_collision,
 }
 
@@ -988,7 +1030,7 @@ SCENARIOS = {
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
-        "roomcode", "visibility", "hostleave", "claim", "collision",
+        "roomcode", "visibility", "hostleave", "claim", "collision", "peerleave",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:

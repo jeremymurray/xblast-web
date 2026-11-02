@@ -940,6 +940,80 @@ def run_takeover(base, outdir):
             page.close()
 
 
+def run_takeover_stuck(base, outdir):
+    """A takeover winner that never listens is superseded by a retry claim."""
+    room = f"m2-stuck-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    a = Page(f"{base}/", "guest-a")
+    b = Page(f"{base}/", "guest-b")
+    pages = [host, a, b]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                20, f"{page.label} lobby")
+        # Make B the lower client id so the retry claim wins the collision.
+        a.ev("sessionStorage.setItem('xb:clientId', '" + "f" * 32 + "'); true")
+        b.ev("sessionStorage.setItem('xb:clientId', '" + "0" * 32 + "'); true")
+        print(f"== takeover-stuck room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        for guest in (a, b):
+            if not start_lobby_page(guest, "join", room):
+                raise AssertionError(f"could not click #join for {guest.label}")
+        for page in pages:
+            wait_engine(page)
+            dismiss_intro(page)
+        for guest in (a, b):
+            choose_first_player(guest)
+            guest.key("return")
+            guest.wait_js("globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                          60, f"{guest.label} connected")
+        a.ev("XBNet.__setTakeoverTimings({hostReadyTimeoutMs: 90000})")
+        b.ev("XBNet.__setTakeoverTimings({hostReadyTimeoutMs: 5000})")
+
+        print("killing the host; A takes over but stays in setup", flush=True)
+        host.close()
+        host = None
+        for guest in (a, b):
+            guest.wait_js(
+                "document.getElementById('host-gone').classList.contains('show')",
+                20, f"{guest.label} takeover overlay")
+        a.ev("document.getElementById('takeover').click(); true")
+        a.wait_js("globalThis.__xbnet && __xbnet.status().role === 'host'",
+                  90, "A reloaded as host")
+        wait_engine(a)
+        dismiss_intro(a)
+        # Deliberately do not press Continue: A stays at stage setup.
+
+        b.wait_js(
+            "XBNet.status().hostWaitFailed === true", 30, "B saw the takeover timeout")
+        b.wait_js(
+            "document.getElementById('takeover').textContent.indexOf('Take over') >= 0",
+            10, "B got a retry action")
+        b.ev("document.getElementById('takeover').click(); true")
+        b.wait_js("globalThis.__xbnet && __xbnet.status().role === 'host'",
+                  90, "B reloaded as the replacement host")
+        a.wait_js(
+            "document.getElementById('host-gone').textContent.toLowerCase()"
+            ".indexOf('another player is hosting') >= 0",
+            30, "A stepped down")
+        last = a.ev("sessionStorage.getItem('xb:lastRoom')")
+        if not last or '"mode":"client"' not in last:
+            raise AssertionError(f"A did not rewrite the room intent to client: {last!r}")
+        print("takeover-stuck: PASS (timeout retry and step-down)", flush=True)
+        return 0
+    except Exception:
+        for page in [p for p in (host, a, b) if p is not None]:
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        return 1
+    finally:
+        for page in [p for p in (host, a, b) if p is not None]:
+            page.close()
+
+
 def run_hostgone(base, outdir):
     """The host leaves mid-match; the match ends and a guest hosts a new one."""
     room = f"m2-hostgone-{random.randrange(16 ** 6):06x}"
@@ -1214,7 +1288,7 @@ def main():
             return 2
         del args[index:index + 2]
     if scenario not in ("match", "guests", "six", "refresh", "midmatch", "autojoin",
-                        "takeover", "hostback", "hostgone"):
+                        "takeover", "takeover-stuck", "hostback", "hostgone"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -1238,6 +1312,8 @@ def main():
             return run_autojoin(base, outdir)
         if scenario == "takeover":
             return run_takeover(base, outdir)
+        if scenario == "takeover-stuck":
+            return run_takeover_stuck(base, outdir)
         if scenario == "hostback":
             return run_hostback(base, outdir)
         if scenario == "hostgone":
