@@ -1,11 +1,10 @@
 # Publishing to public GitHub — M4 checklist
 
 Status as of 2026-11-01: **documentation, licensing and release engineering are
-complete; the repository is not public yet.** The M4 release is **0.5.0**; create the
-annotated tag on `main` after the merge (step 2). `0.4.0` remains the historical M3
-tag. The remaining steps need the human partner: choose the public name/description,
-create the remote, tag, push, enable Pages, and cut the release. Do not push or
-publish without sign-off.
+complete; the repository is not public yet.** The M4 release is **0.5.0**, tagged
+locally on `main` and not pushed. `0.4.0` remains the historical M3 tag. The remaining
+steps need the human partner: choose the public name/description, create the remote,
+push, enable Pages, and cut the release. Do not push or publish without sign-off.
 
 This is an engineering/licensing checklist, not legal advice. If a point is
 uncertain, exclude the asset or get qualified advice.
@@ -142,9 +141,8 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 1. [ ] Decide the public repository name/description/topics and whether to keep the
        personal author email in history (see open decisions). The description should
        call it a fun side project with no support; disable Issues and Discussions.
-2. [ ] Create the public repository. On the merged `main`, create the annotated M4
-       tag and push everything:
-       `git tag -a 0.5.0 -m "0.5.0: M4 public publication"`
+2. [ ] Create the public repository. The annotated `0.5.0` tag already exists locally
+       on `main`; push it with the branch:
        `git remote add origin <url>`
        `git push -u origin main`
        `git push origin 0.4.0 0.5.0`
