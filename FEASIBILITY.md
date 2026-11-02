@@ -243,7 +243,8 @@ Nice-to-have:
    this is exactly what Milestone 0 tests.
 2. **Asyncify vs JSPI** — code-size and CPU impact unmeasured.
 3. **Real-world P2P latency** for a 20 Hz block-until-frame loop, especially on mobile networks.
-4. **Exact asset licensing** of every file in the Debian packages (spot-checked, not audited).
+4. **Exact asset licensing** of every file in the Debian packages — resolved by the
+   2026-11-01 hash-level audit in `docs/provenance.md`; re-audit if assets change.
 5. **Browser tab-throttling behaviour** for Worker-hosted WebRTC loops in current Safari/Chrome.
 
 ---
@@ -251,15 +252,15 @@ Nice-to-have:
 ## 10. Handoff prompt for a fresh session
 
 ```
-Project: xblast-web at /Users/murray/Projects/ai/xblast-web
+Project: xblast-web (the current working directory; see README.md)
 Goal: play XBlast TNT (GPL-2+) in the browser with P2P multiplayer, no backend.
-Base: /Users/murray/Projects/sourceforge/xblast/xblast-2.10.4 (SDL1.2 build, ~80k LOC C).
-Data: Debian xblast-tnt-images/-levels/-sounds (GPL-2+).
-Plan: Path A — Emscripten + sdl12-compat + Asyncify, keep the engine, replace socket.h
-with two WebRTC DataChannels (reliable control, unreliable actions), lobby via Trystero.
-Start with Milestone 0: install emcc via asdf/pin version, add .tool-versions, build the
-SDL target to canvas, run a single-player round. Report build blockers before porting.
-Read FEASIBILITY.md and AGENTS.md first.
+Base: XBlast TNT 2.10.4 + Debian patches, vendored in engine/.
+Data: Debian xblast-tnt-images/-levels/-sounds/-models/-musics (GPL-2+) plus Vera.ttf;
+      provenance and checksums in docs/provenance.md.
+Plan: Path A — Emscripten + a direct SDL2 backend (no sdl12-compat), keep the engine,
+replace socket.h with two WebRTC DataChannels (reliable control, unreliable actions),
+lobby via vendored Trystero. M3 and 0.4.0 are done.
+Read AGENTS.md and PROGRESS.md first; the publication checklist is docs/publishing.md.
 ```
 
 ---

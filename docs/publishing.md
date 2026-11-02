@@ -1,112 +1,160 @@
 # Publishing to public GitHub — M4 checklist
 
-Status: planning. **Do not publish the repository or a Pages build until the blocking items
-below are checked.** This is an engineering/licensing checklist, not legal advice; if a point is
+Status as of 2026-11-01: **documentation, licensing and release engineering are
+complete; the repository is not public yet.** The remaining steps need the human
+partner: choose the public name/description, create the remote, push, enable Pages,
+and cut the release. Do not push, publish or recreate the tag without sign-off.
+
+This is an engineering/licensing checklist, not legal advice. If a point is
 uncertain, exclude the asset or get qualified advice.
 
 Scope: publish the 0.4.0 source repository and the static web build, with no backend.
 
-## 1. License decision (blocking)
+## 1. Licence decision (blocking)
 
 - [x] **Decision (2026-11-01): keep GPL-2.0-or-later.** It matches upstream, is already
-      open source, and remains compatible with GPLv2-only downstream code. GPL-3.0-or-later is
-      feasible but not needed; revisit only before accepting outside contributions.
-- [ ] Record the decision and the audit table in this file.
-- [ ] Confirm no GPL-2-only code, no non-free asset, and no unreviewed music track is included.
-- [ ] Decide the contribution policy (inbound=outbound / DCO is enough for GPL; no CLA needed).
-- [ ] Do this **before** accepting outside contributions.
+      open source, and remains compatible with GPLv2-only downstream code. GPL-3.0-or-later
+      is feasible but not needed; revisit only before accepting outside contributions.
+- [x] Record the decision and the audit table in this file (below).
+- [x] Confirm no GPL-2-only code, no non-free asset, and no unaudited music track.
+- [x] Decide the contribution policy: inbound=outbound, DCO sign-off, no CLA; recorded in
+      `CONTRIBUTING.md`.
+- [x] Done **before** accepting outside contributions (the repository is still private).
 
-### Current evidence
+### Evidence (audited 2026-11-01)
 
-- Engine: GPL-2+ headers. `bot.c` and `xbsndsrv.c` say "either version 2 or later".
-  `sdl_ppm.c` and `SDL_vkeys.h` are LGPL-2+; compatible.
-- `engine/m4/*.m4` gettext macros are GPL-3+ build scripts; not part of the wasm runtime.
-- Data: images/levels/sounds are GPL-2+; `data/image/sprite/*.epm` are model sprites from the
-  GPL-2+ `xblast-tnt-models` package. `data/Vera.ttf` is Bitstream Vera (not GPL).
-- **No music tracks are currently bundled.** The Debian `xblast-tnt-musics` package exists and its
-  Debian copyright file says GPL-2+, but we do not ship its files. The current README/AGENTS
-  "music" claim is wrong and must be fixed.
-- Trystero/noble: MIT. Emscripten runtime/SDL2/image/ttf/mixer/gfx: permissive
-  (MIT/NCSA/zlib; the Emscripten SDL2_gfx port is zlib).
-- GPL-2+ permits distribution of the combined work under GPL-3.0-or-later. It does **not**
-  relicense upstream code: upstream remains available under GPL-2+. GPL-3 is not compatible with
-  GPL-2-only components; none were found, but re-audit if assets/code change.
+- **Engine:** GPL-2+ headers. `bot.c` and `xbsndsrv.c` say "either version 2 or
+  later". `sdl_ppm.c` and `SDL_vkeys.h` are LGPL-2.0-or-later; compatible.
+  `engine/m4/*.m4` are GPL-3+ build macros, not part of the wasm runtime.
+- **Data:** every file in `data/` was compared byte-for-byte (SHA-256) with both the
+  Debian binary package and the upstream source tarball. All match; no edits.
+  Full table: `docs/provenance.md`.
+  - images, levels, sounds and model sprites: GPL-2+ from the Debian packages;
+  - **music: six tracks are bundled** (`xbsng1..6.raw`, 8.2 MB) and audited; the
+    Debian package and upstream tarball grant GPL-2+. No per-track authorship
+    record exists upstream; the limitation is stated in `THIRD_PARTY.md` and
+    `docs/provenance.md`.
+  - `data/Vera.ttf` is Bitstream Vera (permissive, not GPL), unmodified, name kept.
+- **Vendored JS:** Trystero 0.26.0 and `@noble/secp256k1` 3.2.0, MIT.
+- **Linked toolchain:** Emscripten 6.0.13 (MIT/NCSA), SDL2 2.32.10, SDL2_image
+  2.6.0, SDL2_ttf 2.20.2, SDL2_mixer 2.8.0, SDL2_gfx 2b147ffe (zlib), FreeType
+  2.14.3 (FTL), HarfBuzz 3.2.0, libpng 1.6.59, zlib 1.3.2, libogg 1.3.5,
+  libvorbis 1.3.7. Texts in `LICENSE/third-party/`. No proprietary dependency.
+- **GPL-2+ permits** distribution of the combined work under GPL-3.0-or-later. It
+  does **not** relicense upstream code, which remains available under GPL-2+.
+  GPL-3 is not compatible with GPL-2-only components; none were found.
+
+### Audit summary
+
+| Item | Result |
+|---|---|
+| GPL-2-only code | none found |
+| Non-free asset | none found |
+| Music present? | yes, 6 tracks, GPL-2+, hash-audited |
+| Unreviewed/unknown asset | none |
+| Licence texts for linked libs | complete in `LICENSE/third-party/` |
+| Complete source for the build | repository + `git archive` source tarball |
 
 ## 2. Top-level licence and notices (blocking)
 
-- [x] Add a top-level `COPYING` (GPLv2 text; the project is GPL-2.0-or-later). `LICENSE/` is
-      the directory of Debian/third-party copyrights, not a licence file; GitHub now detects
-      `COPYING`.
-- [ ] Keep `engine/COPYING` (GPLv2) for the upstream engine and explain the combined-work licence
-      in `NOTICE`/`README`.
-- [ ] Add `NOTICE` or `THIRD_PARTY.md` covering:
-      engine (GPL-2+), Debian patches, data packages, model sprites, Bitstream Vera,
-      Trystero/noble (MIT), SDL2/image/ttf/mixer/gfx and Emscripten (permissive),
-      SDL_ppm/SDL_vkeys (LGPL-2+), gettext m4 (build-only).
-- [ ] Add the LGPL-2+ text for the SDL-derived files.
-- [ ] Keep the vendored Trystero/noble licence files; do not strip notices when vendoring or
-      minifying.
-- [ ] If GPL-3 is chosen, add the GPLv3 text and keep a GPLv2 copy for the upstream engine;
-      update README/FEASIBILITY/AGENTS and any new source headers with the chosen SPDX id.
-- [ ] Add a clear "no warranty" statement and the GPL source-offer pointer to the README.
+- [x] Top-level `COPYING` (GPLv2 text; project is GPL-2.0-or-later). `LICENSE/` is
+      the directory of notices, not a licence file; GitHub detects `COPYING`.
+- [x] Keep `engine/COPYING` (GPLv2) and explain the combined-work licence in
+      `README.md`, `LICENSE/README.md` and `THIRD_PARTY.md`.
+- [x] `THIRD_PARTY.md` covers engine, Debian patches, data packages, model sprites,
+      music, Bitstream Vera, Trystero/noble, SDL2 stack, Emscripten, LGPL files and
+      build-only gettext/autotools.
+- [x] LGPL-2.0 text for the SDL-derived files: `LICENSE/LGPL-2.0.txt`.
+- [x] Bitstream Vera notice: `LICENSE/Bitstream-Vera.txt` plus the Debian copyright.
+- [x] Vendored Trystero/noble licence files kept; nothing strips notices.
+- [x] GPL-3 not chosen, so no GPLv3 text is needed.
+- [x] "No warranty" statement and GPL source-offer pointer in `README.md`; every
+      build ships `COPYING`, `THIRD_PARTY.md`, `LICENSE/` and `SOURCE.txt`, and the
+      landing screen links to them.
 
 ## 3. Asset provenance and music (blocking)
 
-- [ ] Record every `data/` tree against its Debian package/copyright:
-      `data/image` (images + `.epm` models), `data/level`, `data/sounds`, `data/Vera.ttf`.
-- [ ] Confirm the current tree contains **no** `data/musics` or full music tracks.
-- [ ] Correct README/AGENTS/PROGRESS: images, levels, sounds and model sprites are bundled;
-      music is not.
-- [ ] Decide whether to keep `LICENSE/data/xblast-tnt-musics_*.copyright` as a reference notice
-      or remove it; do not imply music is bundled.
-- [ ] If `xblast-tnt-musics` is added later, audit each track and its upstream authorship and
-      licence. The Debian package copyright is evidence, not a blanket substitute for that audit.
-- [ ] Confirm the `.epm` model sprite artists are covered by the models copyright file.
-- [ ] Store a provenance/checksum note (package versions, sources, hashes) with the data.
-- [ ] Do not add any asset whose licence is unclear or non-free.
+- [x] Every `data/` tree mapped to its Debian package/copyright and upstream source
+      archive in `docs/provenance.md`: images, `.epm` models, levels, sounds,
+      music, Vera.ttf.
+- [x] Confirmed the tree contains no unexpected media: no `data/musics` directory,
+      no video; the six tracks live with the sounds because the engine loads them
+      from `sounds/`.
+- [x] README/AGENTS/PROGRESS/FEASIBILITY corrected: music **is** bundled.
+- [x] Kept `LICENSE/data/xblast-tnt-musics_*.copyright`; it now documents a shipped
+      package, not a reference to an absent one.
+- [x] Music audit done per file by hash; the no-per-track-attribution limitation is
+      recorded honestly rather than papered over.
+- [x] `.epm` model sprite artists covered by the models copyright file.
+- [x] Provenance/checksum note stored: `docs/provenance.md`.
+- [x] No asset with unclear or non-free licence.
 
 ## 4. Complete corresponding source and build
 
-- [ ] Public repository includes engine + Debian patches + web shell/transport + scripts + data +
-      build instructions.
-- [ ] Pin the toolchain (`emsdk 6.0.13` in `.tool-versions`) and document the build command.
-- [ ] Publish source alongside the Pages/build artifact; GPL requires complete corresponding
-      source, not just a link from the minified wasm.
-- [ ] Include the source archive and checksums with the GitHub release.
-- [ ] If build targets are added (6p/16p/lite/debug), document which source and flags produce which
-      artifact.
-- [ ] No proprietary build dependency; confirm Emscripten/SDL licences are included.
+- [x] Public repository will include engine + Debian patches + web shell/transport +
+      scripts + data + build instructions.
+- [x] Toolchain pinned (`emsdk 6.0.13` in `.tool-versions`) and documented.
+- [x] Source published with the build: the repository is the source; `make-release.sh`
+      produces a `git archive` source tarball of the tagged tree, and Pages serves
+      `SOURCE.txt` naming the commit and repository.
+- [x] Source archive and checksums included in the GitHub release
+      (`.github/workflows/release.yml`).
+- [x] Build targets documented, including which flags produce which artifact
+      (`README.md`, `scripts/build-web.sh --list`); variant artifacts stay local.
+- [x] No proprietary build dependency; Emscripten/SDL/licence texts included.
 
 ## 5. Repository hygiene and security
 
-- [ ] Confirm ignored: `.downloads/`, `web/dist/`, `build/out/`, `web/turn.json`, local configs.
-- [ ] Scan the full git history for secrets, TURN credentials, tokens, private URLs and accidental
-      large downloads. `.downloads/` is ignored, but verify history too.
-- [ ] No telemetry, analytics, backend or hidden network calls; document the public Nostr relay
-      and optional TURN dependencies.
-- [ ] Choose the public repo name/description, add topics, and verify GitHub detects the licence.
-- [ ] Add `CONTRIBUTING.md` and (optionally) `SECURITY.md`; state the AI-attribution policy and
-      the GPL inbound=outbound rule.
-- [ ] Add CI for the build and JS transport tests; mark netplay tests (internet + Chrome) as
-      optional/manual so public-relay flakiness does not block every PR. CI must **not** upload
-      the variant build artifacts (`16p`, `debug`, `lite`, `small`, `mini`) — build/test only.
-- [ ] Verify GitHub Pages serves `.wasm` as `application/wasm`, `.data` correctly, and does not
-      ship `turn.json`.
+- [x] Ignored: `.downloads/`, `web/dist/`, `web/dist-*/`, `build/out/`,
+      `build/release/`, `web/turn.json`, local configs, `.superpowers/`.
+- [x] Full history scanned for secrets, tokens, private keys, TURN credentials and
+      accidental downloads. Result: no real secrets. Only placeholders
+      (`replace-with-a-long-random-secret`, `pass@relay.example.org`) in docs; the
+      largest blobs are the six music tracks. Local absolute paths appeared in two
+      early FEASIBILITY revisions and are removed from the current tree; they are
+      not secrets. Git author identity is a personal address — see open decisions.
+- [x] No telemetry, analytics, backend or hidden network calls. The public Nostr
+      relay dependency and optional TURN are documented in `README.md` and
+      `docs/hosting.md`.
+- [ ] Choose the public repo name/description, add topics, verify GitHub detects the
+      licence. **Needs the human partner** (name and remote are a publication choice).
+- [x] `CONTRIBUTING.md` and `SECURITY.md`; AI-attribution policy and inbound=outbound
+      rule included.
+- [x] CI: build + artifact checks + JS transport tests (`.github/workflows/ci.yml`);
+      netplay is `workflow_dispatch` only so relay flakiness does not block PRs. CI
+      never uploads variant artifacts; Pages uploads only `web/dist`.
+- [ ] Verify GitHub Pages serves `.wasm` as `application/wasm`, `.data` correctly,
+      and no `turn.json`. The Pages workflow does this automatically after deploy;
+      it has not run yet.
 
-## 6. Public release steps
+## 6. Public release steps (human-gated)
 
-- [ ] Create the public repository and push `main` plus the annotated `0.4.0` tag.
-- [ ] Create the `0.4.0` GitHub release with source archive, build artifact, checksums and notes.
-- [ ] Deploy Pages; smoke-test solo, host/join, host takeover, room codes and a real match.
-- [ ] Verify the public build has no TURN credentials and no local config.
-- [ ] Publish the source-offer/source-link from the Pages build and README.
-- [ ] Re-check the release artifact against this checklist after upload.
+1. [ ] Decide the public repository name/description/topics and whether to keep the
+       personal author email in history (see open decisions).
+2. [ ] Create the public repository and push `main` plus the annotated `0.4.0` tag:
+       `git remote add origin <url> && git push -u origin main --follow-tags`.
+3. [ ] Enable GitHub Pages with **GitHub Actions** as the source; run the Pages
+       workflow; confirm the smoke test passes (wasm MIME, `.data`, notices, no
+       `turn.json`).
+4. [ ] Push the `0.4.0` tag (or re-run the release workflow) so
+       `.github/workflows/release.yml` attaches the source archive, web bundle and
+       `SHA256SUMS` to the GitHub release.
+5. [ ] Smoke-test the public site: solo, host/join, host takeover, room codes, a real
+       match, DevTools shows no credentials.
+6. [ ] Verify the public build has no TURN credentials and no local config; verify
+       `SOURCE.txt` points at the public repository and the tagged commit.
+7. [ ] Re-check the uploaded release against this checklist; update `PROGRESS.md`.
 
 ## 7. Open decisions
 
-1. **Licence: decided GPL-2.0-or-later (2026-11-01).**
-   GPL-2+ matches upstream and is maximally compatible with GPLv2-only downstream code; GPLv3
-   remains feasible but is not needed. Revisit only before accepting outside contributions.
-2. **Ship music later or never?** Current build ships no music; keep the separate music package
-   out until its tracks are audited.
-3. **Public build targets:** default six-player first; 16-player/lite/debug are M5 work.
+1. **Licence: decided GPL-2.0-or-later (2026-11-01).** Revisit only before accepting
+   outside contributions.
+2. **Music: keep and audit (2026-11-01).** Six tracks ship; evidence and the
+   no-per-track-attribution limitation are recorded. If a future build drops
+   `data/sounds` (the `lite` targets), do not claim music is present.
+3. **Public build target:** `release` (six players) only. 16-player/lite/debug
+   remain local M5 work and must not be uploaded by CI.
+4. **Public name and git identity:** not decided. The commit author is a personal
+   address and the history contains early local paths. Accepting that is normal for
+   an open-source repo; rewriting history would change every commit and the `0.4.0`
+   tag, so it is not done silently. Decide before the first push.

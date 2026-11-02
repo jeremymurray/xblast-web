@@ -10,9 +10,10 @@ six by an opt-in one. Host takeover, readable room codes and the backgrounding w
 are in; chat, a desync hash and mid-match host migration are not planned.
 
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
-- `data/` — images, model sprites (`.epm`), levels, sounds and the Bitstream Vera font,
-  from the Debian `xblast-tnt-*` packages (GPL-2+); no music tracks are bundled; see
-  `LICENSE/data/` and `docs/publishing.md`
+- `data/` — images, model sprites (`.epm`), levels, sound effects, the six background
+  music tracks and the Bitstream Vera font, from the Debian `xblast-tnt-*` packages
+  (GPL-2+; the font has its own licence); see `LICENSE/`, `THIRD_PARTY.md` and
+  `docs/provenance.md`
 - `web/` — browser shell, SDL 2 backend and web glue; `web/net.js` is the
   WebRTC transport and `web/net_web.c` its `socket.h` shim
 - `web/vendor/trystero/` — vendored Trystero 0.26.0 and noble, MIT
@@ -117,7 +118,8 @@ rotate it, and prefer the credential-endpoint mode for public play.
 ## Attribution
 
 This port is vibecoded with **DeepSeek V4.1 Flash Free**
-(`opencode/deepseek-v4.1-flash-free`). Every commit carries an `Assisted-by:` trailer.
+(`opencode/deepseek-v4.1-flash-free`). Every commit carries a DCO
+`Signed-off-by:` and an `Assisted-by:` trailer. See `CONTRIBUTING.md`.
 Upstream XBlast TNT is the work of Oliver Vogel and contributors; this project only ports it.
 
 Vendored third-party code:
@@ -133,7 +135,24 @@ Their licences are in `web/vendor/trystero/LICENSE.trystero` and
 
 ## Licence
 
-The whole work is distributed under GPL-2.0-or-later. Upstream code is
-GPL-2.0-or-later (parts LGPL-2+); data packages are GPL-2+; vendored Trystero
-and noble remain MIT; the Bitstream Vera font keeps its own licence. See
-`COPYING`, `LICENSE/data/`, `docs/publishing.md` and the headers in `engine/`.
+The whole work is distributed under **GPL-2.0-or-later**, with complete
+corresponding source in this repository. Upstream XBlast TNT code is
+GPL-2.0-or-later (two SDL-derived files are LGPL-2.0-or-later); the Debian data
+packages, including the six music tracks, are GPL-2+; vendored Trystero and noble
+remain MIT; the Bitstream Vera font keeps its own permissive licence.
+
+- `COPYING` — GPLv2, the base text.
+- `THIRD_PARTY.md` — every component, version and licence.
+- `LICENSE/` — LGPL-2.0, Bitstream Vera, third-party texts and the Debian
+  copyright files.
+- `docs/provenance.md` — package versions, checksums and the asset audit.
+
+The source is the repository itself; each release also ships a source archive and
+checksums, so the build can be reproduced from the exact tree that produced the
+artifact. Build instructions and the pinned toolchain are above.
+
+This software comes with **no warranty**, to the extent permitted by law; see
+GPLv2 sections 11–12. Upstream XBlast TNT is the work of Oliver Vogel and
+contributors; this project only ports it. Asset provenance is recorded, including
+the limitation that upstream provides no per-track authorship record for the six
+music files.

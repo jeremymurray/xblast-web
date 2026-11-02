@@ -109,17 +109,26 @@ match and the takeover flow starts a new one.
 
 ## M4 public publication (0.4.0)
 
-The 0.4.0 tag exists locally, but the repository is **not public yet**. The blocking checklist is
-in `docs/publishing.md`.
+The 0.4.0 tag exists locally; the repository is **not public yet**. The remaining
+steps are the human-gated publication actions in `docs/publishing.md` §6.
 
 - [x] Licence decision: GPL-2.0-or-later (kept; matches upstream and is already open source)
-- [x] Add a top-level `COPYING`; still add a `NOTICE`/`THIRD_PARTY.md` (`LICENSE/` is a directory)
-- [ ] Audit asset provenance; confirm no music tracks are bundled; correct the README/AGENTS
-      "music" claim; the separate `xblast-tnt-musics` package is not included
-- [ ] Include LGPL-2+ text for the SDL-derived files and the Bitstream Vera notice
-- [ ] Publish complete corresponding source with the build; release source + checksums
-- [ ] Scan history/secrets, add CI/Pages, verify the public build and licence detection
-- [ ] Push `main` and the `0.4.0` tag only after sign-off
+- [x] `NOTICE`/`THIRD_PARTY.md` covering engine, data, sprites, music, font, vendored JS,
+      SDL stack, Emscripten and LGPL files; `LICENSE/README.md` indexes the texts
+- [x] Asset/provenance audit with binary-package and upstream-sha256 comparison
+      (`docs/provenance.md`); **music is bundled** and audited (six tracks, no per-track
+      attribution upstream — limitation recorded)
+- [x] LGPL-2.0 text for the SDL-derived files and the Bitstream Vera notice
+- [x] README/AGENTS/PROGRESS/FEASIBILITY corrected; no-warranty and source-offer added;
+      builds ship `COPYING`, `THIRD_PARTY.md`, `LICENSE/` and `SOURCE.txt`
+- [x] History/secrets scan: no real secrets; placeholders only; no ignored artefact ever tracked
+- [x] Contribution policy (`CONTRIBUTING.md`, DCO, inbound=outbound, AI disclosure) and
+      `SECURITY.md`
+- [x] CI (build + artifact checks + JS transport; netplay manual) and Pages workflow;
+      variant artifacts are never uploaded
+- [x] Release tooling: `scripts/check-web-dist.sh`, `scripts/make-release.sh`, release workflow
+- [ ] Choose repo name/identity, create the public repo, push `main` + `0.4.0`, enable Pages,
+      create the release and smoke-test it — human sign-off required
 
 ## M5 build targets (local only)
 
@@ -216,7 +225,7 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
   blocking `SDL_Delay` effect. Keep transitions instant until a non-blocking fade exists.
 - **Quit needs `EXIT_RUNTIME=1`** so `Module.onExit` runs and the page shows "Play again".
 - `©` in the intro still renders as a missing-glyph box.
-- Bundle: ~3.5 MB wasm + ~15 MB LZ4 data (all bundled sounds; music is not included).
+- Bundle: ~3.5 MB wasm + ~15 MB LZ4 data (all sounds, including the six music tracks).
 
 ## Decisions
 
@@ -236,8 +245,10 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 - Room codes are `adjective-noun-NNN`: 64 five-letter adjectives and 64 animal nouns of
   3–5 letters.
 - Mid-match migration is not planned.
-- Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2.
-- Attribution: every commit carries an `Assisted-by:` trailer.
+- Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
+  0.4.0 = M3.
+- Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
+  `Assisted-by:` trailer (`CONTRIBUTING.md`).
 
 ## Next tasks (M5)
 

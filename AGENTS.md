@@ -10,9 +10,11 @@ GPL-2.0-or-later.
 
 ## Decisions (durable)
 - **Base code:** XBlast TNT 2.10.4 + Debian patches, vendored into `engine/`.
-- **Assets/data:** Debian `xblast-tnt-images/-levels/-sounds/-models` (GPL-2+) plus
-  Bitstream Vera (`data/Vera.ttf`, Bitstream licence). No music tracks are bundled; the separate
-  `xblast-tnt-musics` package is not included and needs a track-by-track audit before adding.
+- **Assets/data:** Debian `xblast-tnt-images/-levels/-sounds/-models/-musics` (GPL-2+)
+  plus Bitstream Vera (`data/Vera.ttf`, Bitstream licence). Six background music tracks
+  (`data/sounds/xbsng1..6.raw`, 8.2 MB) ship from `xblast-tnt-musics`; keep them and
+  describe them as bundled. There is no per-track authorship record upstream — the
+  audit is by exact hash and the package-level GPL-2+ grant. See `docs/provenance.md`.
 - **Port path:** Emscripten, keep the C engine and the `gui.h` seam.
   **No sdl12-compat** — it dlopens SDL2, which is unavailable in wasm. The SDL backend is ported
   directly to SDL 2 (`web/compat/`, `web/sdl_web.c`).
@@ -79,9 +81,9 @@ GPL-2.0-or-later.
 ## Attribution
 This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.1-flash-free`).
 - README must state it.
-- Every commit must end with:
+- Every commit must be signed off (`git commit -s`) and end with:
   `Assisted-by: DeepSeek V4.1 Flash Free (opencode/deepseek-v4.1-flash-free)`
-- Do not hide or downplay AI involvement.
+- Do not hide or downplay AI involvement; `CONTRIBUTING.md` states the policy.
 
 ## Git workflow
 - `main` holds working, self-contained states; do exploration on a branch and merge it back with a
@@ -109,13 +111,14 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M4: public source publication. The 0.4.0 tag exists locally but the repository is not public.
-The combined-work licence is **GPL-2.0-or-later** (decided 2026-11-01). Finish
-`docs/publishing.md`: top-level `COPYING` is in; still needs `NOTICE`/`THIRD_PARTY.md`, the
-asset/provenance audit, LGPL/Bitstream notices, history/secrets scan, CI/Pages setup, then
-push and tag. No music is bundled. M5 has the local build targets; 16-player acceptance
-remains. A lobby chat UI, a per-round desync hash and mid-match host migration/resume remain
-deliberately not planned.
+M4: public source publication. Documentation, licensing and release tooling are done:
+`THIRD_PARTY.md`, `LICENSE/` notices, `docs/provenance.md` (music is bundled and audited),
+`CONTRIBUTING.md`, `SECURITY.md`, CI/Pages/release workflows and
+`scripts/{check-web-dist,make-release}.sh`. Remaining: human sign-off on the public
+name/identity, create the repo, push `main` + `0.4.0`, enable Pages, run the release
+workflow, smoke-test (`docs/publishing.md` §6). M5: local build targets are done;
+16-player runtime acceptance remains. A lobby chat UI, a per-round desync hash and
+mid-match host migration/resume remain deliberately not planned.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.
