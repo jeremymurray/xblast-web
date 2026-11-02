@@ -17,6 +17,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # checkout can leave refs/tags/<tag> pointing at the commit rather than
+      # the annotated tag object; fetch the tags so %(contents) is the message.
+      - name: Fetch annotated tags
+        run: git fetch --tags --force origin
+
       # Older tags whose tree has this workflow but predates the release scripts
       # are skipped; the 0.4.0 tag predates the workflow itself, so GitHub never
       # runs it there. A tag push should not fail because it cannot build.
