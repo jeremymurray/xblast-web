@@ -540,6 +540,11 @@
     }
     if (status.hostWaitFailed) {
       sawHostLoss = true;
+      if (status.newHostId && status.newHostStage !== 0) {
+        showHostGone('New host', 'The new host is not accepting players.', '',
+          null, 'none');
+        return;
+      }
       showHostGone('Takeover failed',
         'The new host did not start the room.',
         'You can take the room over instead.', 'Take over instead', 'claim');
