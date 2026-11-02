@@ -940,6 +940,82 @@ def run_takeover(base, outdir):
             page.close()
 
 
+def run_hostback(base, outdir):
+    """The host refreshes and re-hosts; the guest auto-rejoins."""
+    room = f"m2-hostback-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    guest = Page(f"{base}/", "guest")
+    try:
+        for page in (host, guest):
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                20, f"{page.label} lobby")
+        print(f"== hostback room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        if not start_lobby_page(guest, "join", room):
+            raise AssertionError("could not click #join for guest")
+        for page in (host, guest):
+            wait_engine(page)
+            dismiss_intro(page)
+
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+            60, "guest connected in the host setup")
+        guest.ev("XBNet.__setTakeoverTimings({hostReadyTimeoutMs: 90000})")
+
+        print("host reloads and re-hosts", flush=True)
+        host.reload()
+        host.wait_js(
+            "document.readyState === 'complete' && "
+            "document.getElementById('rejoin-banner').classList.contains('show')",
+            30, "host rejoin banner")
+        host.ev("document.getElementById('rejoin').click(); true")
+        wait_engine(host)
+        dismiss_intro(host)
+        choose_first_player(host)
+        host.key("return")       # Continue -> listen
+
+        guest.wait_js(
+            "performance.getEntriesByType('navigation')[0].type === 'reload'",
+            30, "guest auto-reloaded")
+        wait_engine(guest)
+        dismiss_intro(guest)
+        guest.wait_js("globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                      60, "guest auto-rejoined")
+        host.wait_js("globalThis.__xbnet && __xbnet.stats().peers === 1",
+                     60, "host sees the guest")
+        time.sleep(1.5)
+
+        act_before = {page.label: page.ev("__xbnet.stats().actTx") for page in (host, guest)}
+        host.key("return")       # Start
+        time.sleep(3.0)
+        for page in (host, guest):
+            page.key("space")
+        time.sleep(2.0)
+        for name in ("left", "right", "space"):
+            for page in (host, guest):
+                page.key(name)
+            time.sleep(0.4)
+        time.sleep(2.0)
+        for page in (host, guest):
+            stats = page.ev("__xbnet.stats()")
+            if stats.get("actTx", 0) - act_before[page.label] < 100:
+                raise AssertionError(f"{page.label}: no match action traffic after rehost")
+        print("hostback: PASS (guest auto-rejoined the re-hosted room)", flush=True)
+        return 0
+    except Exception:
+        for page in (host, guest):
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        return 1
+    finally:
+        host.close(); guest.close()
+
+
 def run_autojoin(base, outdir):
     """A guest with a flushed player config auto-connects from a takeover flag."""
     room = f"m2-autojoin-{random.randrange(16 ** 6):06x}"
@@ -1032,7 +1108,7 @@ def main():
             return 2
         del args[index:index + 2]
     if scenario not in ("match", "guests", "six", "refresh", "midmatch", "autojoin",
-                        "takeover"):
+                        "takeover", "hostback"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -1056,6 +1132,8 @@ def main():
             return run_autojoin(base, outdir)
         if scenario == "takeover":
             return run_takeover(base, outdir)
+        if scenario == "hostback":
+            return run_hostback(base, outdir)
         if scenario == "guests":
             return run_guests(base, outdir)
         if scenario == "six":
