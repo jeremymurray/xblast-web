@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Older tags whose tree has this workflow but predates the release scripts
+      # are skipped; the 0.4.0 tag predates the workflow itself, so GitHub never
+      # runs it there. A tag push should not fail because it cannot build.
+      - name: Check release tooling
+        id: tooling
+        run: |
+          if [ -f scripts/make-release.sh ] && [ -f scripts/check-web-dist.sh ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Tag $GITHUB_REF_NAME predates the release tooling; no artifact release."
+          fi
+
+      - name: Read the pinned Emscripten version
+        id: emsdk
+        if: steps.tooling.outputs.ready == 'true'
+        run: |
+          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: mymindstorm/setup-emsdk@v14
+        if: steps.tooling.outputs.ready == 'true'
+        with:
+          version: ${{ steps.emsdk.outputs.version }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build release
+        if: steps.tooling.outputs.ready == 'true'
+        env:
+          XB_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: ./scripts/build-web.sh --target release
+
+      - name: Assemble source, web bundle and checksums
+        if: steps.tooling.outputs.ready == 'true'
+        run: ./scripts/make-release.sh "$GITHUB_REF_NAME"
+
+      - name: Create the GitHub release
+        if: steps.tooling.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          notes=$(mktemp)
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > "$notes"
+          if [ ! -s "$notes" ]; then
+            echo "xblast-web $GITHUB_REF_NAME" > "$notes"
+          fi
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" build/release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "xblast-web $GITHUB_REF_NAME" \
+              --notes-file "$notes" \
+              build/release/*
+          fi

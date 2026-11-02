@@ -3,16 +3,31 @@
 XBlast TNT (the classic Bomberman-style game) running in the browser, with
 peer-to-peer multiplayer and no game server.
 
-Status: **0.4.0 (M3 complete)**. Solo and network matches
+Status: **0.5.0 (M4 complete)**. Solo and network matches
 (one host plus up to five guests) work in Chromium-based desktop browsers (Chrome,
 Edge, and other Chromium derivatives); three browsers are covered by the default test,
 six by an opt-in one. Host takeover, readable room codes and the backgrounding warning
 are in; chat, a desync hash and mid-match host migration are not planned.
 
+## About this project
+
+This is a **fun side project**: a vibecoded experiment to see whether a 2005 C game
+could run in a browser with peer-to-peer multiplayer and no server. It is shared
+because it is fun to play with, not because it is a product. Expect rough edges, and
+there is no roadmap or response-time promise.
+
+**Contributions and issues are not being accepted at this time.** Please don't send
+pull requests or file issues. If you want to take it further, fork it under
+GPL-2.0-or-later and keep the licence notices and the AI-assistance disclosure intact
+(see `CONTRIBUTING.md`). Security reports: `SECURITY.md`.
+
+## Layout
+
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
-- `data/` — images, model sprites (`.epm`), levels, sounds and the Bitstream Vera font,
-  from the Debian `xblast-tnt-*` packages (GPL-2+); no music tracks are bundled; see
-  `LICENSE/data/` and `docs/publishing.md`
+- `data/` — images, model sprites (`.epm`), levels, sound effects, the six background
+  music tracks and the Bitstream Vera font, from the Debian `xblast-tnt-*` packages
+  (GPL-2+; the font has its own licence); see `LICENSE/`, `THIRD_PARTY.md` and
+  `docs/provenance.md`
 - `web/` — browser shell, SDL 2 backend and web glue; `web/net.js` is the
   WebRTC transport and `web/net_web.c` its `socket.h` shim
 - `web/vendor/trystero/` — vendored Trystero 0.26.0 and noble, MIT
@@ -117,7 +132,8 @@ rotate it, and prefer the credential-endpoint mode for public play.
 ## Attribution
 
 This port is vibecoded with **DeepSeek V4.1 Flash Free**
-(`opencode/deepseek-v4.1-flash-free`). Every commit carries an `Assisted-by:` trailer.
+(`opencode/deepseek-v4.1-flash-free`). Every commit carries a DCO
+`Signed-off-by:` and an `Assisted-by:` trailer. See `CONTRIBUTING.md`.
 Upstream XBlast TNT is the work of Oliver Vogel and contributors; this project only ports it.
 
 Vendored third-party code:
@@ -133,7 +149,22 @@ Their licences are in `web/vendor/trystero/LICENSE.trystero` and
 
 ## Licence
 
-The whole work is distributed under GPL-2.0-or-later. Upstream code is
-GPL-2.0-or-later (parts LGPL-2+); data packages are GPL-2+; vendored Trystero
-and noble remain MIT; the Bitstream Vera font keeps its own licence. See
-`COPYING`, `LICENSE/data/`, `docs/publishing.md` and the headers in `engine/`.
+The whole work is distributed under **GPL-2.0-or-later**, with complete
+corresponding source in this repository. Upstream XBlast TNT code is
+GPL-2.0-or-later (two SDL-derived files are LGPL-2.0-or-later); the Debian data
+packages, including the six music tracks, are GPL-2+; vendored Trystero and noble
+remain MIT; the Bitstream Vera font keeps its own permissive licence.
+
+- `COPYING` — GPLv2, the base text.
+- `THIRD_PARTY.md` — every component, version and licence.
+- `LICENSE/` — LGPL-2.0, Bitstream Vera, third-party texts and the Debian
+  copyright files.
+- `docs/provenance.md` — package versions, checksums and the asset audit.
+
+The source is the repository itself; each release also ships a source archive and
+checksums, so the build can be reproduced from the exact tree that produced the
+artifact. Build instructions and the pinned toolchain are above.
+
+This software comes with **no warranty**, to the extent permitted by law; see
+GPLv2 sections 11–12. Asset provenance is recorded, including the limitation
+that upstream provides no per-track authorship record for the six music files.

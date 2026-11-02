@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build release bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Emscripten version
+        id: emsdk
+        run: |
+          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.emsdk.outputs.version }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build
+        env:
+          XB_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: ./scripts/build-web.sh --target release
+
+      - name: Check the artifact
+        run: ./scripts/check-web-dist.sh web/dist
+
+      - name: Syntax-check scripts
+        run: |
+          bash -n scripts/build-web.sh
+          bash -n scripts/check-web-dist.sh
+          bash -n scripts/make-release.sh
+          python3 -m py_compile scripts/*.py
+
+  transport:
+    name: Transport tests
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Emscripten version
+        id: emsdk
+        run: |
+          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.emsdk.outputs.version }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Run transport scenarios
+        # Public Nostr relays occasionally fail; retry once before failing the job.
+        run: |
+          python3 scripts/nettest_js.py || {
+            echo "retrying once after a relay failure" >&2
+            sleep 10
+            python3 scripts/nettest_js.py
+          }
+
+  netplay:
+    name: Netplay (manual)
+    # Internet + a real Chrome; public relays make this flaky, so it is not a
+    # required check. Run it from the Actions tab when touching the lobby.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    needs: build
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the pinned Emscripten version
+        id: emsdk
+        run: |
+          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.emsdk.outputs.version }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Host + two guests + match
+        run: python3 scripts/netplaytest.py --scenario guests
