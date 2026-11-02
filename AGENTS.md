@@ -39,9 +39,11 @@ GPL-2.0-or-later.
   prompt; a 500 ms claim window and lowest-client-id tie-break pick one. The winner reloads as
   host, the others wait for `listening` then auto-rejoin/auto-connect. The page flushes the
   engine config first; `xb:takeover` carries the intent across the reload. The same new-host
-  path covers a host that refreshes and clicks **Re-host**. A two-host collision is resolved by
-  `(clientId, selfId)`; the higher host steps down and offers Rejoin as guest. Mid-match
-  migration is **not planned**; that match ends and takeover starts a new one.
+  path covers a host that refreshes and clicks **Re-host**. If the new host never reaches
+  `listening`, the wait times out and a guest can retry. A two-host collision is resolved by
+  `(clientId, selfId)`; the higher host leaves, rewrites the room intent to client mode and
+  offers Rejoin as guest. Mid-match migration is **not planned**; that match ends and takeover
+  starts a new one.
 - **Backgrounding warning:** the host broadcasts `hostVisible`; guests warn in the netbar, and
   the host page reminds you to keep the tab in the foreground. A hidden host is never treated as
   gone or evicted.

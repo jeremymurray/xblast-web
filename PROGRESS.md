@@ -84,8 +84,10 @@ hanging. Host migration and mid-match resume remain future work.
       and auto-rejoin/auto-connect
 - [x] Config is flushed before the reload, so the player selection survives
 - [x] The new-host path also covers the original host returning via **Re-host**
-- [x] Two-host collision: the higher `(clientId, selfId)` steps down and offers
-      **Rejoin as guest**
+- [x] Two-host collision: the higher `(clientId, selfId)` steps down, leaves the room,
+      rewrites the stored intent to client mode and offers **Rejoin as guest**
+- [x] A new host that never reaches `listening` times out; guests can retry, and a
+      stuck host in `setup` can be superseded
 - [x] Host visibility is broadcast to guests; the netbar warns when the host tab is
       in the background
 - [x] Room codes are `adjective-noun-NNN` from 64 five-letter adjectives and 64
@@ -120,11 +122,12 @@ python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, ma
 python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
 python3 scripts/netplaytest.py --scenario autojoin  # flushed guest auto-connects after reload
 python3 scripts/netplaytest.py --scenario takeover  # host leaves, guest hosts, others auto-rejoin
+python3 scripts/netplaytest.py --scenario takeover-stuck  # a stuck new host is superseded
 python3 scripts/netplaytest.py --scenario hostback  # host re-hosts, guest auto-rejoins
 python3 scripts/netplaytest.py --scenario hostgone  # host leaves mid-match, new match starts
 python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full,
                                       # turn-config, turn-ui, roomcode, visibility, hostleave,
-                                      # claim, collision
+                                      # claim, collision, peerleave
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with

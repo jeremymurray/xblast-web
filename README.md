@@ -3,10 +3,11 @@
 XBlast TNT (the classic Bomberman-style game) running in the browser, with
 peer-to-peer multiplayer and no game server.
 
-Status: **0.3.1 plus an unreleased six-player slice**. Solo and network matches
+Status: **0.3.1 plus the unreleased M3 slices**. Solo and network matches
 (one host plus up to five guests) work in Chromium-based desktop browsers (Chrome,
 Edge, and other Chromium derivatives); three browsers are covered by the default test,
-six by an opt-in one. Chat, a desync hash, TURN and host migration are still to come.
+six by an opt-in one. Host takeover, readable room codes and the backgrounding warning
+are in; chat, a desync hash and mid-match host migration are not planned.
 
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
 - `data/` — images, levels, sounds, music and the Bitstream Vera font, from the
@@ -43,10 +44,18 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
   over WebRTC; Trystero only exchanges connection details over public Nostr relays.
   TURN is optional and supplied by the hoster or by the player; without one, a few
   network combinations cannot connect. See `docs/hosting.md`.
+- **Host leaves** — before a match, every guest gets a **Take over** prompt. One
+  claims the room, reloads as host, and the others rejoin automatically. The
+  room code stays the same. If the host leaves mid-match, the match ends and the
+  takeover flow starts a new one; mid-match migration is not planned.
 - **Refresh / rejoin** — if the guest reloads before the match starts, the
   lobby offers **Rejoin** and the host replaces the old client. A reload after
   the match has started fails with a clear message; resuming a running match is
-  not implemented. Re-hosting after a host reload starts a fresh room.
+  not implemented. A host that reloads and clicks **Re-host** brings guests back
+  automatically.
+- **Background host** — the host should keep the tab in the foreground; guests
+  warn in the netbar when the host tab is backgrounded, because browsers can
+  throttle the host's timers.
 - **Leave / change rooms** — use **Leave**, or *Multiplayer Lobby* on the main
   menu, which reloads the page. Leaving a match returns to the menu but keeps
   the room.
@@ -61,6 +70,11 @@ python3 scripts/netplaytest.py --scenario six       # six players, heavy, opt-in
 python3 scripts/netplaytest.py --scenario match     # two-browser regression
 python3 scripts/netplaytest.py --scenario refresh   # guest reloads, rejoins, match starts
 python3 scripts/netplaytest.py --scenario midmatch  # refresh after start fails clearly
+python3 scripts/netplaytest.py --scenario takeover  # host leaves, guest hosts, others auto-rejoin
+python3 scripts/netplaytest.py --scenario takeover-stuck  # a stuck new host is superseded
+python3 scripts/netplaytest.py --scenario hostback  # host re-hosts, guest auto-rejoins
+python3 scripts/netplaytest.py --scenario hostgone  # host leaves mid-match, new match starts
+python3 scripts/netplaytest.py --scenario autojoin  # flushed guest auto-connects after reload
 ```
 
 `scripts/nettest_js.py` and `scripts/netplaytest.py` need internet access to
