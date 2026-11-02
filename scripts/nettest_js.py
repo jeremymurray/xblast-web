@@ -719,8 +719,32 @@ def run_roomcode(base):
                   f"unknown animal {noun!r}")
         check(page.ev("normalizeRoom(' Quiet Otter 482 ')") == "quiet-otter-482",
               "normalizeRoom did not normalize spaces/case")
+        check(page.ev("inviteUrlFor(' Quiet Otter 482 ')") ==
+              f"{base}/index.html?room=quiet-otter-482",
+              "inviteUrlFor did not normalize/build the invite URL")
+        check(page.ev("inviteUrlFor('')") == "",
+              "inviteUrlFor accepted an empty room")
+        check(page.ev("inviteUrlFor('<img src=x>')") ==
+              f"{base}/index.html?room=img-src-x",
+              "inviteUrlFor did not sanitize the room")
     finally:
         page.close()
+
+    invite = Page(
+        f"{base}/index.html?room=Quiet%20Otter%20482",
+        wait_for="document.getElementById('invite-banner') && " +
+                 "document.getElementById('invite-banner').classList.contains('show')")
+    try:
+        check(invite.ev("document.getElementById('room').value") == "quiet-otter-482",
+              "invite did not prefill the room field")
+        check(invite.ev("document.getElementById('invite-room').textContent") ==
+              "quiet-otter-482", "invite banner shows the wrong room")
+        check(invite.ev("location.search") == "",
+              "invite parameter was not consumed")
+        check(invite.ev("typeof XBNet === 'undefined'"),
+              "opening an invite must not load net.js or connect")
+    finally:
+        invite.close()
 
 
 def run_visibility(base):

@@ -70,13 +70,16 @@
   .card #turn-advanced .hint.error { color: #f66; }
   @media (max-width: 700px) { .panel .cards { grid-template-columns: 1fr; } }
 
-  #rejoin-banner {
+  #rejoin-banner,
+  #invite-banner {
     display: none; align-items: center; justify-content: space-between; gap: 1em;
     margin: 0 0 1em; padding: 0.7em 0.9em; border: 1px solid #555; border-radius: 6px;
     background: rgba(255, 212, 0, 0.08); color: #ddd; font-size: 13px;
   }
-  #rejoin-banner.show { display: flex; }
-  #rejoin-banner button {
+  #rejoin-banner.show,
+  #invite-banner.show { display: flex; }
+  #rejoin-banner button,
+  #invite-banner button {
     margin: 0; padding: 0.45em 0.9em; font: 13px monospace; white-space: nowrap;
   }
 
@@ -148,6 +151,10 @@
     <h1>XBlast TNT</h1>
     <p>A browser port of the classic Bomberman-style blast game. GPL-2.0-or-later,
        peer-to-peer multiplayer, no game server.</p>
+    <div id="invite-banner">
+      <span>You've been invited to room <span id="invite-room"></span></span>
+      <button id="invite-join" type="button">Join</button>
+    </div>
     <div id="rejoin-banner">
       <span>Last session: room <span id="rejoin-room"></span></span>
       <button id="rejoin" type="button">Rejoin</button>
@@ -252,6 +259,9 @@
   const rejoinBannerEl = document.getElementById('rejoin-banner');
   const rejoinEl = document.getElementById('rejoin');
   const rejoinRoomEl = document.getElementById('rejoin-room');
+  const inviteBannerEl = document.getElementById('invite-banner');
+  const inviteRoomEl = document.getElementById('invite-room');
+  const inviteJoinEl = document.getElementById('invite-join');
   const netbarEl = document.getElementById('netbar');
   const netRoleEl = document.getElementById('net-role');
   const netRoomEl = document.getElementById('net-room');
@@ -392,6 +402,40 @@
       .replace(/^-+|-+$/g, '')
       .slice(0, 32)
       .replace(/-+$/g, '');
+  }
+
+  function inviteUrlFor(room) {
+    const code = normalizeRoom(room);
+    if (!code) return '';
+    const url = new URL(location.href);
+    url.searchParams.set('room', code);
+    url.hash = '';
+    return url.toString();
+  }
+
+  function readInviteRoom() {
+    try {
+      const params = new URLSearchParams(location.search);
+      if (!params.has('room')) return '';
+      const code = normalizeRoom(params.get('room'));
+      params.delete('room');
+      const query = params.toString();
+      history.replaceState(null, '', location.pathname +
+        (query ? '?' + query : '') + location.hash);
+      return code;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function hideInviteBanner() {
+    inviteBannerEl.classList.remove('show');
+  }
+
+  function showInviteBanner(code) {
+    inviteRoomEl.textContent = code;
+    roomEl.value = code;
+    inviteBannerEl.classList.add('show');
   }
 
   const LAST_ROOM_KEY = 'xb:lastRoom';
@@ -808,6 +852,7 @@
     globalThis.xbConfig = { mode: 'solo', room: '' };
     clearLastRoom();
     hideRejoinBanner();
+    hideInviteBanner();
     unlockAudio();
     landingEl.classList.remove('show');
     loadEngine();
@@ -829,6 +874,7 @@
     globalThis.xbConfig = { mode, room, autoJoin: Boolean(opts.autoJoin) };
     storeLastRoom(mode, room);
     hideRejoinBanner();
+    hideInviteBanner();
     try {
       /* net.js must exist before the engine starts: the room is page-owned. */
       await import('./net.js');
@@ -932,9 +978,16 @@
     roomEl.value = takeover.room;
     startNet(takeover.mode, { autoJoin: takeover.autoJoin });
   } else {
+    const invitedRoom = readInviteRoom();
     const lastRoom = readLastRoom();
-    if (lastRoom) showRejoinBanner(lastRoom);
-    else roomEl.value = makeCode();
+    if (invitedRoom) {
+      hideRejoinBanner();
+      showInviteBanner(invitedRoom);
+    } else if (lastRoom) {
+      showRejoinBanner(lastRoom);
+    } else {
+      roomEl.value = makeCode();
+    }
   }
 
   loadTurnModule().then((turn) => {
@@ -962,6 +1015,7 @@
   });
   hostEl.addEventListener('click', () => startNet('host'));
   joinEl.addEventListener('click', () => startNet('client'));
+  inviteJoinEl.addEventListener('click', () => startNet('client'));
   rejoinEl.addEventListener('click', () => {
     const mode = rejoinEl.dataset.mode;
     if (mode === 'host' || mode === 'client') startNet(mode);
