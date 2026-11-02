@@ -1,9 +1,12 @@
 # Third-party components and notices
 
 This file lists every third-party component in the repository or linked into the
-web build, with its licence and where the licence text lives. The combined work is
-distributed under **GPL-2.0-or-later**; see `COPYING` and `LICENSE/README.md`.
-Asset-by-asset provenance and checksums are in `docs/provenance.md`.
+web build, with its licence and where the licence text lives. Paths are repository
+paths; the deployed bundle contains the same notices as `COPYING`, `THIRD_PARTY.md`,
+`LICENSE/` and `docs/provenance.md`, with the vendored JavaScript under `vendor/`.
+The combined work is distributed under **GPL-2.0-or-later**; see `COPYING` and
+`LICENSE/README.md`. Asset-by-asset provenance and checksums are in
+`docs/provenance.md`.
 
 ## Engine, data and font
 

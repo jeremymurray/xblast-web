@@ -20,6 +20,7 @@ required=(
 	vendor/trystero/LICENSE.trystero vendor/trystero/LICENSE.noble
 	COPYING THIRD_PARTY.md SOURCE.txt
 	LICENSE/README.md LICENSE/LGPL-2.0.txt LICENSE/Bitstream-Vera.txt
+	docs/provenance.md
 )
 for f in "${required[@]}"; do
 	[ -f "$DIST/$f" ] || fail "missing $f"
@@ -27,6 +28,12 @@ done
 
 [ ! -e "$DIST/turn.json" ] || fail "turn.json must not be published"
 [ ! -e "$DIST/turn.example.json" ] || fail "example TURN config leaked into the build"
+[ ! -e "$DIST/test" ] || fail "test harness leaked into the build"
+[ ! -e "$DIST/_vendor_probe.html" ] || fail "vendor probe leaked into the build"
+[ ! -e "$DIST/nettest.html" ] || fail "nettest page leaked into the build"
+if compgen -G "$DIST/*.map" >/dev/null; then
+	fail "source map leaked into the build"
+fi
 
 grep -q "target: 'release'" "$DIST/build-info.js" ||
 	fail "not a release-target build"

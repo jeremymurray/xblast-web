@@ -88,6 +88,9 @@ build_target() {
 	profile=$(profile_for "$target")
 	cap=$(capacity_for "$target")
 	out=$(out_for "$target")
+	# Start from a clean directory: stale test pages, maps or a local turn.json
+	# must never leak into a published bundle.
+	rm -rf "$out"
 	mkdir -p "$out"
 
 	local core="
@@ -212,6 +215,8 @@ EOF
 	cp "$ROOT/THIRD_PARTY.md" "$out/THIRD_PARTY.md"
 	mkdir -p "$out/LICENSE"
 	cp -R "$ROOT/LICENSE/." "$out/LICENSE/"
+	mkdir -p "$out/docs"
+	cp "$ROOT/docs/provenance.md" "$out/docs/provenance.md"
 	local source_url=${XB_SOURCE_URL:-"(local build; repository URL not set)"}
 	local commit
 	commit=$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)

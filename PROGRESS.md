@@ -173,6 +173,8 @@ python3 scripts/netplaytest.py --scenario hostgone  # host leaves mid-match, new
 python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, replace, full,
                                       # turn-config, turn-ui, roomcode, visibility, hostleave,
                                       # claim, collision, peerleave
+./scripts/check-web-dist.sh            # fail unless web/dist is a publishable release
+XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.4.0   # source + web + SHA256SUMS
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with

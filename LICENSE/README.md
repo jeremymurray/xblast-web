@@ -7,7 +7,7 @@ repository root is the readable index; this file explains the layout.
 | Path | What it covers |
 |---|---|
 | `../COPYING` | GNU General Public License v2, the base text for GPL-2.0-or-later. |
-| `../engine/COPYING` | Upstream copy of GPLv2 kept with the vendored XBlast TNT engine. |
+| `../engine/COPYING` (source tree) | Upstream copy of GPLv2 kept with the vendored XBlast TNT engine; the source archive carries it. |
 | `LGPL-2.0.txt` | GNU Library General Public License v2 (LGPL-2.0), for `engine/sdl_ppm.c` and `engine/SDL_vkeys.h` (LGPL-2.0-or-later). |
 | `Bitstream-Vera.txt` | Bitstream Vera font licence, for `data/Vera.ttf`. |
 | `data/*.copyright` | Debian copyright files for the engine and each data package (images, levels, sounds, models, music, font). These name the upstream authors and the GPL-2+ grant. |
