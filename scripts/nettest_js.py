@@ -723,6 +723,32 @@ def run_roomcode(base):
         page.close()
 
 
+def run_visibility(base):
+    room = unique_room("xbvis")
+    host = Page(f"{base}/test/net.html?role=host&room={room}&scenario=basic")
+    client = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    late = None
+    try:
+        require_net(host, "host"); require_net(client, "client")
+        client.wait_js(peer_ready_expr(1), 60, "client peer")
+        check(host.ev("XBNet.status().hostVisible") is True, "host did not start visible")
+        host.ev("XBNet.__setHostVisible(false)")
+        client.wait_js("XBNet.status().hostVisible === false", 10, "client saw hidden host")
+        check(client.ev("XBNet.status().hostLost") is False,
+              "a hidden host was treated as gone")
+        late = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+        require_net(late, "late")
+        late.wait_js(peer_ready_expr(1), 60, "late client peer")
+        late.wait_js("XBNet.status().hostVisible === false", 10,
+                     "late client saw hidden host")
+        host.ev("XBNet.__setHostVisible(true)")
+        client.wait_js("XBNet.status().hostVisible === true", 10, "client saw visible host")
+    finally:
+        for page in [host, client, late]:
+            if page is not None:
+                page.close()
+
+
 def run_turn_config(base):
     page = Page(f"{base}/test/net.html?scenario=turn-config")
     try:
@@ -833,13 +859,14 @@ SCENARIOS = {
     "turn-config": run_turn_config,
     "turn-ui": run_turn_ui,
     "roomcode": run_roomcode,
+    "visibility": run_visibility,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
-        "roomcode",
+        "roomcode", "visibility",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:

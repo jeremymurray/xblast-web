@@ -106,6 +106,7 @@ function newSession(role, room) {
     localRole: localRoleOf(role),
     clientId: loadClientId(),
     hostStage: role === 'host' ? STAGE_SETUP : 0,
+    hostVisible: true,
     roomObj: null,
     peers: new Map(),      // peerId -> peer record
     pending: [],           // host: clients with a valid hello, not yet accepted
@@ -250,7 +251,7 @@ function setHostStage(s, stage) {
 
 function sendStatus(s) {
   if (!s || s.role !== 'host' || session !== s) return;
-  const frame = new Uint8Array([CTL_STATUS, s.hostStage]);
+  const frame = new Uint8Array([CTL_STATUS, s.hostStage, s.hostVisible ? 1 : 0]);
   for (const peer of activePeers(s)) {
     if (peer.remoteRole === ROLE_CLIENT && peer.ctlOpen && !peer.closed) {
       ctlSend(s, peer, frame);
@@ -335,6 +336,8 @@ function handleHello(s, peer, bytes) {
     // can be lost. Echo ours first: a guest must read the stage before any
     // reject frame that follows on the same ordered channel.
     sendHello(s, peer);
+    // A joiner needs the current visibility too, not just the stage.
+    if (s.role === 'host') sendStatus(s);
   }
   if (s.role === 'host' && remoteRole === ROLE_CLIENT) {
     replaceClientPeer(s, peer, remoteClientId);
@@ -387,6 +390,7 @@ function handleCtlMessage(s, peer, data) {
     case CTL_STATUS:
       if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
         peer.hostStage = bytes[1];
+        peer.hostVisible = bytes.length >= 3 ? bytes[2] === 1 : true;
       }
       break;
     case CTL_REJECT:
@@ -455,6 +459,7 @@ function setupPeer(s, peerId, pc) {
     remoteRole: 0,
     clientId: null,
     hostStage: 0,
+    hostVisible: true,
     ctlQueue: [],
     actQueue: [],
     eof: false,
@@ -1014,6 +1019,10 @@ function status() {
     clientId: s ? s.clientId : null,
     /* The host's own stage, or the stage its hello told a guest. */
     hostStage: s ? (s.role === 'host' ? s.hostStage : (hostPeer ? hostPeer.hostStage : 0)) : null,
+    hostVisible: s ? (s.role === 'host' ? s.hostVisible : (hostPeer ? hostPeer.hostVisible : true)) : null,
+    hostLost: false,
+    hostLostStage: 0,
+    newHostId: null,
     error: s ? s.error : null,
     lastError: s ? s.lastError : null,
     connectError: s ? s.connectError : null,
@@ -1057,6 +1066,25 @@ function engineListening() {
   if (session) session.engineListening = true;
 }
 
+function setHostVisible(value) {
+  const s = session;
+  if (!s) return false;
+  s.hostVisible = Boolean(value);
+  if (s.role === 'host') sendStatus(s);
+  return true;
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    const s = session;
+    if (!s || s.role !== 'host') return;
+    const visible = document.visibilityState !== 'hidden';
+    if (s.hostVisible === visible) return;
+    s.hostVisible = visible;
+    sendStatus(s);
+  });
+}
+
 /* Test hook: retransmit our hello to one peer, as the retry timers do. Used to
  * prove a retransmit cannot change an accepted peer's slot. */
 function resendHello(peerId) {
@@ -1092,6 +1120,7 @@ const XBNet = {
   peerIds,
   stats,
   engineListening,
+  __setHostVisible: setHostVisible,
   __resendHello: resendHello,
 };
 
