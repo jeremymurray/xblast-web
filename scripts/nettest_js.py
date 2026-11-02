@@ -912,6 +912,9 @@ def run_collision(base):
         check(host_b.ev("XBNet.status().steppedDownBy") == low_id,
               "wrong steppedDownBy")
         low_self = host_a.ev("XBNet.status().selfId")
+        client.wait_js("XBNet.__peerCount() === 2", 60, "client sees both hosts")
+        # The page leaves the room on step-down; the transport test simulates it.
+        host_b.ev("XBNet.leave()")
         client.wait_js(f"XBNet.status().newHostId === {json.dumps(low_self)}", 30,
                        "client kept the surviving host")
         check(client.ev("XBNet.status().hostLost") is False,

@@ -308,7 +308,20 @@ function broadcastHello(s) {
 
 function noteHostLost(s, peer) {
   if (!s || s.role !== 'client' || !peer || peer.remoteRole !== ROLE_HOST) return;
-  if (!s.everSawHost || findHostPeer(s)) return;
+  if (!s.everSawHost) return;
+  const other = findHostPeer(s);
+  if (other && other.id !== peer.id) {
+    // The host we were following stepped down; another host is still here.
+    s.newHostId = other.id;
+    s.newHostStage = other.hostStage;
+    s.hostLost = false;
+    clearClaimTimers(s);
+    s.claim = null;
+    s.takeover = null;
+    s.hostWaitFailed = false;
+    return;
+  }
+  if (other) return;
   s.hostLost = true;
   s.hostLostStage = peer.hostStage || 0;
   s.newHostId = null;
