@@ -74,8 +74,9 @@ or backend is added to the project.
   - `["REQ", subId, ...]` → replay the in-memory events as
     `["EVENT", subId, event]`, then `["EOSE", subId]`; remember the subscription.
   - `["CLOSE", subId]` → forget it; drop subscriptions on disconnect.
-  - Keep the last 2,000 events in memory so a late page sees earlier
-    announcements, as a real relay would.
+  - Keep the last 2,000 events in memory and replay only events matching the
+    REQ kind/topic filters (last 200), so a late page does not receive every
+    event from earlier scenarios.
   - No persistence, auth, filtering or signature checks; the test clients do their own
     topic filtering. This is not a relay for players.
 - Dependency: `websockets`, pinned in `requirements-test.txt`, installed only in the
