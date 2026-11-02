@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-01 (M3 complete, 0.4.0)
+Updated: 2026-11-01 (M4 work complete locally, tag 0.5.0; public push awaiting sign-off)
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Updated: 2026-11-01 (M3 complete, 0.4.0)
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
-| M4 — public source publication (license audit, GitHub, Pages) | in progress (GPL-2.0-or-later decided; publication checklist open) |
+| M4 — public source publication (license audit, GitHub, Pages) | **done locally** (0.5.0 tagged; public push awaiting sign-off) |
 | M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets done; 16-player acceptance pending) |
 
 ## M2 checklist
@@ -107,10 +107,11 @@ backgrounded, and room codes are now short adjective-animal-number phrases such 
 `quiet-otter-482`. Mid-match host migration is deliberately not planned; a host loss ends the
 match and the takeover flow starts a new one.
 
-## M4 public publication (0.4.0)
+## M4 public publication (0.5.0)
 
-The 0.4.0 tag exists locally; the repository is **not public yet**. The remaining
-steps are the human-gated publication actions in `docs/publishing.md` §6.
+The M4 work is complete locally and tagged **0.5.0** on `main`. The repository is **not
+public yet**; the remaining steps are the human-gated publication actions in
+`docs/publishing.md` §6. `0.4.0` stays where it is as the M3 tag.
 
 - [x] Licence decision: GPL-2.0-or-later (kept; matches upstream and is already open source)
 - [x] `NOTICE`/`THIRD_PARTY.md` covering engine, data, sprites, music, font, vendored JS,
@@ -127,8 +128,19 @@ steps are the human-gated publication actions in `docs/publishing.md` §6.
 - [x] CI (build + artifact checks + JS transport; netplay manual) and Pages workflow;
       variant artifacts are never uploaded
 - [x] Release tooling: `scripts/check-web-dist.sh`, `scripts/make-release.sh`, release workflow
-- [ ] Choose repo name/identity, create the public repo, push `main` + `0.4.0`, enable Pages,
-      create the release and smoke-test it — human sign-off required
+- [ ] Choose repo name/identity, create the public repo, push `main` + `0.4.0`
+      (historical) + `0.5.0`, enable Pages, create the release and smoke-test it — human
+      sign-off required
+
+## Release notes — 0.5.0
+
+M4 has no gameplay change. It makes the project publishable: a hash-level asset audit
+(`docs/provenance.md`), complete third-party notices, LGPL and Bitstream Vera texts,
+contributor and security policies, CI/Pages/release workflows, reproducible release
+packaging, and a source offer shipped with every build. Correction: six music tracks
+were always bundled and are now documented and audited as such; earlier notes wrongly
+said no music was included. Gameplay, netcode and the six-player capacity are unchanged
+from 0.4.0.
 
 ## M5 build targets (local only)
 

@@ -92,9 +92,10 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
 ## Versioning
-- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.4.0** (M3 complete).
-  0.5.0 is the next tag when M4 lands.
-- Bump MINOR when a milestone lands (M3 → 0.4.0), PATCH for playtest fixes.
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.5.0** (M4 complete).
+  0.4.0 remains the historical M3 tag; a version bump does not move older tags.
+- Bump MINOR when a milestone lands (M3 → 0.4.0, M4 → 0.5.0), PATCH for playtest
+  fixes.
 - Tag annotated releases on `main` after the merge. Only git tags record the version; there is no
   version file, so keep this line and `PROGRESS.md` current.
 
@@ -111,14 +112,14 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M4: public source publication. Documentation, licensing and release tooling are done:
-`THIRD_PARTY.md`, `LICENSE/` notices, `docs/provenance.md` (music is bundled and audited),
-`CONTRIBUTING.md`, `SECURITY.md`, CI/Pages/release workflows and
-`scripts/{check-web-dist,make-release}.sh`. Remaining: human sign-off on the public
-name/identity, create the repo, push `main` + `0.4.0`, enable Pages, run the release
-workflow, smoke-test (`docs/publishing.md` §6). M5: local build targets are done;
-16-player runtime acceptance remains. A lobby chat UI, a per-round desync hash and
-mid-match host migration/resume remain deliberately not planned.
+M4 is complete locally: documentation, licensing and release tooling are done
+(`THIRD_PARTY.md`, `LICENSE/`, `docs/provenance.md`, CI/Pages/release workflows,
+`scripts/{check-web-dist,make-release}.sh`), tagged **0.5.0** on `main`. Remaining:
+human sign-off on the public name/identity, create the repo, push `main` + `0.4.0`
+(historical) + `0.5.0`, enable Pages, smoke-test (`docs/publishing.md` §6). M5: local
+build targets are done; 16-player runtime acceptance remains. A lobby chat UI, a
+per-round desync hash and mid-match host migration/resume remain deliberately not
+planned.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

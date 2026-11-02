@@ -1,14 +1,15 @@
 # Publishing to public GitHub — M4 checklist
 
 Status as of 2026-11-01: **documentation, licensing and release engineering are
-complete; the repository is not public yet.** The remaining steps need the human
-partner: choose the public name/description, create the remote, push, enable Pages,
-and cut the release. Do not push, publish or recreate the tag without sign-off.
+complete; the repository is not public yet.** M4 is tagged **0.5.0** on `main`;
+`0.4.0` remains the historical M3 tag. The remaining steps need the human partner:
+choose the public name/description, create the remote, push, enable Pages, and cut
+the release. Do not push, publish or recreate a tag without sign-off.
 
 This is an engineering/licensing checklist, not legal advice. If a point is
 uncertain, exclude the asset or get qualified advice.
 
-Scope: publish the 0.4.0 source repository and the static web build, with no backend.
+Scope: publish the 0.5.0 source repository and the static web build, with no backend.
 
 ## 1. Licence decision (blocking)
 
@@ -69,8 +70,8 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
 - [x] Vendored Trystero/noble licence files kept; nothing strips notices.
 - [x] GPL-3 not chosen, so no GPLv3 text is needed.
 - [x] "No warranty" statement and GPL source-offer pointer in `README.md`; every
-      build ships `COPYING`, `THIRD_PARTY.md`, `LICENSE/` and `SOURCE.txt`, and the
-      landing screen links to them.
+      build ships `COPYING`, `THIRD_PARTY.md`, `LICENSE/`, `docs/provenance.md` and
+      `SOURCE.txt`, and the landing screen links to them.
 
 ## 3. Asset provenance and music (blocking)
 
@@ -131,14 +132,17 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
 
 1. [ ] Decide the public repository name/description/topics and whether to keep the
        personal author email in history (see open decisions).
-2. [ ] Create the public repository and push `main` plus the annotated `0.4.0` tag:
-       `git remote add origin <url> && git push -u origin main --follow-tags`.
+2. [ ] Create the public repository and push `main` with both tags:
+       `git remote add origin <url>`
+       `git push -u origin main`
+       `git push origin 0.4.0 0.5.0`
+       (0.4.0 is the historical M3 tag and produces no artifact release; 0.5.0 is M4.)
 3. [ ] Enable GitHub Pages with **GitHub Actions** as the source; run the Pages
        workflow; confirm the smoke test passes (wasm MIME, `.data`, notices, no
        `turn.json`).
-4. [ ] Push the `0.4.0` tag (or re-run the release workflow) so
-       `.github/workflows/release.yml` attaches the source archive, web bundle and
-       `SHA256SUMS` to the GitHub release.
+4. [ ] The `0.5.0` tag push runs `.github/workflows/release.yml`, which attaches the
+       source archive, web bundle and `SHA256SUMS` to the GitHub release. Edit the
+       release notes if the one-line tag message is too thin.
 5. [ ] Smoke-test the public site: solo, host/join, host takeover, room codes, a real
        match, DevTools shows no credentials.
 6. [ ] Verify the public build has no TURN credentials and no local config; verify
@@ -156,5 +160,5 @@ Scope: publish the 0.4.0 source repository and the static web build, with no bac
    remain local M5 work and must not be uploaded by CI.
 4. **Public name and git identity:** not decided. The commit author is a personal
    address and the history contains early local paths. Accepting that is normal for
-   an open-source repo; rewriting history would change every commit and the `0.4.0`
-   tag, so it is not done silently. Decide before the first push.
+   an open-source repo; rewriting history would change every commit and every tag,
+   so it is not done silently. Decide before the first push.
