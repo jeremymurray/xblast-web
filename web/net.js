@@ -65,6 +65,7 @@ const TURN_SOURCES = new Set(['file', 'endpoint', 'player']);
 
 const config = {
   connectTimeoutMs: DEFAULT_CONNECT_TIMEOUT_MS,
+  relayUrls: [],
   turnConfig: [],
   turnSource: null,
   takeover: {
@@ -155,6 +156,10 @@ function newSession(role, room) {
 
 function configure(opts) {
   if (!opts || typeof opts !== 'object') return;
+  if (Array.isArray(opts.relayUrls)) {
+    config.relayUrls = opts.relayUrls.filter(
+      (url) => typeof url === 'string' && /^wss?:\/\//i.test(url));
+  }
   if (Number.isFinite(opts.connectTimeoutMs) && opts.connectTimeoutMs > 0) {
     config.connectTimeoutMs = opts.connectTimeoutMs;
   }
@@ -856,6 +861,9 @@ function enter(role, room) {
   session = s;
   try {
     const roomConfig = { appId: APP_ID };
+    if (config.relayUrls.length) {
+      roomConfig.relayConfig = { urls: config.relayUrls, redundancy: 1 };
+    }
     if (config.turnConfig.length) roomConfig.turnConfig = config.turnConfig;
     const roomObj = joinRoom(
       roomConfig,

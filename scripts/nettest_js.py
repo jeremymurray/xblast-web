@@ -79,6 +79,28 @@ def build():
     shutil.copyfile(TEST_SRC, TEST_DST)
 
 
+def start_relay():
+    port = free_port()
+    proc = subprocess.Popen(
+        [sys.executable, os.path.join(SCRIPTS, "test_relay.py"), "--port", str(port)],
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    end = time.time() + 15
+    while time.time() < end:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+                pass
+            return proc, f"ws://127.0.0.1:{port}"
+        except OSError:
+            if proc.poll() is not None:
+                output = proc.stdout.read() if proc.stdout else ""
+                raise RuntimeError(
+                    "test relay failed; install requirements-test.txt with "
+                    "`python3 -m pip install -r requirements-test.txt`\n" + output)
+            time.sleep(0.1)
+    proc.kill()
+    raise RuntimeError("test relay did not start")
+
+
 def start_server():
     class Handler(SimpleHTTPRequestHandler):
         def log_message(self, fmt, *args):
@@ -1168,6 +1190,9 @@ def main():
         return 1
 
     server, base = start_server()
+    relay, relay_url = start_relay()
+    with open(os.path.join(DIST, "test", "relay.js"), "w", encoding="utf-8") as handle:
+        handle.write(f'globalThis.XB_TEST_RELAY = {json.dumps(relay_url)};\n')
     failures = []
     try:
         for name in wanted:
@@ -1187,6 +1212,11 @@ def main():
                     print(f"{name}: FAIL: {e}", file=sys.stderr)
                     traceback.print_exc()
     finally:
+        relay.terminate()
+        try:
+            relay.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            relay.kill()
         server.shutdown()
         server.server_close()
 
