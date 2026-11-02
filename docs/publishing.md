@@ -167,9 +167,9 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 ## 8. Post-publication check (2026-11-02)
 
 - Repo public, default branch `main`, GPL-2.0 detected, Issues and Discussions disabled.
-- Pages: `https://jeremymurray.github.io/xblast-web/`; `.wasm` →
-  `application/wasm`, `.data` HTTP 200, `turn.json` HTTP 404, notices and
-  `docs/provenance.md` HTTP 200.
+- Pages: `https://jeremymurray.github.io/xblast-web/`; deployed from the CI build
+  artifact (not a separate build); `.wasm` → `application/wasm`, `.data` HTTP 200,
+  `turn.json` HTTP 404, notices and `docs/provenance.md` HTTP 200.
 - `SOURCE.txt`: repository URL plus commit `a38f966`; built from the tag's tree.
 - Release `0.5.0`: source tarball 11.2 MB, web zip 12.4 MB, `SHA256SUMS`; notes match
   the annotated tag after correction.
