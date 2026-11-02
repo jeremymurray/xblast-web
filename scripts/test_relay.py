@@ -18,7 +18,9 @@ import threading
 from websockets.sync.server import serve
 
 clients = {}
+events = []
 lock = threading.Lock()
+MAX_EVENTS = 2000
 
 
 def send(ws, payload):
@@ -42,6 +44,9 @@ def handler(ws):
                 event = message[1]
                 send(ws, json.dumps(["OK", str(event.get("id", "")), True, ""]))
                 with lock:
+                    events.append(event)
+                    if len(events) > MAX_EVENTS:
+                        del events[:len(events) - MAX_EVENTS]
                     targets = [(other, set(subs)) for other, subs in clients.items()
                                if other is not ws]
                 for other, subs in targets:
@@ -53,6 +58,9 @@ def handler(ws):
             elif kind == "REQ" and len(message) > 1:
                 with lock:
                     clients.setdefault(ws, set()).add(message[1])
+                    history = list(events)
+                for event in history:
+                    send(ws, json.dumps(["EVENT", message[1], event]))
                 send(ws, json.dumps(["EOSE", message[1]]))
             elif kind == "CLOSE" and len(message) > 1:
                 with lock:
