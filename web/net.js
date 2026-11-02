@@ -32,6 +32,8 @@ const CTL_EOF = 3;
 const CTL_CLOSE = 4;
 const CTL_STATUS = 5;
 const CTL_REJECT = 6;
+const CTL_CLAIM = 7;
+const CTL_HOST_LEAVING = 8;
 
 const REJECT_FULL = 1;
 
@@ -107,6 +109,9 @@ function newSession(role, room) {
     clientId: loadClientId(),
     hostStage: role === 'host' ? STAGE_SETUP : 0,
     hostVisible: true,
+    hostLost: false,
+    hostLostStage: 0,
+    newHostId: null,
     roomObj: null,
     peers: new Map(),      // peerId -> peer record
     pending: [],           // host: clients with a valid hello, not yet accepted
@@ -259,6 +264,23 @@ function sendStatus(s) {
   }
 }
 
+function sendHostLeaving(s) {
+  if (!s || s.role !== 'host') return;
+  const frame = new Uint8Array([CTL_HOST_LEAVING, s.hostStage]);
+  for (const peer of activePeers(s)) {
+    if (peer.remoteRole === ROLE_CLIENT && peer.ctlOpen && !peer.closed) {
+      ctlSend(s, peer, frame);
+    }
+  }
+}
+
+function noteHostLost(s, stage) {
+  if (!s || s.role !== 'client' || findHostPeer(s)) return;
+  s.hostLost = true;
+  s.hostLostStage = stage || 0;
+  s.newHostId = null;
+}
+
 /* The engine closes the listen socket at match start and on cancel. Accepted
  * peers staying open means a match; no accepted peers means idle. */
 function closeListenStage(s) {
@@ -352,6 +374,8 @@ function handleHello(s, peer, bytes) {
       s.pending.push(peer.id);
     }
   } else if (s.role === 'client' && remoteRole === ROLE_HOST) {
+    s.newHostId = peer.id;
+    s.hostLost = false;
     bindConnectFds(s, peer);
   }
 }
@@ -391,6 +415,13 @@ function handleCtlMessage(s, peer, data) {
       if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
         peer.hostStage = bytes[1];
         peer.hostVisible = bytes.length >= 3 ? bytes[2] === 1 : true;
+      }
+      break;
+    case CTL_HOST_LEAVING:
+      if (peer.remoteRole === ROLE_HOST && bytes.length >= 2) {
+        s.hostLost = true;
+        s.hostLostStage = bytes[1];
+        s.newHostId = null;
       }
       break;
     case CTL_REJECT:
@@ -491,6 +522,7 @@ function setupPeer(s, peerId, pc) {
     clearHelloTimers(peer);
     removePending(s, peer);
     refreshHostStage(s);
+    noteHostLost(s, peer.hostStage);
   };
   ctl.onerror = (event) => {
     console.warn('xbnet: ctl channel error for', peerId, event);
@@ -549,6 +581,7 @@ function handlePeerLeave(s, peerId) {
   // Fds keep a direct peer reference, so bound sockets still observe eof.
   s.peers.delete(peerId);
   refreshHostStage(s);
+  noteHostLost(s, peer.hostStage);
 }
 
 function enter(role, room) {
@@ -603,6 +636,7 @@ function enter(role, room) {
 function leave() {
   const s = session;
   if (!s) return;
+  sendHostLeaving(s);
   session = null;
   if (s.recheck) {
     clearTimeout(s.recheck);
@@ -1020,9 +1054,9 @@ function status() {
     /* The host's own stage, or the stage its hello told a guest. */
     hostStage: s ? (s.role === 'host' ? s.hostStage : (hostPeer ? hostPeer.hostStage : 0)) : null,
     hostVisible: s ? (s.role === 'host' ? s.hostVisible : (hostPeer ? hostPeer.hostVisible : true)) : null,
-    hostLost: false,
-    hostLostStage: 0,
-    newHostId: null,
+    hostLost: s ? s.hostLost : false,
+    hostLostStage: s ? s.hostLostStage : 0,
+    newHostId: s ? s.newHostId : null,
     error: s ? s.error : null,
     lastError: s ? s.lastError : null,
     connectError: s ? s.connectError : null,

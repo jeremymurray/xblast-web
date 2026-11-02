@@ -749,6 +749,29 @@ def run_visibility(base):
                 page.close()
 
 
+def run_hostleave(base):
+    room = unique_room("xbleave")
+    host = Page(f"{base}/test/net.html?role=host&room={room}&scenario=basic")
+    client = Page(f"{base}/test/net.html?role=client&room={room}&scenario=basic")
+    try:
+        require_net(host, "host"); require_net(client, "client")
+        client.wait_js(peer_ready_expr(1), 60, "client peer")
+        check(host.ev("__test.open(101, 'stream')") is True, "host open failed")
+        check(host.ev("__test.listen(101)") is True, "host listen failed")
+        check(client.ev("__test.open(201, 'stream')") is True, "client open failed")
+        client.ev("__test.connect(201)")
+        wait_connect(client, 201)
+        wait_accept(host, 101, 102)
+        host.ev("XBNet.leave()")
+        client.wait_js("XBNet.status().hostLost === true", 10, "client hostLost")
+        check(client.ev("XBNet.status().hostLostStage") == 1, "wrong lost stage")
+        check(client.ev("XBNet.status().newHostId") is None, "unexpected new host")
+        check(client.ev("XBNet.status().state") == "joined", "client left the room")
+        finish_pages([("host", host), ("client", client)], True)
+    finally:
+        host.close(); client.close()
+
+
 def run_turn_config(base):
     page = Page(f"{base}/test/net.html?scenario=turn-config")
     try:
@@ -860,13 +883,14 @@ SCENARIOS = {
     "turn-ui": run_turn_ui,
     "roomcode": run_roomcode,
     "visibility": run_visibility,
+    "hostleave": run_hostleave,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
-        "roomcode", "visibility",
+        "roomcode", "visibility", "hostleave",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
