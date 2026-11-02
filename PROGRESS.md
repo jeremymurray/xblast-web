@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-02 (M4 published; 0.5.0/0.5.1 M4 releases; 0.6.0 invite links)
+Updated: 2026-11-02 (0.6.1 CI efficiency; 0.6.0 invite links; M4 release 0.5.x)
 
 ## Milestones
 
@@ -139,6 +139,13 @@ public-relay flake, mitigated by per-scenario retries (`XB_TEST_RETRIES=2` in CI
       `0.4.0` and `0.5.0` pushed; Pages enabled from GitHub Actions; release `0.5.0`
       published; public build boots and the Pages smoke test passes
 
+## Release notes — 0.6.1
+
+CI and test-infrastructure bugfix; no gameplay change. CI builds the web bundle once
+and reuses that artifact for the transport tests and the Pages deploy. Transport tests
+run against a localhost Nostr relay instead of the public relays, with retries only for
+the scenario that failed. Pages now deploys from the same CI artifact.
+
 ## Release notes — 0.6.0
 
 Invite links. A host or guest can click **Invite** in the netbar to copy a URL; opening
@@ -174,6 +181,17 @@ from 0.4.0.
 - [x] Local two-browser check: invite prefills, Join starts the client, room-code
       click copies/falls back; `netplaytest --scenario midmatch` still refuses
 - [ ] Public-site invite smoke test after the next deploy
+
+## CI (0.6.1)
+
+- [x] Build once per run; transport downloads the `release-dist` artifact and uses
+      `XB_TEST_NO_BUILD=1`
+- [x] Transport tests use a localhost test relay (`scripts/test_relay.py`) with pinned
+      `websockets==17.4`, test-only; public relays remain the production default
+- [x] Pages deploys from the same artifact in `ci.yml`; the separate `pages.yml` is gone
+- [x] Per-scenario retries (`XB_TEST_RETRIES`), not whole-suite reruns; refused-guest
+      EOF wait widened
+- [ ] Confirm the first public CI run after the change (artifact path, Pages smoke test)
 
 ## M5 build targets (local only)
 
@@ -220,12 +238,14 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
                                       # claim, collision, peerleave
 ./scripts/check-web-dist.sh            # fail unless web/dist is a publishable release
 XB_SOURCE_URL=<repo-url> ./scripts/build-web.sh --target release
-XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.5.0   # source + web + SHA256SUMS
+XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.6.1   # source + web + SHA256SUMS
 ```
 
-`scripts/netplaytest.py` needs internet access to public Nostr relays (skip with
-`XB_TEST_OFFLINE=1`) and starts Chromium with
-`--disable-features=WebRtcHideLocalIpsWithMdns` so the local pages can connect.
+`scripts/nettest_js.py` uses a local test relay and needs no internet; install
+its test-only dependency with `python3 -m pip install -r requirements-test.txt`.
+`scripts/netplaytest.py` still needs internet access to public Nostr relays (skip
+with `XB_TEST_OFFLINE=1`). Both start Chromium with
+`--disable-features=WebRtcHideLocalIpsWithMdns` so local pages can connect.
 
 ## Known issues / notes
 
@@ -252,7 +272,8 @@ XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.5.0   # source + web + SHA2
   checks apply.
 - **Public Nostr relays can be down.** `nostr.robosats.org` was returning 502 during the
   playtest; the browser logs the failed WebSocket, but the other default relays carry the
-  room, so it is cosmetic. Signalling is still a public dependency (see TURN/NAT above).
+  room, so it is cosmetic for players. The transport test suite no longer depends on them
+  (local relay); netplay still does, so it stays manual/optional.
 - **DevTools 404s are harmless.** Chrome probes
   `/.well-known/appspecific/com.chrome.devtools.json`, and DevTools requests the
   `*.mjs.map` files we intentionally stripped from the vendored bundle. No normal page
@@ -294,7 +315,7 @@ XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.5.0   # source + web + SHA2
   3–5 letters.
 - Mid-match migration is not planned.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
-  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix, 0.6.0 = invite links.
+  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix, 0.6.0 = invite links, 0.6.1 = CI efficiency.
 - Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
   `Assisted-by:` trailer (see `README.md` and `AGENTS.md`).
 

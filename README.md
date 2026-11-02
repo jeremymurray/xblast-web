@@ -3,7 +3,7 @@
 XBlast TNT (the classic Bomberman-style game) running in the browser, with
 peer-to-peer multiplayer and no game server.
 
-Status: **0.6.0** (M4 complete). Solo and network matches
+Status: **0.6.1** (M4 complete). Solo and network matches
 (one host plus up to five guests) work in Chromium-based desktop browsers (Chrome,
 Edge, and other Chromium derivatives); three browsers are covered by the default test,
 six by an opt-in one. Host takeover, readable room codes and the backgrounding warning
@@ -121,10 +121,17 @@ python3 scripts/netplaytest.py --scenario hostgone  # host leaves mid-match, new
 python3 scripts/netplaytest.py --scenario autojoin  # flushed guest auto-connects after reload
 ```
 
-`scripts/nettest_js.py` and `scripts/netplaytest.py` need internet access to
-public Nostr relays (set `XB_TEST_OFFLINE=1` to skip the netplay test) and launch
-Chromium with `--disable-features=WebRtcHideLocalIpsWithMdns` so local pages can
-connect.
+`scripts/nettest_js.py` and `scripts/netplaytest.py` need Chrome. The transport
+suite starts a local Nostr relay and needs no internet; install its one test
+dependency first:
+
+```sh
+python3 -m pip install -r requirements-test.txt
+```
+
+The netplay suite still uses the public Nostr relays over the internet (set
+`XB_TEST_OFFLINE=1` to skip it). Both launch Chromium with
+`--disable-features=WebRtcHideLocalIpsWithMdns` so local pages can connect.
 
 ## Hosting
 

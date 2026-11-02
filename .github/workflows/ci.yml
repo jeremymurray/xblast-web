@@ -10,7 +10,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Do not cancel a main run mid-deploy; PR/branch runs can cancel.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build:
@@ -39,6 +40,13 @@ jobs:
       - name: Check the artifact
         run: ./scripts/check-web-dist.sh web/dist
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-dist
+          path: web/dist
+          retention-days: 1
+          if-no-files-found: error
+
       - name: Syntax-check scripts
         run: |
           bash -n scripts/build-web.sh
@@ -54,22 +62,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read the pinned Emscripten version
-        id: emsdk
-        run: |
-          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
-          test -n "$version"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: actions/download-artifact@v4
         with:
-          version: ${{ steps.emsdk.outputs.version }}
-          actions-cache-folder: emsdk-cache
+          name: release-dist
+          path: web/dist
+
+      - name: Install test dependencies
+        run: python3 -m pip install -r requirements-test.txt
 
       - name: Run transport scenarios
-        # Public Nostr relays occasionally fail; retry only the failed scenario.
+        # The local relay removes the public-relay dependency; keep one retry
+        # as a safety net for WebRTC/Chrome timing.
         env:
-          XB_TEST_RETRIES: '2'
+          XB_TEST_NO_BUILD: '1'
+          XB_TEST_RETRIES: '1'
         run: python3 scripts/nettest_js.py
 
   netplay:
@@ -97,3 +103,68 @@ jobs:
 
       - name: Host + two guests + match
         run: python3 scripts/netplaytest.py --scenario guests
+
+  pages:
+    name: Pages artifact
+    needs: build
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-dist
+          path: web/dist
+
+      - uses: actions/configure-pages@v5
+
+      # Only web/dist is uploaded. Never dist-16p, dist-debug, dist-lite, etc.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    name: Deploy Pages
+    needs: pages
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Smoke-test the deployed site
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          set -eu
+          for _ in 1 2 3 4 5; do
+            if curl -fsS "$PAGE_URL/index.html" >/dev/null; then break; fi
+            sleep 5
+          done
+          type=$(curl -fsSI "$PAGE_URL/xblast.wasm" | tr -d '\r' |
+            awk -F': ' 'tolower($1) == "content-type" { print $2 }')
+          echo "xblast.wasm content-type: $type"
+          case "$type" in
+            application/wasm*) ;;
+            *) echo "GitHub Pages must serve .wasm as application/wasm" >&2; exit 1 ;;
+          esac
+          curl -fsSI "$PAGE_URL/xblast.data" >/dev/null
+          curl -fsS "$PAGE_URL/COPYING" >/dev/null
+          curl -fsS "$PAGE_URL/THIRD_PARTY.md" >/dev/null
+          curl -fsS "$PAGE_URL/SOURCE.txt" >/dev/null
+          if curl -fsS "$PAGE_URL/turn.json" >/dev/null 2>&1; then
+            echo "turn.json must not be published" >&2
+            exit 1
+          fi
+          echo "deployed site looks correct"

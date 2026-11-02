@@ -10,6 +10,7 @@
   "@noble/secp256k1":"../vendor/trystero/noble/index.js"
 }}
 </script>
+<script src="relay.js"></script>
 <title>XBlast net.js transport test</title>
 <style>
   body { background: #111; color: #ddd; font: 13px/1.5 monospace; padding: 1em; }
@@ -106,6 +107,9 @@
     await import('../net.js');
     const XB = globalThis.XBNet;
     if (!XB) throw new Error('XBNet is undefined after importing ../net.js');
+    if (globalThis.XB_TEST_RELAY) {
+      XB.configure({ relayUrls: [globalThis.XB_TEST_RELAY] });
+    }
 
     if (T.scenario === 'turn-config') {
       try {
