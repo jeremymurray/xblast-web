@@ -877,6 +877,17 @@ def run_claim(base):
                   "a stuck setup host blocked a retry claim")
             pages["b"].wait_js("XBNet.status().takeover === 'host'", 5,
                                "retry claim won")
+            pages["b"].ev("XBNet.cancelClaim()")
+            check(stuck.ev("__test.open(101, 'stream')") is True,
+                  "stuck host open failed")
+            check(stuck.ev("__test.listen(101)") is True,
+                  "stuck host listen failed")
+            pages["b"].wait_js("XBNet.status().newHostStage === 1", 15,
+                               "B saw the host listening")
+            pages["b"].wait_js("XBNet.status().hostWaitFailed === false", 15,
+                               "B cleared the failed wait")
+            check(pages["b"].ev("XBNet.claimHost()") is False,
+                  "a listening host was still claimable")
         finally:
             stuck.close()
     finally:
