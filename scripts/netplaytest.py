@@ -833,6 +833,81 @@ def run_midmatch(base, outdir):
             page.close()
 
 
+def run_autojoin(base, outdir):
+    """A guest with a flushed player config auto-connects from a takeover flag."""
+    room = f"m2-autojoin-{random.randrange(16 ** 6):06x}"
+    host = Page(f"{base}/", "host")
+    guest = Page(f"{base}/", "guest")
+    fresh = None
+    pages = [host, guest]
+    try:
+        for page in pages:
+            page.wait_js(
+                "document.readyState === 'complete' && !!document.getElementById('room')"
+                " && !!document.getElementById('host') && !!document.getElementById('join')",
+                20, f"{page.label} lobby")
+        print(f"== autojoin room {room} ==", flush=True)
+        if not start_lobby_page(host, "host", room):
+            raise AssertionError("could not click #host")
+        if not start_lobby_page(guest, "join", room):
+            raise AssertionError("could not click #join for guest")
+        for page in pages:
+            wait_engine(page)
+            dismiss_intro(page)
+
+        choose_first_player(guest)
+        guest.key("return")
+        guest.wait_js(
+            "globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+            60, "guest connected before the refresh")
+        print("guest connected; flushing config and reloading", flush=True)
+
+        guest.ev("""(() => {
+            Module._XBWeb_FlushConfig();
+            saveConfig();
+            sessionStorage.setItem('xb:takeover', JSON.stringify(
+                {mode: 'client', room: %s, autoJoin: true}));
+            location.reload();
+            return true;
+        })()""" % json.dumps(room))
+        wait_engine(guest)
+        guest.wait_js("globalThis.__xbnet && __xbnet.status().role === 'client'",
+                      30, "guest reloaded into the room")
+        guest.wait_js("globalThis.__xbnet && __xbnet.connectState(1000) === 1",
+                      40, "guest auto-connected without a click")
+        print("flushed guest auto-connected", flush=True)
+
+        # A fresh page (no saved player config) must fall back to the join menu.
+        fresh = Page(f"{base}/", "fresh")
+        fresh.wait_js(
+            "document.readyState === 'complete' && !!document.getElementById('room')",
+            20, "fresh lobby")
+        fresh.ev("""(() => {
+            localStorage.removeItem('xblast:config:v2');
+            sessionStorage.setItem('xb:takeover', JSON.stringify(
+                {mode: 'client', room: %s, autoJoin: true}));
+            location.reload();
+            return true;
+        })()""" % json.dumps(room))
+        wait_engine(fresh)
+        fresh.wait_js("globalThis.__xbnet && __xbnet.status().role === 'client'",
+                      30, "fresh page joined the room")
+        time.sleep(4.0)
+        if fresh.ev("__xbnet.connectState(1000)") == 1:
+            raise AssertionError("a guest with no player config auto-connected")
+        print("autojoin: PASS (with config connected, without config stayed in menu)",
+              flush=True)
+        return 0
+    except Exception:
+        for page in pages + ([fresh] if fresh else []):
+            dump_page(page, "FAIL ")
+        traceback.print_exc()
+        return 1
+    finally:
+        for page in pages + ([fresh] if fresh else []):
+            page.close()
+
+
 def main():
     if os.environ.get("XB_TEST_OFFLINE") == "1":
         print("SKIP: XB_TEST_OFFLINE=1; the netplay test needs internet access "
@@ -849,7 +924,7 @@ def main():
             print("--scenario needs a value", file=sys.stderr)
             return 2
         del args[index:index + 2]
-    if scenario not in ("match", "guests", "six", "refresh", "midmatch"):
+    if scenario not in ("match", "guests", "six", "refresh", "midmatch", "autojoin"):
         print(f"unknown scenario: {scenario}", file=sys.stderr)
         return 2
     outdir = args[0] if args else tempfile.gettempdir()
@@ -869,6 +944,8 @@ def main():
             return run_refresh(base, outdir)
         if scenario == "midmatch":
             return run_midmatch(base, outdir)
+        if scenario == "autojoin":
+            return run_autojoin(base, outdir)
         if scenario == "guests":
             return run_guests(base, outdir)
         if scenario == "six":

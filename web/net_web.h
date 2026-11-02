@@ -7,6 +7,9 @@ XBWebMode XBWeb_Mode (void);
 const char *XBWeb_RoomCode (void);
 void XBWeb_ClearIntent (void);
 void XBWeb_ReloadLobby (void);
+int XBWeb_AutoJoin (void);
+void XBWeb_ClearAutoJoin (void);
+void XBWeb_FlushConfig (void);
 #endif
 
 #endif

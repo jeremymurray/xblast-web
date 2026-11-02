@@ -363,6 +363,7 @@
   }
 
   const LAST_ROOM_KEY = 'xb:lastRoom';
+  const TAKEOVER_KEY = 'xb:takeover';
 
   function readLastRoom() {
     try {
@@ -391,6 +392,40 @@
     } catch (e) {
       // nothing to clear
     }
+  }
+
+  function readTakeover() {
+    try {
+      const value = JSON.parse(sessionStorage.getItem(TAKEOVER_KEY) || 'null');
+      if (value && (value.mode === 'host' || value.mode === 'client') &&
+          typeof value.room === 'string' && value.room) {
+        return value;
+      }
+    } catch (e) {
+      // private mode or a malformed value
+    }
+    return null;
+  }
+
+  function clearTakeover() {
+    try {
+      sessionStorage.removeItem(TAKEOVER_KEY);
+    } catch (e) {
+      // nothing to clear
+    }
+  }
+
+  /* Flush the engine's in-memory config, then mirror the filesystem before a
+   * takeover reload can lose the player selection. */
+  function flushConfig() {
+    try {
+      if (Module && typeof Module._XBWeb_FlushConfig === 'function') {
+        Module._XBWeb_FlushConfig();
+      }
+    } catch (e) {
+      console.warn('xb: engine config flush failed', e);
+    }
+    saveConfig();
   }
 
   function hideRejoinBanner() {
@@ -558,7 +593,8 @@
     loadEngine();
   }
 
-  async function startNet(mode) {
+  async function startNet(mode, options) {
+    const opts = options || {};
     if (!window.isSecureContext || !window.crypto || !window.crypto.subtle) {
       const message = 'Multiplayer needs HTTPS or localhost.';
       statusEl.textContent = message;
@@ -570,7 +606,7 @@
     lobbyStarting = true;
     const room = normalizeRoom(roomEl.value) || makeCode();
     roomEl.value = room;
-    globalThis.xbConfig = { mode, room };
+    globalThis.xbConfig = { mode, room, autoJoin: Boolean(opts.autoJoin) };
     storeLastRoom(mode, room);
     hideRejoinBanner();
     try {
@@ -670,9 +706,16 @@
     loadEngine();
   }
 
-  const lastRoom = readLastRoom();
-  if (lastRoom) showRejoinBanner(lastRoom);
-  else roomEl.value = makeCode();
+  const takeover = readTakeover();
+  if (takeover) {
+    clearTakeover();
+    roomEl.value = takeover.room;
+    startNet(takeover.mode, { autoJoin: takeover.autoJoin });
+  } else {
+    const lastRoom = readLastRoom();
+    if (lastRoom) showRejoinBanner(lastRoom);
+    else roomEl.value = makeCode();
+  }
 
   loadTurnModule().then((turn) => {
     if (turn) applyStoredTurnOverride(turn);
