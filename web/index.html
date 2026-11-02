@@ -218,7 +218,9 @@
   <span id="net-room" class="room"></span>
   <span id="net-dot" class="dot warn"></span>
   <span id="net-state" class="state">connecting…</span>
-  <button id="net-copy" type="button" title="Copy room code">Copy</button>
+  <button id="net-copy" type="button" title="Copy room code">Copy code</button>
+  <button id="net-invite" type="button" title="Copy invite link"
+          aria-label="Copy invite link">Invite</button>
   <button id="leave" type="button">Leave</button>
 </div>
 
@@ -267,6 +269,7 @@
   const netRoomEl = document.getElementById('net-room');
   const netDotEl = document.getElementById('net-dot');
   const netStateEl = document.getElementById('net-state');
+  const netInviteEl = document.getElementById('net-invite');
   const toastEl = document.getElementById('net-toast');
   const toastTextEl = document.getElementById('net-toast-text');
   const toastCancelEl = document.getElementById('net-toast-cancel');
@@ -436,6 +439,29 @@
     inviteRoomEl.textContent = code;
     roomEl.value = code;
     inviteBannerEl.classList.add('show');
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      // fall through to the legacy path
+    }
+    try {
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const ok = document.execCommand('copy');
+      field.remove();
+      return ok;
+    } catch (error) {
+      return false;
+    }
   }
 
   const LAST_ROOM_KEY = 'xb:lastRoom';
@@ -1033,12 +1059,16 @@
   document.getElementById('net-copy').addEventListener('click', async () => {
     const room = globalThis.xbConfig && globalThis.xbConfig.room;
     if (!room) return;
-    try {
-      await navigator.clipboard.writeText(room);
-      showNotice('Room code copied.');
-    } catch (error) {
-      showNotice(`Room code: ${room}`);
-    }
+    if (await copyText(room)) showNotice('Room code copied.');
+    else showNotice(`Room code: ${room}`);
+  });
+
+  netInviteEl.addEventListener('click', async () => {
+    const room = globalThis.xbConfig && globalThis.xbConfig.room;
+    const url = inviteUrlFor(room);
+    if (!url) return;
+    if (await copyText(url)) showNotice('Invite link copied.');
+    else showNotice('Invite link: ' + url);
   });
 
   document.getElementById('leave').addEventListener('click', () => {

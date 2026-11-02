@@ -719,6 +719,14 @@ def run_roomcode(base):
                   f"unknown animal {noun!r}")
         check(page.ev("normalizeRoom(' Quiet Otter 482 ')") == "quiet-otter-482",
               "normalizeRoom did not normalize spaces/case")
+        check(page.ev("document.getElementById('net-copy').textContent.trim()") ==
+              "Copy code", "room-code button should say Copy code")
+        check(page.ev("document.getElementById('net-invite') !== null"),
+              "invite button is missing from the netbar")
+        check(page.ev("document.getElementById('net-invite').getAttribute('aria-label')") ==
+              "Copy invite link", "invite button needs an accessible label")
+        check(page.ev("typeof copyText === 'function'"),
+              "copyText helper is missing")
         check(page.ev("inviteUrlFor(' Quiet Otter 482 ')") ==
               f"{base}/index.html?room=quiet-otter-482",
               "inviteUrlFor did not normalize/build the invite URL")
