@@ -121,6 +121,8 @@ function newSession(role, room) {
     hostLost: false,
     hostLostStage: 0,
     newHostId: null,
+    stepDown: false,
+    steppedDownBy: null,
     claim: null,
     takeover: null,
     hostWaitFailed: false,
@@ -493,6 +495,25 @@ function handleHello(s, peer, bytes) {
   const remoteRole = bytes[2];
   const idLen = bytes[3];
   const validRole = remoteRole === ROLE_HOST || remoteRole === ROLE_CLIENT;
+  if (s.role === 'host' && remoteRole === ROLE_HOST &&
+      version === HELLO_VERSION && idLen === CLIENT_ID_LEN &&
+      bytes.length >= 4 + idLen + 1) {
+    const remoteClientId = bytesToClientId(bytes.subarray(4, 4 + idLen));
+    const remoteWins = remoteClientId < s.clientId ||
+      (remoteClientId === s.clientId && peer.id < selfId);
+    peer.invalid = true;
+    clearHelloTimers(peer);
+    if (remoteWins) {
+      s.stepDown = true;
+      s.steppedDownBy = remoteClientId;
+      s.hostStage = STAGE_IDLE;
+      sendHostLeaving(s);
+      for (const other of s.peers.values()) {
+        if (other !== peer) closePeerChannels(s, other, true);
+      }
+    }
+    return;
+  }
   if (version !== HELLO_VERSION || !validRole || remoteRole === s.localRole ||
       idLen !== CLIENT_ID_LEN || bytes.length < 4 + idLen + 1) {
     // Another host/client in the same room or a stale build is ignored; its
@@ -1228,6 +1249,8 @@ function status() {
     hostLost: s ? s.hostLost : false,
     hostLostStage: s ? s.hostLostStage : 0,
     newHostId: s ? s.newHostId : null,
+    stepDown: s ? s.stepDown : false,
+    steppedDownBy: s ? s.steppedDownBy : null,
     claim: s && s.claim
       ? { state: s.claim.state, winner: s.claim.winner, self: s.claim.self }
       : { state: 'idle', winner: null, self: false },

@@ -850,6 +850,24 @@ def run_claim(base):
             page.close()
 
 
+def run_collision(base):
+    room = unique_room("xbcollide")
+    low_id, high_id = "a" * 32, "b" * 32
+    host_a = Page(f"{base}/test/net.html?role=host&room={room}"
+                  f"&scenario=basic&clientId={low_id}")
+    host_b = Page(f"{base}/test/net.html?role=host&room={room}"
+                  f"&scenario=basic&clientId={high_id}")
+    try:
+        require_net(host_a, "host-a")
+        require_net(host_b, "host-b")
+        host_a.wait_js("XBNet.status().stepDown === false", 60, "low host stays")
+        host_b.wait_js("XBNet.status().stepDown === true", 60, "high host steps down")
+        check(host_b.ev("XBNet.status().steppedDownBy") == low_id,
+              "wrong steppedDownBy")
+    finally:
+        host_a.close(); host_b.close()
+
+
 def run_turn_config(base):
     page = Page(f"{base}/test/net.html?scenario=turn-config")
     try:
@@ -963,13 +981,14 @@ SCENARIOS = {
     "visibility": run_visibility,
     "hostleave": run_hostleave,
     "claim": run_claim,
+    "collision": run_collision,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
-        "roomcode", "visibility", "hostleave", "claim",
+        "roomcode", "visibility", "hostleave", "claim", "collision",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:
