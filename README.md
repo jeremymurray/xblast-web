@@ -10,8 +10,9 @@ six by an opt-in one. Host takeover, readable room codes and the backgrounding w
 are in; chat, a desync hash and mid-match host migration are not planned.
 
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
-- `data/` — images, levels, sounds, music and the Bitstream Vera font, from the
-  Debian `xblast-tnt-*` packages (GPL-2+); see `LICENSE/data/`
+- `data/` — images, model sprites (`.epm`), levels, sounds and the Bitstream Vera font,
+  from the Debian `xblast-tnt-*` packages (GPL-2+); no music tracks are bundled; see
+  `LICENSE/data/` and `docs/publishing.md`
 - `web/` — browser shell, SDL 2 backend and web glue; `web/net.js` is the
   WebRTC transport and `web/net_web.c` its `socket.h` shim
 - `web/vendor/trystero/` — vendored Trystero 0.26.0 and noble, MIT
@@ -113,4 +114,5 @@ Their licences are in `web/vendor/trystero/LICENSE.trystero` and
 
 The whole work is distributed under GPL-2.0-or-later. Upstream code is
 GPL-2.0-or-later (parts LGPL-2+); data packages are GPL-2+; vendored Trystero
-and noble remain MIT. See `LICENSE/` and the headers in `engine/`.
+and noble remain MIT; the Bitstream Vera font keeps its own licence. See
+`LICENSE/`, `docs/publishing.md` and the headers in `engine/`.

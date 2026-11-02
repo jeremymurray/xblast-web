@@ -10,8 +10,9 @@ GPL-2.0-or-later.
 
 ## Decisions (durable)
 - **Base code:** XBlast TNT 2.10.4 + Debian patches, vendored into `engine/`.
-- **Assets/data:** Debian `xblast-tnt-images/-levels/-sounds/-models/-musics` (GPL-2+) plus
-  Bitstream Vera (`data/Vera.ttf`, Bitstream licence).
+- **Assets/data:** Debian `xblast-tnt-images/-levels/-sounds/-models` (GPL-2+) plus
+  Bitstream Vera (`data/Vera.ttf`, Bitstream licence). No music tracks are bundled; the separate
+  `xblast-tnt-musics` package is not included and needs a track-by-track audit before adding.
 - **Port path:** Emscripten, keep the C engine and the `gui.h` seam.
   **No sdl12-compat** — it dlopens SDL2, which is unavailable in wasm. The SDL backend is ported
   directly to SDL 2 (`web/compat/`, `web/sdl_web.c`).
@@ -102,11 +103,11 @@ Update `PROGRESS.md` at each milestone and whenever context is about to be compa
 known issues, next tasks, how to run. Keep it concise and current; it is the handoff document.
 
 ## Next milestone
-M4. M3 is complete: six players, reconnect/replace, optional TURN, host takeover,
-backgrounding warning and readable room codes. A lobby chat UI, a per-round desync hash and
-mid-match host migration/resume are deliberately not planned (see `PROGRESS.md`); the
-takeover flow starts a new match after a mid-match host loss. An optional 16-player `-DSMPF`
-build is the main M4-era idea; the web build stays 6-player until then.
+M4: public source publication. The 0.4.0 tag exists locally but the repository is not public.
+`docs/publishing.md` is the blocking license/GitHub checklist; choose GPL-2.0-or-later or
+GPL-3.0-or-later before publishing. No music is bundled. After publication, M5 covers polish,
+PWA and the optional 16-player `-DSMPF` build. A lobby chat UI, a per-round desync hash and
+mid-match host migration/resume remain deliberately not planned.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

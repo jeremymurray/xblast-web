@@ -10,7 +10,8 @@ Updated: 2026-11-01 (M3 complete, 0.4.0)
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
-| M4 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
+| M4 — public source publication (license audit, GitHub, Pages) | in progress (blocked on license decision) |
+| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
 
 ## M2 checklist
 
@@ -106,6 +107,20 @@ backgrounded, and room codes are now short adjective-animal-number phrases such 
 `quiet-otter-482`. Mid-match host migration is deliberately not planned; a host loss ends the
 match and the takeover flow starts a new one.
 
+## M4 public publication (0.4.0)
+
+The 0.4.0 tag exists locally, but the repository is **not public yet**. The blocking checklist is
+in `docs/publishing.md`.
+
+- [ ] Licence decision: GPL-2.0-or-later (recommended) or GPL-3.0-or-later
+- [ ] Add a top-level `COPYING` and a `NOTICE`/`THIRD_PARTY.md`; `LICENSE/` is a directory
+- [ ] Audit asset provenance; confirm no music tracks are bundled; correct the README/AGENTS
+      "music" claim; the separate `xblast-tnt-musics` package is not included
+- [ ] Include LGPL-2+ text for the SDL-derived files and the Bitstream Vera notice
+- [ ] Publish complete corresponding source with the build; release source + checksums
+- [ ] Scan history/secrets, add CI/Pages, verify the public build and licence detection
+- [ ] Push `main` and the `0.4.0` tag only after sign-off
+
 ## How to run (dev)
 
 ```sh
@@ -189,7 +204,7 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
   blocking `SDL_Delay` effect. Keep transitions instant until a non-blocking fade exists.
 - **Quit needs `EXIT_RUNTIME=1`** so `Module.onExit` runs and the page shows "Play again".
 - `©` in the intro still renders as a missing-glyph box.
-- Bundle: 3.5 MB wasm + 15 MB LZ4 data (all sounds/music preloaded).
+- Bundle: ~3.5 MB wasm + ~15 MB LZ4 data (all bundled sounds; music is not included).
 
 ## Decisions
 
@@ -212,7 +227,7 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2.
 - Attribution: every commit carries an `Assisted-by:` trailer.
 
-## Next tasks (M4)
+## Next tasks (M5)
 
 1. **Optional, later:** 16-player build. Upstream's `--enable-SMPF` (`-DSMPF`) raises
    `MAX_PLAYER` from 6 to 16 and with it `MAX_HOSTS`; it also switches the status bar,
@@ -220,7 +235,7 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
    `menu_network.c`, `map.c`). The web transport would need the JS capacity derived from the
    engine instead of the 6-player constant, and more action datagrams per frame (the engine's
    `MAX_MASK_BYTES` already allows it). It is off in `scripts/build-web.sh` and was not part of
-   M3; revisit as an opt-in build in M4.
+   M3; revisit as an opt-in build in M5.
 
 ## Possible future work (not planned)
 
