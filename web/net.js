@@ -399,7 +399,7 @@ function finishClaimWindow(s) {
 
 function handleClaim(s, bytes) {
   if (!s || s.role !== 'client') return;
-  if (findHostPeer(s) && !s.hostWaitFailed) return;
+  if (findHostPeer(s) && !s.hostWaitFailed && !s.claim) return;
   if (!bytes || bytes.length < 4 + CLIENT_ID_LEN) return;
   if (bytes[2] !== CLIENT_ID_LEN) return;
   const state = bytes[1];
