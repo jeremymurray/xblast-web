@@ -20,6 +20,7 @@ import functools
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -702,6 +703,26 @@ def dump_pages(pages):
             print("console:", line, file=sys.stderr)
 
 
+def run_roomcode(base):
+    page = open_lobby(base)
+    try:
+        page.wait_js("typeof makeCode === 'function'", 10, "room-code generator")
+        codes = page.ev("Array.from({length: 200}, () => makeCode())")
+        for code in codes:
+            check(re.fullmatch(r"[a-z]{5}-[a-z]{3,5}-[1-9][0-9]{2}", code) is not None,
+                  f"bad room code {code!r}")
+            adj, noun, num = code.split("-")
+            check(100 <= int(num) <= 999, f"bad number in {code!r}")
+            check(page.ev(f"ADJECTIVES.includes({json.dumps(adj)})"),
+                  f"unknown adjective {adj!r}")
+            check(page.ev(f"ANIMALS.includes({json.dumps(noun)})"),
+                  f"unknown animal {noun!r}")
+        check(page.ev("normalizeRoom(' Quiet Otter 482 ')") == "quiet-otter-482",
+              "normalizeRoom did not normalize spaces/case")
+    finally:
+        page.close()
+
+
 def run_turn_config(base):
     page = Page(f"{base}/test/net.html?scenario=turn-config")
     try:
@@ -811,12 +832,14 @@ SCENARIOS = {
     "full": run_full,
     "turn-config": run_turn_config,
     "turn-ui": run_turn_ui,
+    "roomcode": run_roomcode,
 }
 
 
 def main():
     wanted = sys.argv[1:] or [
         "basic", "wrong-room", "multi", "replace", "full", "turn-config", "turn-ui",
+        "roomcode",
     ]
     unknown = [name for name in wanted if name not in SCENARIOS]
     if unknown:

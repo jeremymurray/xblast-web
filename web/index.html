@@ -159,7 +159,8 @@
         <label for="room">Room code</label>
         <div class="row">
           <input id="room" type="text" autocomplete="off" autocapitalize="off"
-                 spellcheck="false" maxlength="32" aria-label="Room code">
+                 spellcheck="false" maxlength="32" placeholder="quiet-otter-482"
+                 aria-label="Room code">
           <button id="shuffle" type="button" title="Generate a new room code">New</button>
         </div>
         <div class="row">
@@ -318,26 +319,38 @@
     if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
   }
 
-  const WORDS = [
-    'amber', 'bison', 'cobalt', 'delta', 'ember', 'frost', 'glide', 'hazel',
-    'ivory', 'jolly', 'karma', 'lunar', 'maple', 'noble', 'ocean', 'pixel',
-    'quartz', 'rapid', 'solar', 'tango', 'ultra', 'vivid', 'wheat', 'yonder',
+  const ADJECTIVES = [
+    'amber', 'azure', 'beige', 'black', 'brave', 'brown', 'clean', 'clear',
+    'coral', 'crisp', 'dusty', 'eager', 'early', 'fancy', 'fresh', 'funny',
+    'fuzzy', 'giant', 'grand', 'great', 'green', 'happy', 'hazel', 'ivory',
+    'jolly', 'large', 'light', 'lucky', 'lunar', 'maple', 'merry', 'minty',
+    'misty', 'noble', 'olive', 'peach', 'plain', 'polar', 'proud', 'quick',
+    'quiet', 'rapid', 'ready', 'royal', 'sandy', 'sharp', 'shiny', 'short',
+    'silky', 'small', 'smart', 'snowy', 'solar', 'solid', 'spicy', 'sunny',
+    'super', 'sweet', 'swift', 'white', 'windy', 'witty', 'young', 'zesty',
+  ];
+
+  const ANIMALS = [
+    'ant', 'ape', 'bat', 'bee', 'cat', 'cod', 'cow', 'dog', 'eel', 'elk',
+    'emu', 'fox', 'hen', 'owl', 'pig', 'ram', 'rat', 'yak', 'bear', 'bird',
+    'boar', 'colt', 'crab', 'crow', 'deer', 'dove', 'duck', 'fawn', 'fish',
+    'frog', 'goat', 'hawk', 'hare', 'ibex', 'kiwi', 'lamb', 'lark', 'lion',
+    'lynx', 'mole', 'moth', 'mule', 'newt', 'orca', 'pike', 'pony', 'puma',
+    'seal', 'swan', 'toad', 'tuna', 'wasp', 'wolf', 'worm', 'wren', 'otter',
+    'bison', 'panda', 'koala', 'zebra', 'tiger', 'gecko', 'moose', 'eagle',
   ];
 
   function randInt(n) {
+    const limit = Math.floor(0x100000000 / n) * n;
     const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
     return buf[0] % n;
   }
 
-  /* Three words plus two digits; short enough for a room code. */
+  /* Five-letter adjective, short animal, three-digit number. */
   function makeCode() {
-    return [
-      WORDS[randInt(WORDS.length)],
-      WORDS[randInt(WORDS.length)],
-      WORDS[randInt(WORDS.length)],
-      String(10 + randInt(90)),
-    ].join('-');
+    return `${ADJECTIVES[randInt(ADJECTIVES.length)]}-` +
+      `${ANIMALS[randInt(ANIMALS.length)]}-${100 + randInt(900)}`;
   }
 
   function normalizeRoom(value) {
