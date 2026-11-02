@@ -14,6 +14,12 @@ GPL-2.0-or-later. If you publish a fork:
 
 Security problems: see `SECURITY.md` rather than posting details publicly.
 
+## Attribution policy
+
+The maintainer's commits carry a DCO `Signed-off-by:` and, when AI-assisted, an
+`Assisted-by:` trailer naming the model and provider. AI involvement is disclosed,
+not hidden. A fork should keep that disclosure and the licence notices intact.
+
 If contributions are ever opened, this file will state the licence terms
 (inbound = outbound GPL-2.0-or-later), the DCO sign-off requirement and the AI
 disclosure rule before any outside change is merged.

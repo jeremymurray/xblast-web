@@ -206,7 +206,14 @@ EOF
 	cp "$ROOT/web/index.html" "$out/index.html"
 	cp "$ROOT/web/net.js" "$out/net.js"
 	if [ -f "$ROOT/web/turn.js" ]; then cp "$ROOT/web/turn.js" "$out/turn.js"; fi
-	if [ -f "$ROOT/web/turn.json" ]; then cp "$ROOT/web/turn.json" "$out/turn.json"; fi
+	if [ -f "$ROOT/web/turn.json" ]; then
+		if [ "$target" = release ]; then
+			echo "error: web/turn.json is local-only; the release target must not bundle TURN credentials." >&2
+			echo "       use a local dev target (e.g. lite-debug) or remove web/turn.json." >&2
+			exit 1
+		fi
+		cp "$ROOT/web/turn.json" "$out/turn.json"
+	fi
 	mkdir -p "$out/vendor"
 	cp -R "$ROOT/web/vendor/." "$out/vendor/"
 
@@ -230,7 +237,7 @@ EOF
 		echo "commit above. Licence texts are in COPYING, THIRD_PARTY.md and LICENSE/."
 	} > "$out/SOURCE.txt"
 	if [ -f "$out/turn.json" ]; then
-		echo "note: this build includes a local turn.json (do not publish it)" >&2
+		echo "note: this local build includes web/turn.json; do not publish it" >&2
 	fi
 	echo "built $out (target $target)"
 }

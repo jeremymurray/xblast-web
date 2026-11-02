@@ -33,6 +33,11 @@ esac
 
 [ -d "$DIST" ] || { echo "missing $DIST; run ./scripts/build-web.sh" >&2; exit 1; }
 "$ROOT/scripts/check-web-dist.sh" "$DIST"
+if grep -q 'source: (local build' "$DIST/SOURCE.txt"; then
+	echo "refusing: SOURCE.txt has no public source URL." >&2
+	echo "rebuild with XB_SOURCE_URL=<repository-url> ./scripts/build-web.sh --target release" >&2
+	exit 1
+fi
 
 tag=$(git -C "$ROOT" describe --tags --exact-match HEAD 2>/dev/null || true)
 if [ "$tag" != "$VERSION" ]; then

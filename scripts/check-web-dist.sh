@@ -15,15 +15,24 @@ fail() {
 [ -d "$DIST" ] || fail "missing $DIST"
 
 required=(
-	index.html net.js build-info.js xblast.js xblast.wasm xblast.data
+	index.html net.js turn.js build-info.js xblast.js xblast.wasm xblast.data
 	vendor/trystero/nostr/index.mjs vendor/trystero/core/index.mjs
 	vendor/trystero/LICENSE.trystero vendor/trystero/LICENSE.noble
 	COPYING THIRD_PARTY.md SOURCE.txt
 	LICENSE/README.md LICENSE/LGPL-2.0.txt LICENSE/Bitstream-Vera.txt
+	LICENSE/data/ttf-bitstream-vera.copyright
+	LICENSE/data/xblast-tnt_2.10.4-6_amd64.copyright
+	LICENSE/data/xblast-tnt-musics_20050106-5_all.copyright
 	docs/provenance.md
 )
 for f in "${required[@]}"; do
 	[ -f "$DIST/$f" ] || fail "missing $f"
+done
+
+notices=(Emscripten musl SDL2 SDL2_image SDL2_ttf SDL2_mixer SDL2_gfx
+	FreeType HarfBuzz libpng zlib libogg libvorbis)
+for n in "${notices[@]}"; do
+	[ -f "$DIST/LICENSE/third-party/$n.txt" ] || fail "missing LICENSE/third-party/$n.txt"
 done
 
 [ ! -e "$DIST/turn.json" ] || fail "turn.json must not be published"
@@ -31,7 +40,9 @@ done
 [ ! -e "$DIST/test" ] || fail "test harness leaked into the build"
 [ ! -e "$DIST/_vendor_probe.html" ] || fail "vendor probe leaked into the build"
 [ ! -e "$DIST/nettest.html" ] || fail "nettest page leaked into the build"
-if compgen -G "$DIST/*.map" >/dev/null; then
+[ ! -e "$DIST/nettest.js" ] || fail "nettest script leaked into the build"
+[ ! -e "$DIST/nettest.wasm" ] || fail "nettest wasm leaked into the build"
+if find "$DIST" -name '*.map' -print -quit | grep -q .; then
 	fail "source map leaked into the build"
 fi
 

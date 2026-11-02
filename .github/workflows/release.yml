@@ -17,9 +17,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Historical tags (0.4.0 and earlier) predate the release tooling. They
-      # still get their tag; only tags that carry the scripts get an artifact
-      # release, so a tag push never fails for a tree that cannot build one.
+      # Older tags whose tree has this workflow but predates the release scripts
+      # are skipped; the 0.4.0 tag predates the workflow itself, so GitHub never
+      # runs it there. A tag push should not fail because it cannot build.
       - name: Check release tooling
         id: tooling
         run: |
@@ -65,7 +65,11 @@ jobs:
           if [ ! -s "$notes" ]; then
             echo "xblast-web $GITHUB_REF_NAME" > "$notes"
           fi
-          gh release create "$GITHUB_REF_NAME" \
-            --title "xblast-web $GITHUB_REF_NAME" \
-            --notes-file "$notes" \
-            build/release/*
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" build/release/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "xblast-web $GITHUB_REF_NAME" \
+              --notes-file "$notes" \
+              build/release/*
+          fi

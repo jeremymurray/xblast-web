@@ -118,12 +118,12 @@ known issues, next tasks, how to run. Keep it concise and current; it is the han
 ## Next milestone
 M4 is complete locally: documentation, licensing and release tooling are done
 (`THIRD_PARTY.md`, `LICENSE/`, `docs/provenance.md`, CI/Pages/release workflows,
-`scripts/{check-web-dist,make-release}.sh`), tagged **0.5.0** on `main`. Remaining:
-human sign-off on the public name/identity, create the repo, push `main` + `0.4.0`
-(historical) + `0.5.0`, enable Pages, smoke-test (`docs/publishing.md` §6). M5: local
-build targets are done; 16-player runtime acceptance remains. A lobby chat UI, a
-per-round desync hash and mid-match host migration/resume remain deliberately not
-planned.
+`scripts/{check-web-dist,make-release}.sh`), with release **0.5.0**; create the tag on
+`main` after the merge. Remaining: human sign-off on the public name/identity, create the
+repo, tag 0.5.0, push `main` + `0.4.0` (historical) + `0.5.0`, enable Pages, smoke-test
+(`docs/publishing.md` §6). M5: local build targets are done; 16-player runtime acceptance
+remains. A lobby chat UI, a per-round desync hash and mid-match host migration/resume
+remain deliberately not planned.
 
 ## Process rules
 - Keep this file short; rewrite rather than append when context grows.

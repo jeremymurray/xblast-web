@@ -166,7 +166,5 @@ checksums, so the build can be reproduced from the exact tree that produced the
 artifact. Build instructions and the pinned toolchain are above.
 
 This software comes with **no warranty**, to the extent permitted by law; see
-GPLv2 sections 11–12. Upstream XBlast TNT is the work of Oliver Vogel and
-contributors; this project only ports it. Asset provenance is recorded, including
-the limitation that upstream provides no per-track authorship record for the six
-music files.
+GPLv2 sections 11–12. Asset provenance is recorded, including the limitation
+that upstream provides no per-track authorship record for the six music files.

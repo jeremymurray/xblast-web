@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-01 (M4 work complete locally, tag 0.5.0; public push awaiting sign-off)
+Updated: 2026-11-01 (M4 work complete locally, release 0.5.0; tag on main after merge, public push awaiting sign-off)
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Updated: 2026-11-01 (M4 work complete locally, tag 0.5.0; public push awaiting s
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
-| M4 — public source publication (license audit, GitHub, Pages) | **done locally** (0.5.0 tagged; public push awaiting sign-off) |
+| M4 — public source publication (license audit, GitHub, Pages) | **done locally** (0.5.0 ready; tag after merge, public push awaiting sign-off) |
 | M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets done; 16-player acceptance pending) |
 
 ## M2 checklist
@@ -109,7 +109,8 @@ match and the takeover flow starts a new one.
 
 ## M4 public publication (0.5.0)
 
-The M4 work is complete locally and tagged **0.5.0** on `main`. The repository is **not
+The M4 work is complete locally as release **0.5.0**; its tag is created on `main` after
+the merge. The repository is **not
 public yet**; the remaining steps are the human-gated publication actions in
 `docs/publishing.md` §6. `0.4.0` stays where it is as the M3 tag.
 
@@ -187,7 +188,8 @@ python3 scripts/nettest_js.py          # transport: basic, wrong-room, multi, re
                                       # turn-config, turn-ui, roomcode, visibility, hostleave,
                                       # claim, collision, peerleave
 ./scripts/check-web-dist.sh            # fail unless web/dist is a publishable release
-XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.4.0   # source + web + SHA256SUMS
+XB_SOURCE_URL=<repo-url> ./scripts/build-web.sh --target release
+XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.5.0   # source + web + SHA256SUMS
 ```
 
 `scripts/netplaytest.py` needs internet access to public Nostr relays (skip with
@@ -261,7 +263,7 @@ XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.4.0   # source + web + SHA2
   3–5 letters.
 - Mid-match migration is not planned.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
-  0.4.0 = M3.
+  0.4.0 = M3, 0.5.0 = M4.
 - Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
   `Assisted-by:` trailer (see `README.md` and `AGENTS.md`).
 

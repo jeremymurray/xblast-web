@@ -1,9 +1,15 @@
 # XBlast in the browser with P2P multiplayer — feasibility report
 
-Date: 2026-10-31
-Status: M2 done (two-player P2P, release 0.3.0)
+Date: 2026-10-31 (historical planning report)
+Status: superseded by the implementation — M0–M4 are done, release 0.5.0. Current
+state lives in `AGENTS.md` and `PROGRESS.md`; asset facts in `docs/provenance.md`.
 Target: a publicly publishable, browser-playable XBlast TNT with peer-to-peer multiplayer
 Source: XBlast TNT 2.10.4 (upstream release + Debian patches), data from the Debian GPL-2+ packages
+
+> This report was written before the port. Its size estimates and the
+> `sdl12-compat` recommendation are the original plan, not the shipped result: the
+> implementation uses a direct SDL2 backend and the assets ship in an LZ4 data
+> pack. See the notes below and `docs/provenance.md` for actual numbers.
 
 ---
 
@@ -16,7 +22,7 @@ never had. Budget **6–10 weeks of focused work for one experienced developer**
 2–6 player P2P release, plus a 1–2 day de-risking spike first.
 
 Confidence: **high** on architecture and netcode analysis (read the source), **medium** on
-build/port effort (no `emcc` build was attempted — see §8).
+build/port effort (the estimate predates the first build; the port now builds and ships — see §9).
 
 ---
 
@@ -27,7 +33,7 @@ build/port effort (no `emcc` build was attempted — see §8).
 | Version | 2.10.4 (+ Debian patches, maintained to 2026) |
 | Code | ~80.8k lines C/H (69.9k `.c`) |
 | Backends | X11 **and** SDL 1.2 |
-| Assets | Debian GPL-2+ packages (~28 MB raw: images, levels, sounds) |
+| Assets | Debian GPL-2+ packages (~30 MiB: images, sprites, levels, sounds, music) + Vera.ttf |
 | Build | autotools, SConstruct, Windows |
 
 We use the 2.10.4 tree unchanged as the engine, because it already has an SDL backend (6.6k lines,
@@ -93,38 +99,47 @@ few percent of a core; the real cost is the browser compositor and the occasiona
    `XBDI_LOSS`; verify the repeat window is generous enough for 100–200 ms bursts.
 5. **Desync.** Only possible if a client's wasm diverges (different build, uninitialised memory,
    locale-dependent formatting). Add a per-round hash of game state to detect it (§7).
-6. **Audio.** SDL_mixer → WebAudio needs a user gesture to start; the 5 music tracks are ~7.3 MB of
-   raw PCM and must be converted (see §4).
+6. **Audio.** SDL_mixer → WebAudio needs a user gesture to start; the six music tracks
+   are ~8.2 MiB of raw PCM. They ship raw inside the LZ4 data pack (no conversion was
+   needed).
 
 **Measured/hard numbers from the source:** 20 ticks/s, 48 sub-ticks, ~400 B/s upstream per client,
-6 players max per action datagram, 10 s link timeout, ~4 KB per level file, 1216 levels.
+6 players max per action datagram, 10 s link timeout, ~4 KB per level file, 1,188 levels.
 
 ---
 
 ## 4. Assets and delivery size
 
-Current raw data is far too big to ship as-is, but shrinks well:
+The original plan assumed OGG conversion and texture atlases. The shipped build instead
+uses Emscripten's LZ4 data pack: assets keep their original formats and compress well
+enough that the release bundle is about 19.6 MB (3.6 MB wasm + 15.5 MB data). Actual
+logical sizes:
 
-| Data | Raw | Plan | Est. shipped |
-|---|---|---|---|
-| Music | 7.3 MB raw PCM (5 tracks) | OGG/Opus, streamed | 0.8–1.5 MB |
-| SFX | 56 `.raw` files, ~3.7 MB | short WAV/WebAudio buffers | < 250 KB |
-| Images | 12 MB (`sprite` 8.6 MB, `block` 2.3 MB, …) | pack to PNG atlas / WebP | 1.5–3 MB |
-| Levels | 4.8 MB (1216 `.xal`) | gzip/br bundle, lazy per pack | 300–600 KB |
-| Fonts | `Vera.ttf` | keep or subset | ~50 KB |
+| Data | Files | Size | Shipped as |
+|---|---:|---:|---|
+| Music | 6 | 8.18 MiB | raw PCM in `xblast.data` |
+| SFX | 50 | 2.55 MiB | raw PCM in `xblast.data` |
+| Images (incl. 1,252 sprites) | 1,595 | 7.70 MiB | original `.pbm`/`.ppm`/`.epm` in `xblast.data` |
+| Levels | 1,188 | 1.48 MiB | `.xal` in `xblast.data` |
+| Font | 1 | 65,932 bytes | `Vera.ttf` |
 
-Initial load can be **~3–4 MB**, with music and level packs lazy-loaded. The `.epm`/`.pbm`/`.ppm`
-sprite formats are custom and already have loaders in `sdl_sprite.c`/`sdl_pixmap.c`; converting
-offline to atlases is an optimisation, not a requirement — decoding them in wasm also works.
+The first load is the whole release bundle (~19 MB), not the 3–4 MB estimate: the data
+pack is eager and no lazy loading was implemented. The `.epm`/`.pbm`/`.ppm` sprite
+formats already have loaders in `sdl_sprite.c`/`sdl_pixmap.c`, so no conversion was
+required.
 
 ---
 
 ## 5. Implementation paths
 
-### Path A — Emscripten + SDL1.2 (via `sdl12-compat`) + WebRTC bridge  ★ recommended
+### Path A — Emscripten + SDL1.2 (via `sdl12-compat`) + WebRTC bridge  ★ chosen at planning time
 Keep the C engine. `sdl12-compat` on top of SDL2 is what Emscripten supports well. Replace
 `sdl_socket.c` with a WebRTC-backed implementation of the existing socket API in `socket.h`;
 keep TCP semantics on the reliable channel and datagram semantics on the unreliable one.
+
+> **Superseded during M0:** Emscripten's `sdl12-compat` port dlopens SDL2, which does not
+> exist in wasm. The port kept the engine and wrote a direct SDL2 backend instead
+> (`web/compat/`, `web/sdl_web.c`); see `AGENTS.md`.
 
 - Pros: least rewriting, preserves gameplay exactly, all levels/bots/menus come for free, GPL
   obligations straightforward.
@@ -174,17 +189,19 @@ browser P2P, not of XBlast.
 
 **Path A**, staged:
 
-- **Milestone 0 — Spike (1–2 days).** Get `emcc` + `sdl12-compat` building the unmodified
-  2.10.4 SDL build to a canvas, with Asyncify on. Success criterion: menu renders and a
-  single-player round runs. This retires the largest unknown.
+- **Milestone 0 — Spike (1–2 days).** Get `emcc` building the unmodified 2.10.4 SDL build
+  to a canvas, with Asyncify on. Success criterion: menu renders and a single-player round
+  runs. This retired the largest unknown; the planned `sdl12-compat` route was replaced by
+  a direct SDL2 backend (see Path A).
 - **M1 — Single-player on the web.** Local game, keyboard, audio, all levels, bots. Ship as a
   static site. (~2–3 weeks)
 - **M2 — Two-player P2P.** Host/join by room code via Trystero; reliable control channel,
   unreliable action channel; deterministic-seed check. (~2–3 weeks)
 - **M3 — Full multiplayer.** 6 players, chat, level/config menus, reconnection, desync detection,
   host-background warning, mobile/touch controls. (~2–4 weeks)
-- **M4 — Polish.** Asset pipeline/compression, loading screen, PWA/offline, optional TURN and
-  optional relay fallback. (ongoing)
+- **M4 — Publication (actual).** Licence audit, notices, CI/Pages and release tooling;
+  release 0.5.0. Polish/PWA, asset delivery work and optional 16-player acceptance moved
+  to M5.
 
 Do **not** attempt rollback netcode, a new level editor, or a rewrite before M1 ships.
 
@@ -224,12 +241,15 @@ Nice-to-have:
 ## 8. Licensing and publication
 
 - **Code:** GPL-2.0-or-later. `sdl_ppm.c` and `SDL_vkeys.h` are LGPL-2+ (compatible).
-- **Assets:** Debian's `xblast-tnt-images`, `xblast-tnt-levels`, `xblast-tnt-sounds` are
-  **GPL-2+** — safe to bundle in a GPL web app.
+- **Assets:** Debian's `xblast-tnt-images`, `-levels`, `-sounds`, `-models` and `-musics`
+  are **GPL-2+** — safe to bundle in a GPL web app. `Vera.ttf` is Bitstream Vera,
+  permissive but not GPL. The audit is in `docs/provenance.md`.
 - **Obligation:** publishing the web build requires offering the **complete corresponding source**
-  (engine + your web/JS glue + build scripts) under GPL-2+. Linking to a source repo alongside the
-  download satisfies this; also keep the licence notices and the "no warranty" text.
-- **Emscripten runtime/`sdl12-compat`** are permissive (MIT/zlib/BSD) and compatible.
+  (engine + your web/JS glue + build scripts) under GPL-2.0-or-later. The project ships a
+  source archive with each release and a `SOURCE.txt` in the bundle; also keep the notices
+  and the "no warranty" text.
+- **Emscripten runtime and SDL2 stack** are permissive (MIT/NCSA, zlib, BSD-3); the
+  project elects FreeType's GPLv2 option. See `THIRD_PARTY.md`.
 - **Trystero** is MIT. **Do not** bundle non-GPL-compatible JS into the same work without checking.
 - Recommendation: publish the whole thing as GPL-2.0-or-later, source on a public forge, with a
   `NOTICE`/`COPYING` bundling the Debian asset copyright files.
@@ -238,9 +258,9 @@ Nice-to-have:
 
 ## 9. Unknowns / confidence gaps
 
-1. **No build attempted.** `emcc` is not installed, Docker is unavailable, and Homebrew lacks an
-   SDL1.2 dev stack. SDK availability for `sdl12-compat` + Emscripten ports is the main risk —
-   this is exactly what Milestone 0 tests.
+1. **Build risk (retired).** At planning time no build had been attempted, Docker was
+   unavailable and Homebrew lacked an SDL1.2 dev stack. M0 retired this; the project pins
+   emsdk 6.0.13 and uses a direct SDL2 backend. Kept here as the original risk.
 2. **Asyncify vs JSPI** — code-size and CPU impact unmeasured.
 3. **Real-world P2P latency** for a 20 Hz block-until-frame loop, especially on mobile networks.
 4. **Exact asset licensing** of every file in the Debian packages — resolved by the
@@ -259,7 +279,7 @@ Data: Debian xblast-tnt-images/-levels/-sounds/-models/-musics (GPL-2+) plus Ver
       provenance and checksums in docs/provenance.md.
 Plan: Path A — Emscripten + a direct SDL2 backend (no sdl12-compat), keep the engine,
 replace socket.h with two WebRTC DataChannels (reliable control, unreliable actions),
-lobby via vendored Trystero. M3 and 0.4.0 are done.
+lobby via vendored Trystero. M0–M4 are done; release 0.5.0.
 Read AGENTS.md and PROGRESS.md first; the publication checklist is docs/publishing.md.
 ```
 
