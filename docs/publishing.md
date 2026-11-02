@@ -175,7 +175,7 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
   the annotated tag after correction.
 - Public build boots to the XBlast menus; the game loads ~19 MB on first click.
 - Known red check: the `0.5.0` tag's **CI** run failed because the transport harness
-  checked `XBNet` before `net.js` finished importing. Fixed on `main` (wait for
-  `ready`/`done`, and treat module failure as done). The tag is public and is not being
-  moved; the build and site were unaffected. The known public-relay `full` flake
-  remains, mitigated by the workflow's single retry.
+  checked `XBNet` before `net.js` finished importing. Fixed on `main` and released as
+  **0.5.1** (wait for `ready`/`done`, and treat module failure as done); 0.5.0 is not
+  moved because it is public. The build and site were unaffected. The known
+  public-relay `full` flake remains, mitigated by the workflow's single retry.

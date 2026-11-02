@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 released; M5 next)
+Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 + 0.5.1 released; M5 next)
 
 ## Milestones
 
@@ -10,7 +10,7 @@ Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 released; M5
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
-| M4 — public source publication (license audit, GitHub, Pages) | **done** (0.5.0 public) |
+| M4 — public source publication (license audit, GitHub, Pages) | **done** (0.5.0 public; 0.5.1 patch) |
 | M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets done; 16-player acceptance pending) |
 
 ## M2 checklist
@@ -115,8 +115,8 @@ bundle and `SHA256SUMS`. Pages serves `.wasm` as `application/wasm`, has no
 `turn.json`, and `SOURCE.txt` names the tagged commit. `0.4.0` stays as the M3 tag.
 
 The `0.5.0` tag's CI check is red from a test-harness race (the harness polled for
-`__test` before `net.js` finished importing); the fix landed on `main` after the tag
-and the site/artifact are unaffected. The transport suite still has a known
+`__test` before `net.js` finished importing). It is fixed and released as **0.5.1**;
+0.5.0 stays as the M4 publication tag. The transport suite still has a known
 public-relay flake, mitigated by one retry.
 
 - [x] Licence decision: GPL-2.0-or-later (kept; matches upstream and is already open source)
@@ -138,6 +138,14 @@ public-relay flake, mitigated by one retry.
 - [x] Public repo `jeremymurray/xblast-web` with Issues/Discussions disabled; `main`,
       `0.4.0` and `0.5.0` pushed; Pages enabled from GitHub Actions; release `0.5.0`
       published; public build boots and the Pages smoke test passes
+
+## Release notes — 0.5.1
+
+Patch release; no gameplay change. Fixes the transport harness so it waits for
+`net.js` to finish loading before checking `XBNet`, which made CI red on slow runners
+(including the 0.5.0 tag). The release workflow now fetches annotated tags before
+reading the notes, so GitHub releases use the tag message rather than the commit
+message. 0.5.0 remains the M4 publication release.
 
 ## Release notes — 0.5.0
 
@@ -268,7 +276,7 @@ XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.5.0   # source + web + SHA2
   3–5 letters.
 - Mid-match migration is not planned.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
-  0.4.0 = M3, 0.5.0 = M4.
+  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix.
 - Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
   `Assisted-by:` trailer (see `README.md` and `AGENTS.md`).
 
