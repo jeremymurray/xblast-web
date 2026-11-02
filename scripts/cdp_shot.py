@@ -16,7 +16,29 @@ import time
 import urllib.parse
 import urllib.request
 
-CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+def _find_chrome():
+    """Locate Chrome/Chromium on macOS or Linux; XB_CHROME overrides."""
+    env = os.environ.get("XB_CHROME")
+    candidates = [env] if env else []
+    candidates += [
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/usr/bin/google-chrome",
+        "/usr/bin/google-chrome-stable",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/snap/bin/chromium",
+    ]
+    for path in candidates:
+        if path and os.path.exists(path):
+            return path
+    for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
+        found = shutil.which(name)
+        if found:
+            return found
+    return "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+
+CHROME = _find_chrome()
 
 
 class WS:

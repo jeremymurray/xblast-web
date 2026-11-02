@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the pinned Emscripten version
+        id: emsdk
+        run: |
+          version=$(awk '$1 == "emsdk" { print $2 }' .tool-versions)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.emsdk.outputs.version }}
+          actions-cache-folder: emsdk-cache
+
+      - name: Build release
+        env:
+          XB_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
+        run: ./scripts/build-web.sh --target release
+
+      - name: Assemble source, web bundle and checksums
+        run: ./scripts/make-release.sh "$GITHUB_REF_NAME"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          notes=$(mktemp)
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > "$notes"
+          if [ ! -s "$notes" ]; then
+            echo "xblast-web $GITHUB_REF_NAME" > "$notes"
+          fi
+          gh release create "$GITHUB_REF_NAME" \
+            --title "xblast-web $GITHUB_REF_NAME" \
+            --notes-file "$notes" \
+            build/release/*
