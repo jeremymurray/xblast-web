@@ -3,7 +3,7 @@
 XBlast TNT (the classic Bomberman-style game) running in the browser, with
 peer-to-peer multiplayer and no game server.
 
-Status: **0.6.1** (M4 complete). Solo and network matches
+Status: **0.6.2** (M4 complete). Solo and network matches
 (one host plus up to five guests) work in Chromium-based desktop browsers (Chrome,
 Edge, and other Chromium derivatives); three browsers are covered by the default test,
 six by an opt-in one. Host takeover, readable room codes and the backgrounding warning

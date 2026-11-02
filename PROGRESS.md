@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-02 (0.6.1 CI efficiency; 0.6.0 invite links; M4 release 0.5.x)
+Updated: 2026-11-02 (0.6.2 filtered test relay; 0.6.1 CI efficiency; 0.6.0 invite links)
 
 ## Milestones
 
@@ -138,6 +138,13 @@ public-relay flake, mitigated by per-scenario retries (`XB_TEST_RETRIES=2` in CI
 - [x] Public repo `jeremymurray/xblast-web` with Issues/Discussions disabled; `main`,
       `0.4.0` and `0.5.0` pushed; Pages enabled from GitHub Actions; release `0.5.0`
       published; public build boots and the Pages smoke test passes
+
+## Release notes — 0.6.2
+
+Test-infrastructure patch; no gameplay change. The local Nostr test relay now
+honours the REQ kind/topic filters and replays only recent matching events, so late
+CI scenarios are not flooded with every earlier event and WebRTC handshakes stop
+timing out. 0.6.1 remains the first CI-efficiency release; 0.6.2 is the clean tag.
 
 ## Release notes — 0.6.1
 
@@ -316,7 +323,7 @@ with `XB_TEST_OFFLINE=1`). Both start Chromium with
   3–5 letters.
 - Mid-match migration is not planned.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
-  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix, 0.6.0 = invite links, 0.6.1 = CI efficiency.
+  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix, 0.6.0 = invite links, 0.6.1 = CI efficiency, 0.6.2 = filtered test relay.
 - Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
   `Assisted-by:` trailer (see `README.md` and `AGENTS.md`).
 
