@@ -102,11 +102,11 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
 ## Versioning
-- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.5.1** (M4 + transport
-  harness fix). 0.5.0 is the M4 publication release; 0.4.0 is the historical M3 tag.
-  A version bump does not move older tags.
-- Bump MINOR when a milestone lands (M3 → 0.4.0, M4 → 0.5.0), PATCH for playtest/test
-  fixes (0.5.1).
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.6.0** (invite links).
+  0.5.1 is the M4 patch, 0.5.0 the M4 publication release and 0.4.0 the M3 tag; a
+  version bump does not move older tags.
+- Bump MINOR for a milestone or a user-facing feature (M3 → 0.4.0, M4 → 0.5.0,
+  invite links → 0.6.0); PATCH for fixes (0.5.1).
 - Tag annotated releases on `main` after the merge. Only git tags record the version; there is no
   version file, so keep this line and `PROGRESS.md` current.
 
@@ -124,9 +124,9 @@ known issues, next tasks, how to run. Keep it concise and current; it is the han
 
 ## Next milestone
 M4 is **done and public**: <https://github.com/jeremymurray/xblast-web> and
-<https://jeremymurray.github.io/xblast-web/>, release 0.5.0 with patch **0.5.1** for the
-transport-harness and release-notes fixes. The 0.5.0 tag's CI check remains red
-(historical); 0.5.1 is clean. M5 is next: 16-player runtime acceptance, then polish/PWA. A lobby chat UI, a
+<https://jeremymurray.github.io/xblast-web/>, releases 0.5.0/0.5.1 (M4) and
+**0.6.0** (invite links). The 0.5.0 tag's CI check remains red (historical); later
+tags are clean. M5 continues with 16-player runtime acceptance, then polish/PWA. A lobby chat UI, a
 per-round desync hash and mid-match host migration/resume remain deliberately not planned.
 
 ## Process rules

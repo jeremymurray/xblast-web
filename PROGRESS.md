@@ -1,6 +1,6 @@
 # Progress
 
-Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 + 0.5.1 released; M5 next)
+Updated: 2026-11-02 (M4 published; 0.5.0/0.5.1 M4 releases; 0.6.0 invite links)
 
 ## Milestones
 
@@ -11,7 +11,7 @@ Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 + 0.5.1 rele
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
 | M4 — public source publication (license audit, GitHub, Pages) | **done** (0.5.0 public; 0.5.1 patch) |
-| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets and invite links done; 16-player acceptance pending) |
+| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (build targets, invite links in 0.6.0; 16-player acceptance pending) |
 
 ## M2 checklist
 
@@ -138,6 +138,14 @@ public-relay flake, mitigated by one retry.
 - [x] Public repo `jeremymurray/xblast-web` with Issues/Discussions disabled; `main`,
       `0.4.0` and `0.5.0` pushed; Pages enabled from GitHub Actions; release `0.5.0`
       published; public build boots and the Pages smoke test passes
+
+## Release notes — 0.6.0
+
+Invite links. A host or guest can click **Invite** in the netbar to copy a URL; opening
+it fills in the room code and offers **Join**, so a newcomer does not have to type the
+code. The room code itself is now the copy-code control. Nothing connects until Join is
+clicked, and a link still only works while the host is waiting; mid-match joins are
+unchanged. No gameplay or netcode change.
 
 ## Release notes — 0.5.1
 
@@ -286,7 +294,7 @@ XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.5.0   # source + web + SHA2
   3–5 letters.
 - Mid-match migration is not planned.
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
-  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix.
+  0.4.0 = M3, 0.5.0 = M4, 0.5.1 = harness/release-notes fix, 0.6.0 = invite links.
 - Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
   `Assisted-by:` trailer (see `README.md` and `AGENTS.md`).
 
