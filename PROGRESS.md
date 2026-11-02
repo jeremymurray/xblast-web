@@ -1,7 +1,6 @@
 # Progress
 
-Updated: 2026-11-01 (M2 done, 0.3.0; M3 reconnect/replace, six-player, optional-TURN and
-host-takeover slices done, 0.3.1)
+Updated: 2026-11-01 (M3 complete, 0.4.0)
 
 ## Milestones
 
@@ -10,7 +9,7 @@ host-takeover slices done, 0.3.1)
 | M0 — engine boots in browser | **done** (0.1.0) |
 | M1 — single-player playable on web | **done** (0.2.0) |
 | M2 — 2-player P2P | **done** (0.3.0) |
-| M3 — 6-player, reconnect, TURN, host takeover | **done** (0.3.1 slices; mid-match migration not planned) |
+| M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
 | M4 — polish, assets, PWA, optional 16-player (`SMPF`) build | not started |
 
 ## M2 checklist
@@ -96,6 +95,16 @@ hanging. Host migration and mid-match resume remain future work.
       `autojoin`, `takeover`, `hostback`, `hostgone`
 - [x] Mid-match migration is **not planned**; a host leaving ends the match and the
       takeover flow starts a new one
+
+## Release notes — 0.4.0
+
+M3 is complete. Six players can share a room; a guest can refresh and rejoin; TURN is optional;
+and if the host leaves before a match, every guest is offered the room. A claim window picks one
+new host, the page flushes the player config, and the others auto-rejoin. A host that refreshes
+and clicks **Re-host** brings guests back automatically. The lobby warns when the host tab is
+backgrounded, and room codes are now short adjective-animal-number phrases such as
+`quiet-otter-482`. Mid-match host migration is deliberately not planned; a host loss ends the
+match and the takeover flow starts a new one.
 
 ## How to run (dev)
 

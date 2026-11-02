@@ -83,8 +83,8 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - Commit messages: `<area>: <imperative summary>`, then body if needed, then the assisted-by trailer.
 
 ## Versioning
-- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.3.1**; M3 is complete on main.
-  0.4.0 is the next tag when the human partner asks.
+- Semantic-ish tags: `0.MINOR.PATCH`. Current release: **0.4.0** (M3 complete).
+  0.5.0 is the next tag when M4 lands.
 - Bump MINOR when a milestone lands (M3 → 0.4.0), PATCH for playtest fixes.
 - Tag annotated releases on `main` after the merge. Only git tags record the version; there is no
   version file, so keep this line and `PROGRESS.md` current.
