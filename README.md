@@ -81,8 +81,11 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
 - **Multiplayer** — open the page in up to six browsers (or profiles), enter the
   same room code in each, and click **Host** in one and **Join** in the others. The
   host starts the match from the game menu; every wait screen shows the room code. A
-  sixth guest is told the room is full. Traffic goes directly between the browsers
-  over WebRTC; Trystero only exchanges connection details over public Nostr relays.
+  sixth guest is told the room is full. Once in a room, either the host or a guest can
+  click **Invite** in the netbar to copy a link that opens the room prefilled for
+  one-click joining; clicking the room code itself copies the code. Traffic goes
+  directly between the browsers over WebRTC; Trystero only exchanges connection
+  details over public Nostr relays.
   TURN is optional and supplied by the hoster or by the player; without one, a few
   network combinations cannot connect. See `docs/hosting.md`.
 - **Host leaves** — before a match, every guest gets a **Take over** prompt. One

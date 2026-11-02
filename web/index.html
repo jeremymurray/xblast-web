@@ -70,13 +70,16 @@
   .card #turn-advanced .hint.error { color: #f66; }
   @media (max-width: 700px) { .panel .cards { grid-template-columns: 1fr; } }
 
-  #rejoin-banner {
+  #rejoin-banner,
+  #invite-banner {
     display: none; align-items: center; justify-content: space-between; gap: 1em;
     margin: 0 0 1em; padding: 0.7em 0.9em; border: 1px solid #555; border-radius: 6px;
     background: rgba(255, 212, 0, 0.08); color: #ddd; font-size: 13px;
   }
-  #rejoin-banner.show { display: flex; }
-  #rejoin-banner button {
+  #rejoin-banner.show,
+  #invite-banner.show { display: flex; }
+  #rejoin-banner button,
+  #invite-banner button {
     margin: 0; padding: 0.45em 0.9em; font: 13px monospace; white-space: nowrap;
   }
 
@@ -100,13 +103,20 @@
     margin: 0; padding: 2px 8px; font: 11px monospace; cursor: pointer;
     color: #eee; background: #333; border: 0; border-radius: 4px;
   }
+  #netbar button.room {
+    margin: 0; padding: 0; font: inherit; color: #fff;
+    background: none; border: 0;
+  }
+  #netbar button.room:hover { text-decoration: underline; }
 
   #net-toast {
     position: fixed; top: 54px; left: 10px; z-index: 25; display: none;
-    align-items: center; gap: 10px; padding: 6px 10px; font: 12px/1.4 monospace;
+    align-items: center; gap: 10px; max-width: calc(100vw - 20px);
+    padding: 6px 10px; font: 12px/1.4 monospace;
     color: #ffd400; background: rgba(17, 17, 17, 0.92); border: 1px solid #555; border-radius: 6px;
   }
   #net-toast.show { display: flex; }
+  #net-toast-text { overflow-wrap: anywhere; }
   #net-toast button {
     margin: 0; padding: 2px 8px; font: 11px monospace; cursor: pointer;
     color: #111; background: #ffd400; border: 0; border-radius: 4px;
@@ -148,6 +158,10 @@
     <h1>XBlast TNT</h1>
     <p>A browser port of the classic Bomberman-style blast game. GPL-2.0-or-later,
        peer-to-peer multiplayer, no game server.</p>
+    <div id="invite-banner">
+      <span>You've been invited to room <span id="invite-room"></span></span>
+      <button id="invite-join" type="button">Join</button>
+    </div>
     <div id="rejoin-banner">
       <span>Last session: room <span id="rejoin-room"></span></span>
       <button id="rejoin" type="button">Rejoin</button>
@@ -208,10 +222,12 @@
 
 <div id="netbar" aria-live="polite">
   <span id="net-role" class="role">Host</span>
-  <span id="net-room" class="room"></span>
+  <button id="net-room" class="room" type="button" title="Copy room code"
+          aria-label="Copy room code"></button>
   <span id="net-dot" class="dot warn"></span>
   <span id="net-state" class="state">connecting…</span>
-  <button id="net-copy" type="button" title="Copy room code">Copy</button>
+  <button id="net-invite" type="button" title="Copy invite link"
+          aria-label="Copy invite link">Invite</button>
   <button id="leave" type="button">Leave</button>
 </div>
 
@@ -252,11 +268,15 @@
   const rejoinBannerEl = document.getElementById('rejoin-banner');
   const rejoinEl = document.getElementById('rejoin');
   const rejoinRoomEl = document.getElementById('rejoin-room');
+  const inviteBannerEl = document.getElementById('invite-banner');
+  const inviteRoomEl = document.getElementById('invite-room');
+  const inviteJoinEl = document.getElementById('invite-join');
   const netbarEl = document.getElementById('netbar');
   const netRoleEl = document.getElementById('net-role');
   const netRoomEl = document.getElementById('net-room');
   const netDotEl = document.getElementById('net-dot');
   const netStateEl = document.getElementById('net-state');
+  const netInviteEl = document.getElementById('net-invite');
   const toastEl = document.getElementById('net-toast');
   const toastTextEl = document.getElementById('net-toast-text');
   const toastCancelEl = document.getElementById('net-toast-cancel');
@@ -392,6 +412,74 @@
       .replace(/^-+|-+$/g, '')
       .slice(0, 32)
       .replace(/-+$/g, '');
+  }
+
+  function inviteUrlFor(room) {
+    const code = normalizeRoom(room);
+    if (!code) return '';
+    const url = new URL(location.href);
+    url.searchParams.set('room', code);
+    url.hash = '';
+    return url.toString();
+  }
+
+  function readInviteRoom() {
+    try {
+      const params = new URLSearchParams(location.search);
+      if (!params.has('room')) return '';
+      const raw = params.get('room') || '';
+      const cleaned = String(raw).toLowerCase().trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      const code = cleaned && cleaned.length <= 32 ? normalizeRoom(raw) : '';
+      params.delete('room');
+      const query = params.toString();
+      history.replaceState(null, '', location.pathname +
+        (query ? '?' + query : '') + location.hash);
+      return code;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function hideInviteBanner() {
+    inviteBannerEl.classList.remove('show');
+  }
+
+  function showInviteBanner(code) {
+    inviteRoomEl.textContent = code;
+    roomEl.value = code;
+    inviteBannerEl.classList.add('show');
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (error) {
+      // fall through to the legacy path
+    }
+    try {
+      const previous = document.activeElement;
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.top = '0';
+      field.style.left = '0';
+      field.style.fontSize = '16px';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      try {
+        field.select();
+        return document.execCommand('copy');
+      } finally {
+        field.remove();
+        if (previous && typeof previous.focus === 'function') previous.focus();
+      }
+    } catch (error) {
+      return false;
+    }
   }
 
   const LAST_ROOM_KEY = 'xb:lastRoom';
@@ -780,7 +868,12 @@
       stateText = 'waiting for a guest…';
     }
     netRoleEl.textContent = status.role === 'client' ? 'Guest' : 'Host';
-    netRoomEl.textContent = status.room || '';
+    const roomText = status.room || '';
+    if (netRoomEl.textContent !== roomText) netRoomEl.textContent = roomText;
+    const roomLabel = roomText ? `Copy room code ${roomText}` : 'Copy room code';
+    if (netRoomEl.getAttribute('aria-label') !== roomLabel) {
+      netRoomEl.setAttribute('aria-label', roomLabel);
+    }
     netStateEl.textContent = stateText;
     netDotEl.className = 'dot ' + dot;
     updateHostGone(status);
@@ -808,6 +901,7 @@
     globalThis.xbConfig = { mode: 'solo', room: '' };
     clearLastRoom();
     hideRejoinBanner();
+    hideInviteBanner();
     unlockAudio();
     landingEl.classList.remove('show');
     loadEngine();
@@ -829,6 +923,7 @@
     globalThis.xbConfig = { mode, room, autoJoin: Boolean(opts.autoJoin) };
     storeLastRoom(mode, room);
     hideRejoinBanner();
+    hideInviteBanner();
     try {
       /* net.js must exist before the engine starts: the room is page-owned. */
       await import('./net.js');
@@ -926,6 +1021,7 @@
     loadEngine();
   }
 
+  const invitedRoom = readInviteRoom();
   const takeover = readTakeover();
   if (takeover) {
     clearTakeover();
@@ -933,8 +1029,14 @@
     startNet(takeover.mode, { autoJoin: takeover.autoJoin });
   } else {
     const lastRoom = readLastRoom();
-    if (lastRoom) showRejoinBanner(lastRoom);
-    else roomEl.value = makeCode();
+    if (invitedRoom) {
+      hideRejoinBanner();
+      showInviteBanner(invitedRoom);
+    } else if (lastRoom) {
+      showRejoinBanner(lastRoom);
+    } else {
+      roomEl.value = makeCode();
+    }
   }
 
   loadTurnModule().then((turn) => {
@@ -945,6 +1047,7 @@
   for (const field of [turnUrlsEl, turnUserEl, turnCredEl]) {
     field.addEventListener('input', () => showTurnError(''));
   }
+  roomEl.addEventListener('input', hideInviteBanner);
   turnForgetEl.addEventListener('click', async () => {
     const turn = await loadTurnModule();
     if (turn) turn.clearPlayerOverride(turnStorage());
@@ -956,12 +1059,14 @@
 
   playEl.addEventListener('click', startSolo);
   shuffleEl.addEventListener('click', () => {
+    hideInviteBanner();
     roomEl.value = makeCode();
     roomEl.focus();
     roomEl.select();
   });
   hostEl.addEventListener('click', () => startNet('host'));
   joinEl.addEventListener('click', () => startNet('client'));
+  inviteJoinEl.addEventListener('click', () => startNet('client'));
   rejoinEl.addEventListener('click', () => {
     const mode = rejoinEl.dataset.mode;
     if (mode === 'host' || mode === 'client') startNet(mode);
@@ -976,15 +1081,19 @@
     showNotice('Connect cancelled.');
   });
 
-  document.getElementById('net-copy').addEventListener('click', async () => {
+  netRoomEl.addEventListener('click', async () => {
     const room = globalThis.xbConfig && globalThis.xbConfig.room;
     if (!room) return;
-    try {
-      await navigator.clipboard.writeText(room);
-      showNotice('Room code copied.');
-    } catch (error) {
-      showNotice(`Room code: ${room}`);
-    }
+    if (await copyText(room)) showNotice('Room code copied.');
+    else window.prompt('Copy this room code:', room);
+  });
+
+  netInviteEl.addEventListener('click', async () => {
+    const room = globalThis.xbConfig && globalThis.xbConfig.room;
+    const url = inviteUrlFor(room);
+    if (!url) return;
+    if (await copyText(url)) showNotice('Invite link copied.');
+    else window.prompt('Copy this invite link:', url);
   });
 
   document.getElementById('leave').addEventListener('click', () => {

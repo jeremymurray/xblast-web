@@ -11,7 +11,7 @@ Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 + 0.5.1 rele
 | M2 — 2-player P2P | **done** (0.3.0) |
 | M3 — 6-player, reconnect, TURN, host takeover | **done** (0.4.0; mid-match migration not planned) |
 | M4 — public source publication (license audit, GitHub, Pages) | **done** (0.5.0 public; 0.5.1 patch) |
-| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets done; 16-player acceptance pending) |
+| M5 — polish, assets, PWA, optional 16-player (`SMPF`) build | in progress (local build targets and invite links done; 16-player acceptance pending) |
 
 ## M2 checklist
 
@@ -19,7 +19,7 @@ Updated: 2026-11-02 (M4 published at jeremymurray/xblast-web; 0.5.0 + 0.5.1 rele
 - [x] Transport: one Trystero room per page, two negotiated DataChannels per peer
 - [x] Channels: reliable-ordered `xb.ctl` for control/level/chat, unreliable-unordered
       `xb.act` for per-frame actions
-- [x] Room lobby on the landing page: room code, New, Host, Join, Copy, Leave
+- [x] Room lobby on the landing page: room code, New, Host, Join, room-code copy, Leave
 - [x] Engine entry hooks: `XBWeb_ServerListen` / `XBWeb_ClientConnect` behind `socket.h`
 - [x] Socket shim (`web/net_web.c`) over the JS transport, replacing `net_stub.c`
 - [x] Wait screens show `Room <code> - waiting for players` /
@@ -156,6 +156,16 @@ packaging, and a source offer shipped with every build. Correction: six music tr
 were always bundled and are now documented and audited as such; earlier notes wrongly
 said no music was included. Gameplay, netcode and the six-player capacity are unchanged
 from 0.4.0.
+
+## M5 invite links
+
+- [x] `?room=` prefills the lobby and shows an invite prompt for host or guest
+- [x] Netbar **Invite** copies the absolute URL; clicking the room code copies the code
+- [x] `nettest_js.py roomcode` covers URL building, sanitization, prefill, consumed
+      query and no auto-connect
+- [x] Local two-browser check: invite prefills, Join starts the client, room-code
+      click copies/falls back; `netplaytest --scenario midmatch` still refuses
+- [ ] Public-site invite smoke test after the next deploy
 
 ## M5 build targets (local only)
 

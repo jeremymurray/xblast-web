@@ -719,8 +719,112 @@ def run_roomcode(base):
                   f"unknown animal {noun!r}")
         check(page.ev("normalizeRoom(' Quiet Otter 482 ')") == "quiet-otter-482",
               "normalizeRoom did not normalize spaces/case")
+        check(page.ev("document.getElementById('net-room').tagName") == "BUTTON",
+              "room code should be a copy button")
+        check(page.ev("document.getElementById('net-room').getAttribute('title')") ==
+              "Copy room code", "room-code button needs a title")
+        check(page.ev("document.getElementById('net-room').getAttribute('aria-label')") ==
+              "Copy room code", "room-code button needs an accessible label")
+        check(page.ev("document.getElementById('net-invite') !== null"),
+              "invite button is missing from the netbar")
+        check(page.ev("document.getElementById('net-invite').getAttribute('aria-label')") ==
+              "Copy invite link", "invite button needs an accessible label")
+        check(page.ev("typeof copyText === 'function'"),
+              "copyText helper is missing")
+        check(page.ev("inviteUrlFor(' Quiet Otter 482 ')") ==
+              f"{base}/index.html?room=quiet-otter-482",
+              "inviteUrlFor did not normalize/build the invite URL")
+        check(page.ev("inviteUrlFor('')") == "",
+              "inviteUrlFor accepted an empty room")
+        check(page.ev("inviteUrlFor('<img src=x>')") ==
+              f"{base}/index.html?room=img-src-x",
+              "inviteUrlFor did not sanitize the room")
     finally:
         page.close()
+
+    invite = Page(
+        f"{base}/index.html?room=Quiet%20Otter%20482",
+        wait_for="document.getElementById('invite-banner') && " +
+                 "document.getElementById('invite-banner').classList.contains('show')")
+    try:
+        check(invite.ev("document.getElementById('room').value") == "quiet-otter-482",
+              "invite did not prefill the room field")
+        check(invite.ev("document.getElementById('invite-room').textContent") ==
+              "quiet-otter-482", "invite banner shows the wrong room")
+        check(invite.ev("location.search") == "",
+              "invite parameter was not consumed")
+        check(invite.ev("typeof XBNet === 'undefined'"),
+              "opening an invite must not load net.js or connect")
+    finally:
+        invite.close()
+
+    params = Page(
+        f"{base}/index.html?foo=1&room=Quiet%20Otter%20482#frag",
+        wait_for="document.getElementById('invite-banner') && " +
+                 "document.getElementById('invite-banner').classList.contains('show')")
+    try:
+        check(params.ev("location.search") == "?foo=1",
+              "consume should keep unrelated query parameters")
+        check(params.ev("location.hash") == "#frag",
+              "consume should keep the hash")
+        check(params.ev("inviteUrlFor('next-room')") ==
+              f"{base}/index.html?foo=1&room=next-room",
+              "generated invite URL lost parameters or kept the hash")
+        params.ev("document.getElementById('room').value = 'other-room'; " +
+                  "document.getElementById('room').dispatchEvent(new Event('input'))")
+        check(not params.ev(
+            "document.getElementById('invite-banner').classList.contains('show')"),
+              "editing the room should hide the invite banner")
+    finally:
+        params.close()
+
+    overlong = Page(
+        f"{base}/index.html?room={'a' * 300}",
+        wait_for="!!document.getElementById('host') && " +
+                 "document.getElementById('room').value.length > 0")
+    try:
+        check(not overlong.ev(
+            "document.getElementById('invite-banner').classList.contains('show')"),
+              "an overlong invite should be ignored")
+        check(overlong.ev("location.search") == "",
+              "an overlong invite parameter should still be consumed")
+    finally:
+        overlong.close()
+
+    copy_page = Page(f"{base}/index.html",
+                     wait_for="!!document.getElementById('host')")
+    try:
+        copy_page.ev(
+            "globalThis.__copied = [];" +
+            "globalThis.xbConfig = { room: 'quiet-otter-482' };" +
+            "Object.defineProperty(navigator, 'clipboard', { configurable: true," +
+            "  value: { writeText: async (text) => { __copied.push(text); } } });" +
+            "document.getElementById('net-invite').click(); true")
+        copy_page.wait_js("__copied.length === 1", 5, "invite copy")
+        check(copy_page.ev("__copied[0]") ==
+              f"{base}/index.html?room=quiet-otter-482",
+              "invite button copied the wrong URL")
+        check("Invite link copied" in copy_page.ev(
+            "document.getElementById('net-toast-text').textContent"),
+              "invite copy did not show the success notice")
+        copy_page.ev("document.getElementById('net-room').click(); true")
+        copy_page.wait_js("__copied.length === 2", 5, "room-code copy")
+        check(copy_page.ev("__copied[1]") == "quiet-otter-482",
+              "room chip copied the wrong text")
+
+        copy_page.ev(
+            "globalThis.__prompted = [];" +
+            "Object.defineProperty(navigator, 'clipboard', { configurable: true," +
+            "  value: { writeText: async () => { throw new Error('denied'); } } });" +
+            "document.execCommand = () => false;" +
+            "window.prompt = (message, value) => { __prompted.push([message, value]); return null; };" +
+            "document.getElementById('net-invite').click(); true")
+        copy_page.wait_js("__prompted.length === 1", 5, "prompt fallback")
+        check(copy_page.ev("__prompted[0][1]") ==
+              f"{base}/index.html?room=quiet-otter-482",
+              "prompt fallback did not show the invite URL")
+    finally:
+        copy_page.close()
 
 
 def run_visibility(base):
