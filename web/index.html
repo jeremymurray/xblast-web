@@ -103,6 +103,11 @@
     margin: 0; padding: 2px 8px; font: 11px monospace; cursor: pointer;
     color: #eee; background: #333; border: 0; border-radius: 4px;
   }
+  #netbar button.room {
+    margin: 0; padding: 0; font: inherit; color: #fff;
+    background: none; border: 0;
+  }
+  #netbar button.room:hover { text-decoration: underline; }
 
   #net-toast {
     position: fixed; top: 54px; left: 10px; z-index: 25; display: none;
@@ -215,10 +220,10 @@
 
 <div id="netbar" aria-live="polite">
   <span id="net-role" class="role">Host</span>
-  <span id="net-room" class="room"></span>
+  <button id="net-room" class="room" type="button" title="Copy room code"
+          aria-label="Copy room code"></button>
   <span id="net-dot" class="dot warn"></span>
   <span id="net-state" class="state">connecting…</span>
-  <button id="net-copy" type="button" title="Copy room code">Copy code</button>
   <button id="net-invite" type="button" title="Copy invite link"
           aria-label="Copy invite link">Invite</button>
   <button id="leave" type="button">Leave</button>
@@ -1056,7 +1061,7 @@
     showNotice('Connect cancelled.');
   });
 
-  document.getElementById('net-copy').addEventListener('click', async () => {
+  netRoomEl.addEventListener('click', async () => {
     const room = globalThis.xbConfig && globalThis.xbConfig.room;
     if (!room) return;
     if (await copyText(room)) showNotice('Room code copied.');

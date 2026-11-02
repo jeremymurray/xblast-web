@@ -56,9 +56,9 @@ refuses it with the existing message. Mid-match join/resume is not in scope.
 
 ### Netbar
 
-- Keep the existing room-code **Copy** action, relabel it **Copy code** for
-  clarity, and add **Invite** with `title`/`aria-label` "Copy invite link".
-  Both are visible to host and guest (the netbar only exists once in a room).
+- The room code itself is a button: clicking it copies the code. Add **Invite**
+  with `title`/`aria-label` "Copy invite link". Both are available to host and guest
+  (the netbar only exists once in a room).
 - The invite action builds the absolute URL from `location.href` + `room`, then
   copies it with `navigator.clipboard.writeText()`. If that fails, fall back to a
   temporary textarea + `document.execCommand('copy')`; if both fail, show the URL

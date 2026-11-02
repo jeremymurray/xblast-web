@@ -160,7 +160,7 @@ from 0.4.0.
 ## M5 invite links
 
 - [x] `?room=` prefills the lobby and shows an invite prompt for host or guest
-- [x] Netbar **Invite** copies the absolute URL; **Copy code** keeps the code action
+- [x] Netbar **Invite** copies the absolute URL; clicking the room code copies the code
 - [x] `nettest_js.py roomcode` covers URL building, sanitization, prefill, consumed
       query and no auto-connect
 - [ ] Manual two-browser invite + mid-match-refusal check on the public site

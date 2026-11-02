@@ -226,8 +226,12 @@ Assisted-by: DeepSeek V4.1 Flash Free (opencode/deepseek-v4.1-flash-free)"
 In `run_roomcode`, after the existing `normalizeRoom` check, add:
 
 ```python
-        check(page.ev("document.getElementById('net-copy').textContent.trim()") ==
-              "Copy code", "room-code button should say Copy code")
+        check(page.ev("document.getElementById('net-room').tagName") == "BUTTON",
+              "room code should be a copy button")
+        check(page.ev("document.getElementById('net-room').getAttribute('title')") ==
+              "Copy room code", "room-code button needs a title")
+        check(page.ev("document.getElementById('net-room').getAttribute('aria-label')") ==
+              "Copy room code", "room-code button needs an accessible label")
         check(page.ev("document.getElementById('net-invite') !== null"),
               "invite button is missing from the netbar")
         check(page.ev("document.getElementById('net-invite').getAttribute('aria-label')") ==
@@ -239,14 +243,15 @@ In `run_roomcode`, after the existing `normalizeRoom` check, add:
 - [ ] **Step 2: Run the test to verify it fails**
 
 Run: `python3 scripts/nettest_js.py roomcode`
-Expected: FAIL on `#net-invite` being null (or the Copy code label).
+Expected: FAIL because `#net-room` is still a `<span>`.
 
 - [ ] **Step 3: Add the netbar button and copy helper**
 
 Change the netbar markup:
 
 ```html
-  <button id="net-copy" type="button" title="Copy room code">Copy code</button>
+  <button id="net-room" class="room" type="button" title="Copy room code"
+          aria-label="Copy room code"></button>
   <button id="net-invite" type="button" title="Copy invite link"
           aria-label="Copy invite link">Invite</button>
 ```
@@ -284,7 +289,7 @@ Add the helper near the invite helpers:
   }
 ```
 
-Replace the existing `net-copy` handler body with `copyText(room)` and a "Room code copied." notice, keeping the fallback notice. Add:
+Replace the existing room-code copy handler with one on `netRoomEl` using `copyText(room)` and a "Room code copied." notice, keeping the fallback notice. Add:
 
 ```js
   netInviteEl.addEventListener('click', async () => {
