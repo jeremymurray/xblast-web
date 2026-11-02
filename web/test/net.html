@@ -109,6 +109,7 @@
     if (!XB) throw new Error('XBNet is undefined after importing ../net.js');
     if (globalThis.XB_TEST_RELAY) {
       XB.configure({ relayUrls: [globalThis.XB_TEST_RELAY] });
+      T.log(`relay override: ${XB.status().relayOverride}`);
     }
 
     if (T.scenario === 'turn-config') {

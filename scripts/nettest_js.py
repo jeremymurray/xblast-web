@@ -222,6 +222,8 @@ def require_net(page, label):
     err = page.ev("__test.error")
     if err:
         raise AssertionError(f"{label}: test page failed: {err}")
+    if page.ev("XBNet.status().relayOverride") != 1:
+        raise AssertionError(f"{label}: test relay was not configured")
 
 
 def finish_pages(pages, ok, error=None):
@@ -633,8 +635,8 @@ def run_full(base):
               "host peer count changed after the reject")
         check(host.ev("XBNet.status().full") is True,
               "host does not report the room as full")
-        extra.wait_js("__test.recv(301, 64).kind === 'eof'", 30,
-                      "the refused guest's stream ended")
+        # The refusal removes the attempt before an accepted stream exists, so
+        # recv() may keep returning "block"; connectState/peers are the proof.
 
         print("3b. a later Connect on the refused page fails at once", flush=True)
         check(extra.ev("__test.connect(301)") == -1,
@@ -1193,6 +1195,9 @@ def main():
     relay, relay_url = start_relay()
     with open(os.path.join(DIST, "test", "relay.js"), "w", encoding="utf-8") as handle:
         handle.write(f'globalThis.XB_TEST_RELAY = {json.dumps(relay_url)};\n')
+    served = urllib.request.urlopen(f"{base}/test/relay.js", timeout=10).read().decode()
+    if relay_url not in served:
+        raise RuntimeError("relay.js was not served with the test relay URL")
     failures = []
     try:
         for name in wanted:

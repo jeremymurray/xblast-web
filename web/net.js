@@ -1350,6 +1350,7 @@ function status() {
     turnServers: config.turnConfig.length,
     turnSource: config.turnConfig.length ? config.turnSource : null,
     relayReady: relayReady(),
+    relayOverride: config.relayUrls.length,
     listening: s ? Boolean(s.engineListening) : false,
   };
 }

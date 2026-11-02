@@ -6,9 +6,10 @@ nothing on disk, does not verify signatures, and ignores filters: Trystero's
 clients filter by topic themselves.
 
 Protocol subset used by Trystero:
-  ["EVENT", event]        -> OK to the sender, broadcast to the other clients
+  ["EVENT", event]        -> OK to the sender; to every other client, one
+                             ["EVENT", subId, event] per subscription
   ["REQ", subId, ...]     -> EOSE
-  ["CLOSE", subId]        -> ignored
+  ["CLOSE", subId]        -> forget it
 """
 import argparse
 import json
@@ -16,13 +17,18 @@ import threading
 
 from websockets.sync.server import serve
 
-clients = set()
+clients = {}
 lock = threading.Lock()
+
+
+def send(ws, payload):
+    with lock:
+        ws.send(payload)
 
 
 def handler(ws):
     with lock:
-        clients.add(ws)
+        clients[ws] = set()
     try:
         for raw in ws:
             try:
@@ -34,21 +40,26 @@ def handler(ws):
             kind = message[0]
             if kind == "EVENT" and len(message) > 1 and isinstance(message[1], dict):
                 event = message[1]
-                ws.send(json.dumps(["OK", str(event.get("id", "")), True, ""]))
+                send(ws, json.dumps(["OK", str(event.get("id", "")), True, ""]))
                 with lock:
-                    others = [client for client in clients if client is not ws]
-                for client in others:
-                    try:
-                        client.send(raw)
-                    except Exception:
-                        pass
+                    targets = [(other, set(subs)) for other, subs in clients.items()
+                               if other is not ws]
+                for other, subs in targets:
+                    for sub_id in subs:
+                        try:
+                            send(other, json.dumps(["EVENT", sub_id, event]))
+                        except Exception:
+                            pass
             elif kind == "REQ" and len(message) > 1:
-                ws.send(json.dumps(["EOSE", message[1]]))
-            elif kind == "CLOSE":
-                pass
+                with lock:
+                    clients.setdefault(ws, set()).add(message[1])
+                send(ws, json.dumps(["EOSE", message[1]]))
+            elif kind == "CLOSE" and len(message) > 1:
+                with lock:
+                    clients.get(ws, set()).discard(message[1])
     finally:
         with lock:
-            clients.discard(ws)
+            clients.pop(ws, None)
 
 
 def main():

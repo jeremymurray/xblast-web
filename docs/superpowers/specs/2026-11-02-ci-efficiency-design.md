@@ -67,10 +67,12 @@ or backend is added to the project.
   and include it from the test page. Stop the relay in `finally`.
 - `scripts/test_relay.py`: minimal Nostr relay, test-only:
   - WebSocket server bound to `127.0.0.1`.
-  - `["EVENT", event]` → `["OK", id, true, ""]` to the sender, broadcast the event to
-    other connected clients.
+  - `["EVENT", event]` → `["OK", id, true, ""]` to the sender; forward it to every
+    other client as `["EVENT", subId, event]` for each subscription that client
+    registered (Nostr's relay-to-client shape; the client-to-relay shape is ignored
+    by Trystero).
   - `["REQ", subId, ...]` → `["EOSE", subId]`; remember the subscription.
-  - `["CLOSE", subId]` → forget it.
+  - `["CLOSE", subId]` → forget it; drop subscriptions on disconnect.
   - No persistence, auth, filtering or signature checks; the test clients do their own
     topic filtering. This is not a relay for players.
 - Dependency: `websockets`, pinned in `requirements-test.txt`, installed only in the
