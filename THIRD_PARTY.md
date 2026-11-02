@@ -103,9 +103,3 @@ part of the GPL-2+ upstream distribution. `time.c` is guarded by `#ifdef W32`,
 
 The software is provided "as is", without warranty of any kind, as stated in
 GPLv2 sections 11 and 12 and in the upstream notices. See `COPYING`.
-
-## Reporting a licensing problem
-
-Open an issue in the public repository or contact the maintainer before
-redistributing a modified build. If an asset's provenance is unclear, it must be
-removed rather than assumed.

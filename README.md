@@ -9,6 +9,20 @@ Edge, and other Chromium derivatives); three browsers are covered by the default
 six by an opt-in one. Host takeover, readable room codes and the backgrounding warning
 are in; chat, a desync hash and mid-match host migration are not planned.
 
+## About this project
+
+This is a **fun side project**: a vibecoded experiment to see whether a 2005 C game
+could run in a browser with peer-to-peer multiplayer and no server. It is shared
+because it is fun to play with, not because it is a product. Expect rough edges, and
+there is no roadmap or response-time promise.
+
+**Contributions and issues are not being accepted at this time.** Please don't send
+pull requests or file issues. If you want to take it further, fork it under
+GPL-2.0-or-later and keep the licence notices and the AI-assistance disclosure intact
+(see `CONTRIBUTING.md`). Security reports: `SECURITY.md`.
+
+## Layout
+
 - `engine/` — vendored XBlast TNT 2.10.4 with Debian patches (GPL-2.0-or-later)
 - `data/` — images, model sprites (`.epm`), levels, sound effects, the six background
   music tracks and the Bitstream Vera font, from the Debian `xblast-tnt-*` packages

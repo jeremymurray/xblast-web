@@ -123,8 +123,9 @@ public yet**; the remaining steps are the human-gated publication actions in
 - [x] README/AGENTS/PROGRESS/FEASIBILITY corrected; no-warranty and source-offer added;
       builds ship `COPYING`, `THIRD_PARTY.md`, `LICENSE/` and `SOURCE.txt`
 - [x] History/secrets scan: no real secrets; placeholders only; no ignored artefact ever tracked
-- [x] Contribution policy (`CONTRIBUTING.md`, DCO, inbound=outbound, AI disclosure) and
-      `SECURITY.md`
+- [x] Contribution policy (`CONTRIBUTING.md`, README): fun side project, contributions and
+      issues not accepted for now; fork guidance, AI disclosure and a best-effort security
+      note
 - [x] CI (build + artifact checks + JS transport; netplay manual) and Pages workflow;
       variant artifacts are never uploaded
 - [x] Release tooling: `scripts/check-web-dist.sh`, `scripts/make-release.sh`, release workflow
@@ -262,7 +263,7 @@ XB_SOURCE_URL=<repo-url> ./scripts/make-release.sh 0.4.0   # source + web + SHA2
 - Versioning: `0.MINOR.PATCH`; 0.1.0 = M0, 0.2.0 = M1, 0.3.0 = M2, 0.3.1 = reconnect,
   0.4.0 = M3.
 - Attribution: every commit carries a `Signed-off-by:` and, when AI-assisted, an
-  `Assisted-by:` trailer (`CONTRIBUTING.md`).
+  `Assisted-by:` trailer (see `README.md` and `AGENTS.md`).
 
 ## Next tasks (M5)
 

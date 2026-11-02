@@ -15,12 +15,14 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 
 - [x] **Decision (2026-11-01): keep GPL-2.0-or-later.** It matches upstream, is already
       open source, and remains compatible with GPLv2-only downstream code. GPL-3.0-or-later
-      is feasible but not needed; revisit only before accepting outside contributions.
+      is feasible but not needed; revisit only if outside contributions are ever opened.
 - [x] Record the decision and the audit table in this file (below).
 - [x] Confirm no GPL-2-only code, no non-free asset, and no unaudited music track.
-- [x] Decide the contribution policy: inbound=outbound, DCO sign-off, no CLA; recorded in
-      `CONTRIBUTING.md`.
-- [x] Done **before** accepting outside contributions (the repository is still private).
+- [x] Decide the contribution policy (2026-11-01): **this is a fun side project and is not
+      accepting outside contributions or issues at this time.** The README and
+      `CONTRIBUTING.md` say so. Inbound=outbound GPL-2.0-or-later, DCO sign-off and the AI
+      disclosure rule are written down for if that ever changes; no CLA is needed.
+- [x] Done **before** accepting outside contributions (none are being accepted).
 
 ### Evidence (audited 2026-11-01)
 
@@ -117,10 +119,12 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 - [x] No telemetry, analytics, backend or hidden network calls. The public Nostr
       relay dependency and optional TURN are documented in `README.md` and
       `docs/hosting.md`.
-- [ ] Choose the public repo name/description, add topics, verify GitHub detects the
-      licence. **Needs the human partner** (name and remote are a publication choice).
-- [x] `CONTRIBUTING.md` and `SECURITY.md`; AI-attribution policy and inbound=outbound
-      rule included.
+- [ ] Choose the public repo name/description, add topics, disable Issues and
+      Discussions, verify GitHub detects the licence. **Needs the human partner**
+      (name and remote are a publication choice); describe it as a fun side project
+      with no support.
+- [x] `CONTRIBUTING.md` and `SECURITY.md`: no outside contributions or issues for now,
+      fork guidance, AI-attribution policy, and a best-effort private security path.
 - [x] CI: build + artifact checks + JS transport tests (`.github/workflows/ci.yml`);
       netplay is `workflow_dispatch` only so relay flakiness does not block PRs. CI
       never uploads variant artifacts; Pages uploads only `web/dist`.
@@ -131,7 +135,8 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 ## 6. Public release steps (human-gated)
 
 1. [ ] Decide the public repository name/description/topics and whether to keep the
-       personal author email in history (see open decisions).
+       personal author email in history (see open decisions). The description should
+       call it a fun side project with no support; disable Issues and Discussions.
 2. [ ] Create the public repository and push `main` with both tags:
        `git remote add origin <url>`
        `git push -u origin main`
@@ -151,8 +156,8 @@ Scope: publish the 0.5.0 source repository and the static web build, with no bac
 
 ## 7. Open decisions
 
-1. **Licence: decided GPL-2.0-or-later (2026-11-01).** Revisit only before accepting
-   outside contributions.
+1. **Licence: decided GPL-2.0-or-later (2026-11-01).** Revisit only if outside
+   contributions are ever opened.
 2. **Music: keep and audit (2026-11-01).** Six tracks ship; evidence and the
    no-per-track-attribution limitation are recorded. If a future build drops
    `data/sounds` (the `lite` targets), do not claim music is present.

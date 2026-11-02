@@ -71,6 +71,10 @@ GPL-2.0-or-later.
   `--scenario six` is the heavy opt-in.
 - **Licensing:** whole work published as GPL-2.0-or-later with complete corresponding source;
   vendored Trystero/noble stay MIT.
+- **Project posture:** a fun side project with no support commitments. Contributions and issues
+  are **not accepted for now**; README and `CONTRIBUTING.md` say so and point forks at the GPL
+  terms. Reopen the policy only if the maintainer decides to; the inbound=outbound, DCO and AI
+  disclosure terms are already written down for that case.
 - No rollback/prediction, no TypeScript rewrite, no central server.
 - **Web build skips screen fades** (`__EMSCRIPTEN__` in `sdl_pixmap.c`): the
   blocking `SDL_Delay` wipe stalls Asyncify and feels slow. Keep transitions
@@ -83,7 +87,7 @@ This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.
 - README must state it.
 - Every commit must be signed off (`git commit -s`) and end with:
   `Assisted-by: DeepSeek V4.1 Flash Free (opencode/deepseek-v4.1-flash-free)`
-- Do not hide or downplay AI involvement; `CONTRIBUTING.md` states the policy.
+- Do not hide or downplay AI involvement; README and `CONTRIBUTING.md` state the policy.
 
 ## Git workflow
 - `main` holds working, self-contained states; do exploration on a branch and merge it back with a
