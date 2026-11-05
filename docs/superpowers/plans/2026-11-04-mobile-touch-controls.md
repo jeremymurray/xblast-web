@@ -17,7 +17,7 @@
 - Touch actions map to the web defaults: up/down/left/right `Up`/`Down`/`Left`/`Right`, stop `BackSpace`, bomb `Return`, kick `Tab`, pause `P`, back `Escape`.
 - Minimum touch target 44 px; `touch-action: none` on controls; safe-area insets respected.
 - Desktop (no `touch-ui` class) must render exactly as today.
-- Local build: `./scripts/build-web.sh lite-debug` (writes `web/dist-lite-debug`) or `./scripts/build-web.sh release` (writes `web/dist`, what the tests serve).
+- Local build: `./scripts/build-web.sh --target lite-debug` (writes `web/dist-lite-debug`) or `./scripts/build-web.sh` (default release, writes `web/dist`, what the tests serve).
 - Never reuse the id `play`: it is the lobby's Play button. The new wrapper is `play-area`.
 - Commits: `git commit -s` and end the body with `Assisted-by: DeepSeek V4.1 Flash Free (opencode/deepseek-v4.1-flash-free)`.
 - Keep `PROGRESS.md` and `AGENTS.md` current; they are the handoff documents.
@@ -49,7 +49,7 @@ Each item is pinned to a step in the task that owns its code.
 
 - [ ] **Step 1: Write the failing bridge test**
 
-Create `scripts/touchtest.py`, modelled on `scripts/playtest.py` for Chrome launch/CDP plumbing and `scripts/netplaytest.py` for its HTTP server. Build `web/dist` with `scripts/build-web.sh release` unless `XB_TEST_NO_BUILD=1`. Launch Chrome headless with `--window-size=1000,800` exactly as `playtest.py` does, so its canvas coordinates apply. The first check is `check_bridge(ws)`:
+Create `scripts/touchtest.py`, modelled on `scripts/playtest.py` for Chrome launch/CDP plumbing and `scripts/netplaytest.py` for its HTTP server. Build `web/dist` with `scripts/build-web.sh` (default release) unless `XB_TEST_NO_BUILD=1`. Launch Chrome headless with `--window-size=1000,800` exactly as `playtest.py` does, so its canvas coordinates apply. The first check is `check_bridge(ws)`:
 
 ```python
 # scripts/touchtest.py (core assertions)
@@ -522,7 +522,7 @@ Expected: `PASS`.
 
 - [ ] **Step 6: Desktop regression**
 
-Run: `./scripts/build-web.sh release`
+Run: `./scripts/build-web.sh`
 Run in a second shell: `python3 -m http.server 8123 --directory web/dist`
 Run: `python3 scripts/playtest.py http://localhost:8123/index.html <outdir>`
 Expected: the scripted keyboard play still reaches the maze and writes its screenshots.
