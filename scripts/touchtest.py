@@ -149,6 +149,76 @@ def center_x(rect):
     return (rect["left"] + rect["right"]) / 2
 
 
+ACTIVE_TOUCHES = {}
+
+
+def center_of(ws, selector):
+    expression = ("(() => { const r = document.querySelector(%s)"
+                  ".getBoundingClientRect(); return JSON.stringify("
+                  "{x: r.left + r.width / 2, y: r.top + r.height / 2}); })()"
+                  % json.dumps(selector))
+    return json.loads(js(ws, expression))
+
+
+def dispatch_touch(ws, kind, points):
+    ws.call(50, "Input.dispatchTouchEvent", {"type": kind, "touchPoints": points})
+
+
+def touch_points():
+    return [{"x": v["x"], "y": v["y"], "id": k} for k, v in ACTIVE_TOUCHES.items()]
+
+
+def touch_start(ws, selector, pid=0):
+    point = center_of(ws, selector)
+    ACTIVE_TOUCHES[pid] = point
+    dispatch_touch(ws, "touchStart", touch_points())
+
+
+def touch_move_to(ws, selector, pid=0):
+    ACTIVE_TOUCHES[pid] = center_of(ws, selector)
+    dispatch_touch(ws, "touchMove", touch_points())
+
+
+def touch_release(ws, pid=0):
+    point = ACTIVE_TOUCHES.pop(pid, None)
+    dispatch_touch(ws, "touchEnd", [point] if point else [])
+
+
+def tap(ws, selector):
+    touch_start(ws, selector, 0)
+    time.sleep(0.1)
+    touch_release(ws, 0)
+
+
+def pointer_events(ws, events):
+    """Dispatch synthetic PointerEvents.
+
+    Chrome's Input.dispatchTouchEvent ends every touch on touchEnd, so partial
+    multi-touch release has to be driven at the pointer layer directly.
+    """
+    payload = [{"selector": sel, "kind": kind, "id": pid} for sel, kind, pid in events]
+    expression = """(() => {
+      const evs = %s;
+      for (const e of evs) {
+        const el = document.querySelector(e.selector);
+        const r = el.getBoundingClientRect();
+        el.dispatchEvent(new PointerEvent(e.kind, {
+          pointerId: e.id, pointerType: 'touch', isPrimary: e.id === evs[0].id,
+          bubbles: true, cancelable: true,
+          clientX: r.left + r.width / 2, clientY: r.top + r.height / 2,
+        }));
+      }
+      return true;
+    })()""" % json.dumps(payload)
+    js(ws, expression)
+
+
+def slide(ws, start, end, pid=0):
+    touch_start(ws, start, pid)
+    time.sleep(0.1)
+    touch_move_to(ws, end, pid)
+
+
 def check_bridge(ws):
     start_solo_ready(ws)
     dismiss_intro(ws)              # settle on the engine main menu
@@ -223,6 +293,76 @@ def check_lobby_scroll(ws):
               "the host button cannot be reached by scrolling")
 
 
+def check_input(ws):
+    ACTIVE_TOUCHES.clear()
+    phone(ws, PHONE_PORTRAIT)
+    start_solo_ready(ws)
+    assert_js(ws, "typeof XBTouch === 'object' && XBTouch.enabled === true",
+              "XBTouch is not enabled after the runtime starts")
+
+    # one tap sends the action down and up
+    tap(ws, "#pad [data-action=down]")
+    assert_js(ws, "XBTouch.log.some(e => e.name === 'down' && e.down === true)",
+              "a tap did not press down")
+    assert_js(ws, "XBTouch.log.some(e => e.name === 'down' && e.down === false)",
+              "a tap did not release down")
+
+    # two fingers: direction + bomb stay held, releasing one keeps the other
+    pointer_events(ws, [
+        ("#pad [data-action=left]", "pointerdown", 11),
+        ("#actions [data-action=bomb]", "pointerdown", 12),
+    ])
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['bomb','left'])",
+              "two-finger press did not hold both actions")
+    pointer_events(ws, [("#pad [data-action=left]", "pointerup", 11)])
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['bomb'])",
+              "releasing the direction released the bomb")
+    pointer_events(ws, [("#actions [data-action=bomb]", "pointerup", 12)])
+    assert_js(ws, "XBTouch.active().length === 0", "two-finger release left an action held")
+
+    # sliding from left to up switches without sticking
+    slide(ws, "#pad [data-action=left]", "#pad [data-action=up]")
+    time.sleep(0.1)
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['up'])",
+              "sliding did not switch the pad direction")
+    touch_release(ws, 0)
+    time.sleep(0.1)
+    assert_js(ws, "XBTouch.active().length === 0", "the slide left an action held")
+
+    # blur releases everything
+    touch_start(ws, "#pad [data-action=right]", 3)
+    time.sleep(0.1)
+    assert_js(ws, "XBTouch.active().length === 1", "touch press did not register")
+    assert_js(ws, "window.dispatchEvent(new Event('blur')); true")
+    time.sleep(0.1)
+    assert_js(ws, "XBTouch.active().length === 0", "blur left an action held")
+    touch_release(ws, 3)
+
+    # before the runtime is ready the layer is inert
+    phone(ws, PHONE_PORTRAIT)                      # reload; engine not started
+    assert_js(ws, "typeof XBTouch === 'undefined' || XBTouch.enabled !== true",
+              "touch input is live before the runtime is ready")
+    assert_js(ws, "getComputedStyle(document.getElementById('touch')).display === 'none'",
+              "touch controls are visible before the runtime is ready")
+
+    # after the runtime handler runs, presses are inert
+    start_solo_ready(ws)
+    assert_js(ws, "(() => { const n = XBTouch.log.length; Module.onExit(0);"
+                  " XBTouch.press('down'); return XBTouch.enabled === false &&"
+                  " XBTouch.log.length === n; })()",
+              "a press reached the bridge after exit")
+
+    # engine integration on desktop: XBTouch could not press through to the
+    # engine if the menu's Quit abort did not run; the overlay proves it did.
+    phone(ws, DESKTOP, touch=False)
+    start_solo_ready(ws)
+    dismiss_intro(ws)
+    assert_js(ws, "!document.getElementById('overlay').classList.contains('show')",
+              "overlay is already visible before pressing back")
+    js(ws, "XBTouch.press('back'); XBTouch.release('back'); true")
+    wait_js(ws, "document.getElementById('overlay').classList.contains('show')", 15)
+
+
 def main():
     if os.environ.get("XB_TEST_NO_BUILD") != "1":
         print("== building web bundle ==", flush=True)
@@ -249,11 +389,18 @@ def main():
         ws.call(2, "Runtime.enable")
         wait_js(ws, "document.readyState === 'complete' && !!document.getElementById('play')", 30)
 
-        check_bridge(ws)
-        check_layout_portrait(ws)
-        check_layout_landscape(ws)
-        check_desktop_unchanged(ws)
-        check_lobby_scroll(ws)
+        checks = [
+            ("bridge", check_bridge),
+            ("portrait", check_layout_portrait),
+            ("landscape", check_layout_landscape),
+            ("desktop", check_desktop_unchanged),
+            ("lobby", check_lobby_scroll),
+            ("input", check_input),
+        ]
+        only = os.environ.get("XB_TOUCH_ONLY", "")
+        for name, check in checks:
+            if not only or only == name:
+                check(ws)
         print("PASS: touch controls", flush=True)
     finally:
         proc.terminate()

@@ -425,6 +425,131 @@
 
   document.getElementById('again').addEventListener('click', () => location.reload());
 
+  /* --- touch input ----------------------------------------------------- */
+  const TOUCH_ACTIONS = {
+    up: 0, down: 1, left: 2, right: 3, stop: 4, bomb: 5, kick: 6, pause: 7, back: 8,
+  };
+  const touchCounts = Object.create(null);
+  const touchLog = [];
+  const touchPadPointers = new Map();
+
+  const XBTouch = globalThis.XBTouch = {
+    enabled: false,
+    log: touchLog,
+    press(name) { adjustTouch(name, 1); },
+    release(name) { adjustTouch(name, -1); },
+    active() {
+      return Object.keys(touchCounts).filter((name) => touchCounts[name] > 0).sort();
+    },
+  };
+
+  function sendTouchKey(name, down) {
+    if (!XBTouch.enabled) return;
+    if (typeof Module === 'undefined' || typeof Module._XBWeb_SendKey !== 'function') return;
+    const code = TOUCH_ACTIONS[name];
+    if (code === undefined) return;
+    if (Module._XBWeb_SendKey(code, down ? 1 : 0)) {
+      touchLog.push({ name, down, ts: Date.now() });
+      if (touchLog.length > 50) touchLog.shift();
+    }
+  }
+
+  function adjustTouch(name, delta) {
+    if (!XBTouch.enabled || !(name in TOUCH_ACTIONS)) return;
+    const count = (touchCounts[name] || 0) + delta;
+    if (count <= 0) {
+      if (touchCounts[name] > 0) sendTouchKey(name, false);
+      delete touchCounts[name];
+    } else {
+      if (!touchCounts[name]) sendTouchKey(name, true);
+      touchCounts[name] = count;
+    }
+  }
+
+  function releaseAllTouches() {
+    Object.keys(touchCounts).forEach((name) => {
+      if (touchCounts[name] > 0) sendTouchKey(name, false);
+    });
+    Object.keys(touchCounts).forEach((name) => delete touchCounts[name]);
+    touchPadPointers.clear();
+  }
+
+  const padEl = document.getElementById('pad');
+
+  function padActionAt(clientX, clientY) {
+    const r = padEl.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    if (clientX < r.left || clientX >= r.right || clientY < r.top || clientY >= r.bottom) {
+      return null;
+    }
+    const col = Math.min(2, Math.floor((clientX - r.left) / (r.width / 3)));
+    const row = Math.min(2, Math.floor((clientY - r.top) / (r.height / 3)));
+    return [
+      [null, 'up', null],
+      ['left', 'stop', 'right'],
+      [null, 'down', null],
+    ][row][col];
+  }
+
+  function setPadAction(pointerId, name) {
+    const old = touchPadPointers.get(pointerId) || null;
+    if (old === name) return;
+    if (old) adjustTouch(old, -1);
+    if (name) {
+      touchPadPointers.set(pointerId, name);
+      adjustTouch(name, 1);
+    } else {
+      touchPadPointers.delete(pointerId);
+    }
+  }
+
+  if (padEl) {
+    padEl.addEventListener('pointerdown', (event) => {
+      const name = padActionAt(event.clientX, event.clientY);
+      if (!name) return;
+      event.preventDefault();
+      try { padEl.setPointerCapture(event.pointerId); } catch (e) { /* synthetic pointer */ }
+      setPadAction(event.pointerId, name);
+    });
+    padEl.addEventListener('pointermove', (event) => {
+      if (!touchPadPointers.has(event.pointerId)) return;
+      event.preventDefault();
+      setPadAction(event.pointerId, padActionAt(event.clientX, event.clientY));
+    });
+    const endPadPointer = (event) => {
+      if (!touchPadPointers.has(event.pointerId)) return;
+      setPadAction(event.pointerId, null);
+    };
+    padEl.addEventListener('pointerup', endPadPointer);
+    padEl.addEventListener('pointercancel', endPadPointer);
+    padEl.addEventListener('lostpointercapture', endPadPointer);
+  }
+
+  document.querySelectorAll('#actions [data-action], #sys [data-action]').forEach((button) => {
+    const name = button.dataset.action;
+    let activePointer = null;
+    button.addEventListener('pointerdown', (event) => {
+      if (activePointer !== null) return;
+      event.preventDefault();
+      try { button.setPointerCapture(event.pointerId); } catch (e) { /* synthetic pointer */ }
+      activePointer = event.pointerId;
+      adjustTouch(name, 1);
+    });
+    const endPointer = (event) => {
+      if (activePointer !== event.pointerId) return;
+      activePointer = null;
+      adjustTouch(name, -1);
+    };
+    button.addEventListener('pointerup', endPointer);
+    button.addEventListener('pointercancel', endPointer);
+    button.addEventListener('lostpointercapture', endPointer);
+  });
+
+  window.addEventListener('blur', releaseAllTouches);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') releaseAllTouches();
+  });
+
   const CFG_ROOT = '/home/web_user/.xblast_tnt';
   const CFG_KEY = 'xblast:config:v2';
 
@@ -485,6 +610,7 @@
     onRuntimeInitialized: () => {
       console.log('xb: runtime ready');
       globalThis.__xbReady = true;
+      XBTouch.enabled = true;
       document.documentElement.classList.add('touch-ready');
       restoreConfig();
       statusEl.textContent = '';
@@ -492,6 +618,8 @@
     },
     onExit: (code) => {
       console.log('xb: exit', code);
+      XBTouch.enabled = false;
+      releaseAllTouches();
       document.documentElement.classList.remove('touch-ready');
       saveConfig();
       overlayEl.classList.add('show');
