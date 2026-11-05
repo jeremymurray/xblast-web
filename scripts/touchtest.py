@@ -123,6 +123,16 @@ def shot_hash(ws):
     return hashlib.sha256(base64.b64decode(data)).hexdigest()
 
 
+def save_shot(ws, name):
+    folder = os.environ.get("XB_TOUCH_SHOTS")
+    if not folder:
+        return
+    os.makedirs(folder, exist_ok=True)
+    data = ws.call(31, "Page.captureScreenshot", {"format": "png"})["data"]
+    with open(os.path.join(folder, name + ".png"), "wb") as handle:
+        handle.write(base64.b64decode(data))
+
+
 PHONE_PORTRAIT = {"width": 390, "height": 844, "deviceScaleFactor": 3, "mobile": True}
 PHONE_LANDSCAPE = {"width": 844, "height": 390, "deviceScaleFactor": 3, "mobile": True}
 DESKTOP = {"width": 1000, "height": 800, "deviceScaleFactor": 1, "mobile": False}
@@ -188,6 +198,35 @@ def tap(ws, selector):
     touch_start(ws, selector, 0)
     time.sleep(0.1)
     touch_release(ws, 0)
+
+
+def pointer_at(ws, kind, pid, x, y, selector="#pad"):
+    expression = """(() => { const el = document.querySelector(%s);
+      el.dispatchEvent(new PointerEvent(%s, {
+        pointerId: %d, pointerType: 'touch', bubbles: true, cancelable: true,
+        clientX: %s, clientY: %s,
+      })); return true; })()""" % (
+        json.dumps(selector), json.dumps(kind), pid, json.dumps(x), json.dumps(y))
+    js(ws, expression)
+
+
+def rect_union(ws, selector):
+    expression = ("(() => { const rs = [...document.querySelectorAll(%s)]"
+                  ".map(e => e.getBoundingClientRect()); return JSON.stringify({"
+                  "left: Math.min(...rs.map(r => r.left)),"
+                  "right: Math.max(...rs.map(r => r.right))}); })()"
+                  % json.dumps(selector))
+    return json.loads(js(ws, expression))
+
+
+def canvas_tap(ws, gx, gy):
+    """Tap the canvas at engine pixels (480x368), e.g. a menu button."""
+    r = rects(ws, "#canvas")["canvas"]
+    x = r["left"] + gx / 480 * r["width"]
+    y = r["top"] + gy / 368 * r["height"]
+    ACTIVE_TOUCHES[99] = {"x": x, "y": y}
+    dispatch_touch(ws, "touchStart", [{"x": x, "y": y, "id": 99}])
+    dispatch_touch(ws, "touchEnd", [])
 
 
 def pointer_events(ws, events):
@@ -264,6 +303,16 @@ def check_layout_landscape(ws):
         raise AssertionError("the actions overlap the playfield in landscape")
     if not abs(center_x(r["sys"]) - center_x(r["actions"])) < 2:
         raise AssertionError("the system row is not under the actions in landscape")
+    for width, height in ((568, 320), (640, 360)):
+        phone(ws, {"width": width, "height": height, "deviceScaleFactor": 2, "mobile": True})
+        start_solo_ready(ws)
+        pad = rect_union(ws, "#pad [data-action]")
+        canvas = rects(ws, "#canvas")["canvas"]
+        actions = rect_union(ws, "#actions [data-action]")
+        if pad["right"] > canvas["left"] + 0.5:
+            raise AssertionError(f"pad overlaps the canvas at {width}x{height}")
+        if canvas["right"] > actions["left"] + 0.5:
+            raise AssertionError(f"actions overlap the canvas at {width}x{height}")
 
 
 def check_desktop_unchanged(ws):
@@ -307,6 +356,19 @@ def check_input(ws):
     assert_js(ws, "XBTouch.log.some(e => e.name === 'down' && e.down === false)",
               "a tap did not release down")
 
+    # a thumb that leaves the pad and comes back keeps tracking
+    pad = rects(ws, "#pad")["pad"]
+    pointer_events(ws, [("#pad [data-action=left]", "pointerdown", 21)])
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['left'])")
+    pointer_at(ws, "pointermove", 21, pad["left"] - 30, pad["top"] - 30)
+    assert_js(ws, "XBTouch.active().length === 0", "off-pad move did not stop the direction")
+    up = center_of(ws, "#pad [data-action=up]")
+    pointer_at(ws, "pointermove", 21, up["x"], up["y"])
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['up'])",
+              "returning to the pad did not resume tracking")
+    pointer_at(ws, "pointerup", 21, up["x"], up["y"])
+    assert_js(ws, "XBTouch.active().length === 0")
+
     # two fingers: direction + bomb stay held, releasing one keeps the other
     pointer_events(ws, [
         ("#pad [data-action=left]", "pointerdown", 11),
@@ -338,6 +400,15 @@ def check_input(ws):
     assert_js(ws, "XBTouch.active().length === 0", "blur left an action held")
     touch_release(ws, 3)
 
+    # a button is usable again after a blur that delivered no pointerup
+    pointer_events(ws, [("#actions [data-action=bomb]", "pointerdown", 51)])
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['bomb'])")
+    assert_js(ws, "window.dispatchEvent(new Event('blur')); true")
+    pointer_events(ws, [("#actions [data-action=bomb]", "pointerdown", 52)])
+    assert_js(ws, "JSON.stringify(XBTouch.active()) === JSON.stringify(['bomb'])",
+              "button stayed dead after a blur without pointerup")
+    pointer_events(ws, [("#actions [data-action=bomb]", "pointerup", 52)])
+
     # before the runtime is ready the layer is inert
     phone(ws, PHONE_PORTRAIT)                      # reload; engine not started
     assert_js(ws, "typeof XBTouch === 'undefined' || XBTouch.enabled !== true",
@@ -361,6 +432,36 @@ def check_input(ws):
               "overlay is already visible before pressing back")
     js(ws, "XBTouch.press('back'); XBTouch.release('back'); true")
     wait_js(ws, "document.getElementById('overlay').classList.contains('show')", 15)
+
+
+def check_touch_menus(ws):
+    """Reach the engine's setup menu by tapping, then assign a player.
+
+    A full touch-started match is a manual check: the setup menu needs two
+    players and its modal combo close is ambiguous through the key bridge.
+    """
+    ACTIVE_TOUCHES.clear()
+    phone(ws, PHONE_PORTRAIT)
+    start_solo_ready(ws)
+    assert_js(ws, "typeof Module._XBWeb_IsMenu === 'function'",
+              "the menu-mode probe is not exported")
+    assert_js(ws, "typeof Module._XBWeb_LocalPlayerCount === 'function'",
+              "the local-player probe is not exported")
+    time.sleep(11)                    # the intro's input wait times out
+    assert_js(ws, "Module._XBWeb_IsMenu() === 1")
+    canvas_tap(ws, 240, 84)           # Solo (main menu)
+    time.sleep(1.5)
+    assert_js(ws, "Module._XBWeb_IsMenu() === 1")
+    assert_js(ws, "Module._XBWeb_LocalPlayerCount() === 0")
+    canvas_tap(ws, 192, 84)           # Right Keyboard value
+    time.sleep(0.5)
+    js(ws, "XBTouch.press('stop'); XBTouch.release('stop'); true")
+    time.sleep(0.5)
+    assert_js(ws, "Module._XBWeb_LocalPlayerCount() === 1",
+              "the tap plus STOP did not assign a keyboard player")
+    js(ws, "XBTouch.press('kick'); XBTouch.release('kick'); true")   # Select
+    assert_js(ws, "XBTouch.log.slice(-2).some(e => e.name === 'kick' && e.key === 'select')",
+              "KICK did not send the menu select key")
 
 
 def main():
@@ -396,6 +497,7 @@ def main():
             ("desktop", check_desktop_unchanged),
             ("lobby", check_lobby_scroll),
             ("input", check_input),
+            ("menus", check_touch_menus),
         ]
         only = os.environ.get("XB_TOUCH_ONLY", "")
         for name, check in checks:

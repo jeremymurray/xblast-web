@@ -60,6 +60,22 @@ static MENU_ID idButtonStart;
 static MENU_ID idButtonLevels;
 /* player controls */
 static XBAtom _gamePlayers[NUM_LOCAL_PLAYER];
+
+#ifdef __EMSCRIPTEN__
+/* web port: test probe for the setup menu's local player count. */
+int
+XBWeb_LocalPlayerCount (void)
+{
+	int i, count = 0;
+
+	for (i = 0; i < NUM_LOCAL_PLAYER; i++) {
+		if (ATOM_INVALID != _gamePlayers[i]) {
+			count++;
+		}
+	}
+	return count;
+}								/* XBWeb_LocalPlayerCount */
+#endif
 static const XBPlayerControl _gameControl[NUM_LOCAL_PLAYER] = {
 	XBPC_RightKeyboard,
 	XBPC_LeftKeyboard,

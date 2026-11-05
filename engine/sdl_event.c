@@ -92,6 +92,15 @@ GUI_SetKeyboardMode (XBKeyboardMode Mode)
 	keyboardMode = Mode;
 }								/* GUI_SetKeyboardMode */
 
+#ifdef __EMSCRIPTEN__
+/* web port: let the page send the engine's "select" key in menus. */
+int
+XBWeb_IsMenu (void)
+{
+	return keyboardMode == KB_MENU ? 1 : 0;
+}								/* XBWeb_IsMenu */
+#endif
+
 /*
  * Set mouse mode
  */

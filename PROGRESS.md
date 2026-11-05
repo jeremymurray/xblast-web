@@ -217,14 +217,19 @@ from 0.4.0.
 
 - [x] `XBWeb_SendKey` C bridge pushes real SDL key events; exported from the build
 - [x] Landscape grid (pad | playfield | actions) and portrait (playfield top, controls below)
-- [x] Pointer layer: slide between directions, direction+bomb multi-touch, blur/visibility release
+- [x] Pointer layer: slide/re-entry, direction+bomb multi-touch, blur/visibility release, no dead buttons
 - [x] Pads hidden until the runtime is ready and after exit; `?touch=1` / `?touch=0` overrides
+- [x] Playfield taps select engine menu items; Kick acts as Select in menus
 - [x] Lobby scrolls on short screens; safe-area padding; status line kept visible
-- [x] `scripts/touchtest.py` (CDP): bridge, both layouts, desktop unchanged, lobby scroll, pointer checks
-- [ ] Manual iOS Safari + Android Chrome acceptance, portrait and landscape, solo and netplay
+- [x] Landscape grid keeps the pad clear of the canvas down to 568x320
+- [x] `scripts/touchtest.py` (CDP): bridge, both layouts, small landscape, desktop unchanged,
+      lobby scroll, pointer safety, menu taps and player assignment
+- [ ] Manual iOS Safari + Android Chrome acceptance, portrait and landscape, solo and netplay.
+      A full match start is manual: the setup screen needs two players and its modal combo
+      close is ambiguous through the key bridge.
 - Known: touch sends the default web bindings; a remapped P1 keyboard layout is not mirrored.
-- Known: `scripts/playtest.py` is stale — its Return does not start the setup menu. Reproduced on
-  the 0.6.2 baseline, so it is not a touch-controls regression.
+- Known: `scripts/playtest.py` is stale — it never assigns two players, so its Return cannot
+  start the setup menu. Reproduced on the 0.6.2 baseline, so it is not a touch regression.
 
 ## How to run (dev)
 

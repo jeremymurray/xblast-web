@@ -155,7 +155,7 @@
   html.touch-ui #play-area {
     display: grid; box-sizing: border-box;
     width: 100vw; height: 100vh; height: 100dvh;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr) minmax(0, 1fr);
+    grid-template-columns: minmax(min-content, 1fr) minmax(0, 2.4fr) minmax(min-content, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
     align-items: center; gap: 8px;
     padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right))
@@ -221,7 +221,7 @@
 
   @media (orientation: portrait) {
     html.touch-ui #play-area {
-      grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+      grid-template-columns: minmax(min-content, 1.7fr) minmax(min-content, 1fr);
       grid-template-rows: auto minmax(0, 1fr) auto;
       grid-template-areas: "stage stage" "pad actions" "sys sys";
       align-items: center;
@@ -428,10 +428,12 @@
   /* --- touch input ----------------------------------------------------- */
   const TOUCH_ACTIONS = {
     up: 0, down: 1, left: 2, right: 3, stop: 4, bomb: 5, kick: 6, pause: 7, back: 8,
+    select: 9,
   };
   const touchCounts = Object.create(null);
   const touchLog = [];
   const touchPadPointers = new Map();
+  const touchButtonPointers = new Map();
 
   const XBTouch = globalThis.XBTouch = {
     enabled: false,
@@ -446,10 +448,16 @@
   function sendTouchKey(name, down) {
     if (!XBTouch.enabled) return;
     if (typeof Module === 'undefined' || typeof Module._XBWeb_SendKey !== 'function') return;
-    const code = TOUCH_ACTIONS[name];
+    /* In the engine's menus Kick acts as Select (Space); in play it kicks (Tab). */
+    let key = name;
+    if (name === 'kick' && typeof Module._XBWeb_IsMenu === 'function' &&
+        Module._XBWeb_IsMenu()) {
+      key = 'select';
+    }
+    const code = TOUCH_ACTIONS[key];
     if (code === undefined) return;
     if (Module._XBWeb_SendKey(code, down ? 1 : 0)) {
-      touchLog.push({ name, down, ts: Date.now() });
+      touchLog.push({ name, key, code, down, ts: Date.now() });
       if (touchLog.length > 50) touchLog.shift();
     }
   }
@@ -472,6 +480,7 @@
     });
     Object.keys(touchCounts).forEach((name) => delete touchCounts[name]);
     touchPadPointers.clear();
+    touchButtonPointers.clear();
   }
 
   const padEl = document.getElementById('pad');
@@ -492,15 +501,12 @@
   }
 
   function setPadAction(pointerId, name) {
+    if (!touchPadPointers.has(pointerId)) return;
     const old = touchPadPointers.get(pointerId) || null;
     if (old === name) return;
     if (old) adjustTouch(old, -1);
-    if (name) {
-      touchPadPointers.set(pointerId, name);
-      adjustTouch(name, 1);
-    } else {
-      touchPadPointers.delete(pointerId);
-    }
+    if (name) adjustTouch(name, 1);
+    touchPadPointers.set(pointerId, name);
   }
 
   if (padEl) {
@@ -509,6 +515,7 @@
       if (!name) return;
       event.preventDefault();
       try { padEl.setPointerCapture(event.pointerId); } catch (e) { /* synthetic pointer */ }
+      touchPadPointers.set(event.pointerId, null);
       setPadAction(event.pointerId, name);
     });
     padEl.addEventListener('pointermove', (event) => {
@@ -518,7 +525,9 @@
     });
     const endPadPointer = (event) => {
       if (!touchPadPointers.has(event.pointerId)) return;
-      setPadAction(event.pointerId, null);
+      const old = touchPadPointers.get(event.pointerId);
+      if (old) adjustTouch(old, -1);
+      touchPadPointers.delete(event.pointerId);
     };
     padEl.addEventListener('pointerup', endPadPointer);
     padEl.addEventListener('pointercancel', endPadPointer);
@@ -527,18 +536,18 @@
 
   document.querySelectorAll('#actions [data-action], #sys [data-action]').forEach((button) => {
     const name = button.dataset.action;
-    let activePointer = null;
     button.addEventListener('pointerdown', (event) => {
-      if (activePointer !== null) return;
+      if (touchButtonPointers.has(event.pointerId)) return;
       event.preventDefault();
       try { button.setPointerCapture(event.pointerId); } catch (e) { /* synthetic pointer */ }
-      activePointer = event.pointerId;
+      touchButtonPointers.set(event.pointerId, name);
       adjustTouch(name, 1);
     });
     const endPointer = (event) => {
-      if (activePointer !== event.pointerId) return;
-      activePointer = null;
-      adjustTouch(name, -1);
+      const held = touchButtonPointers.get(event.pointerId);
+      if (!held) return;
+      touchButtonPointers.delete(event.pointerId);
+      adjustTouch(held, -1);
     };
     button.addEventListener('pointerup', endPointer);
     button.addEventListener('pointercancel', endPointer);
@@ -549,6 +558,32 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') releaseAllTouches();
   });
+
+  /* Engine menus are mouse-aware but SDL2 ignores raw touches, so a tap on the
+     playfield becomes the mouse event the menu already understands. */
+  const canvasEl = document.getElementById('canvas');
+  if (canvasEl) {
+    canvasEl.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'touch') return;
+      event.preventDefault();
+      canvasEl.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, cancelable: true, button: 0, buttons: 0,
+        clientX: event.clientX, clientY: event.clientY,
+      }));
+      canvasEl.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles: true, cancelable: true, button: 0, buttons: 1,
+        clientX: event.clientX, clientY: event.clientY,
+      }));
+    });
+    canvasEl.addEventListener('pointerup', (event) => {
+      if (event.pointerType !== 'touch') return;
+      event.preventDefault();
+      canvasEl.dispatchEvent(new MouseEvent('mouseup', {
+        bubbles: true, cancelable: true, button: 0, buttons: 0,
+        clientX: event.clientX, clientY: event.clientY,
+      }));
+    });
+  }
 
   const CFG_ROOT = '/home/web_user/.xblast_tnt';
   const CFG_KEY = 'xblast:config:v2';

@@ -165,11 +165,18 @@ pause/back (centred, full width)
 | Control | Action code | SDL key | Menu role |
 |---|---|---|---|
 | D-pad | up/down/left/right | Up/Down/Left/Right | navigate |
-| centre | stop | BackSpace | previous |
-| BOMB | bomb | Return | select/default |
-| KICK | kick | Tab | next |
+| centre | stop | BackSpace | previous / change a combo |
+| BOMB | bomb | Return | default (Start) |
+| KICK | kick | Tab in play, Space in menus | select |
 | PAUSE | pause | P | none |
 | BACK | back | Escape | abort |
+
+A tap on the playfield is translated into a synthetic
+`mousemove`/`mousedown`/`mouseup` on the canvas, because the engine's menus are
+mouse-aware and SDL2 forwards no mouse event for a raw touch. Tapping a menu item
+therefore selects it. The setup screen keeps the engine's rule that a local game
+needs two players before Start activates; the touch buttons can assign them
+(tap a combo, Stop cycles its value, Kick closes it).
 
 The codes are a small integer enum shared by `web/sdl_web.c` and the page.
 `XBWeb_SendKey` sets `state`, `keysym.sym` and `scancode` and returns whether

@@ -110,12 +110,19 @@ On a phone or tablet the on-screen controls appear automatically: a movement pad
 with a centre **Stop** on the left, **Bomb** above **Kick** on the right, and
 **Pause** and **Back** on the bottom edge. Landscape puts the playfield between
 the two clusters; portrait pins the playfield to the top with the controls below.
-On a touchscreen laptop use `?touch=1` to show them and `?touch=0` to hide them.
-They send the default web bindings (arrows, Return, Tab, BackSpace, P, Escape),
-so they do not follow a custom P1 keyboard mapping.
+A touch-capable laptop shows them too; add `?touch=0` to hide them or `?touch=1`
+to force them on.
 
-**Back** is the engine's Escape: from the main menu it quits, and during a match
-it leaves the match, exactly like the keyboard.
+Tap a menu item on the playfield to choose it — a tap is translated to the mouse
+click the engine's menus already understand. Inside menus **Kick** also works as
+Select, and **Stop** changes a combo's value. The setup screen needs **two
+players** assigned (keyboards or a bot) before **Start** activates; that is the
+engine's own rule, unchanged here.
+
+The buttons send the default web bindings (arrows, Return, Tab in play and Space
+in menus, BackSpace, P, Escape), so they do not follow a custom P1 keyboard
+mapping. **Back** is the engine's Escape: from the main menu it quits, and during
+a match it leaves the match, exactly like the keyboard.
 
 ## Test
 

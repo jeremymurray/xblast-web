@@ -100,9 +100,13 @@ GPL-2.0-or-later.
   grid: landscape pad | playfield | actions, portrait playfield on top with the pad
   and actions below and Pause/Back centred on the bottom edge. Pads are gated on
   `html.touch-ready`. Touch sends the default web bindings, so a remapped P1
-  keyboard layout is not mirrored. `scripts/touchtest.py` is the CDP check; the
-  old `scripts/playtest.py` is stale (its Return does not start the setup menu,
-  reproduced on the 0.6.2 baseline).
+  keyboard layout is not mirrored. A playfield tap dispatches a synthetic
+  mousemove/mousedown/mouseup, because the engine's menus are mouse-driven and
+  SDL2 ignores raw touches. In menus Kick sends Space (Select) instead of Tab;
+  Bomb stays Return. The setup screen needs two players before Start activates.
+  `scripts/touchtest.py` is the CDP check; a full touch-started match stays a
+  manual acceptance step. The old `scripts/playtest.py` is stale because it
+  never assigns two players (reproduced on the 0.6.2 baseline).
 
 ## Attribution
 This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.1-flash-free`).

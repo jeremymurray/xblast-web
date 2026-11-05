@@ -179,7 +179,7 @@ sdl_joystick.c sdl_sound.c
 		-sUSE_SDL_GFX=2 "-sSDL2_IMAGE_FORMATS=['bmp','png','xpm','pnm']"
 		-sALLOW_MEMORY_GROWTH=1 -sASYNCIFY -sASYNCIFY_STACK_SIZE=131072
 		-sFORCE_FILESYSTEM=1 -sLZ4=1 -sEXIT_RUNTIME=1
-		"-sEXPORTED_FUNCTIONS=['_main','_XBWeb_FlushConfig','_XBWeb_SendKey']"
+		"-sEXPORTED_FUNCTIONS=['_main','_XBWeb_FlushConfig','_XBWeb_SendKey','_XBWeb_IsMenu','_XBWeb_LocalPlayerCount']"
 		-sEXPORTED_RUNTIME_METHODS=['FS'] -sSTACK_SIZE=1048576)
 	[ "$size" = 1 ] && ldflags+=(-sMALLOC=emmalloc)
 	[ ${#asserts[@]} -gt 0 ] && ldflags+=("${asserts[@]}")
