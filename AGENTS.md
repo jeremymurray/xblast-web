@@ -91,6 +91,22 @@ GPL-2.0-or-later.
   instant until a non-blocking fade is implemented.
 - **`EXIT_RUNTIME=1`** so quitting calls `Module.onExit` and the page can show
   the "Play again" overlay.
+- **Mobile touch controls (2026-11-04):** `web/sdl_web.c` exports
+  `XBWeb_SendKey(action, down)`, which pushes a real SDL key event for nine actions
+  (arrows, BackSpace, Return, Tab, P, Escape); this is preferred over synthetic
+  `KeyboardEvent`s because SDL2 only forwards events with a valid `code` and legacy
+  `keyCode`. The page's `#touch` layer is auto-shown on coarse pointers and
+  `navigator.maxTouchPoints > 0`, with `?touch=1`/`?touch=0` overrides. Layout is a
+  grid: landscape pad | playfield | actions, portrait playfield on top with the pad
+  and actions below and Pause/Back centred on the bottom edge. Pads are gated on
+  `html.touch-ready`. Touch sends the default web bindings, so a remapped P1
+  keyboard layout is not mirrored. A playfield tap dispatches a synthetic
+  mousemove/mousedown/mouseup, because the engine's menus are mouse-driven and
+  SDL2 ignores raw touches. In menus Kick sends Space (Select) instead of Tab;
+  Bomb stays Return. The setup screen needs two players before Start activates.
+  `scripts/touchtest.py` is the CDP check; a full touch-started match stays a
+  manual acceptance step. The old `scripts/playtest.py` is stale because it
+  never assigns two players (reproduced on the 0.6.2 baseline).
 
 ## Attribution
 This port is vibecoded with **DeepSeek V4.1 Flash Free** (`opencode/deepseek-v4.1-flash-free`).

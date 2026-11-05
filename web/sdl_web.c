@@ -133,6 +133,51 @@ XBWeb_Present (SDL_Surface *surface)
 	SDL_RenderPresent (webRenderer);
 }
 
+/* web port: feed engine key events from the on-screen touch controls. */
+enum
+{
+	XBWEB_KEY_UP = 0,
+	XBWEB_KEY_DOWN,
+	XBWEB_KEY_LEFT,
+	XBWEB_KEY_RIGHT,
+	XBWEB_KEY_STOP,
+	XBWEB_KEY_BOMB,
+	XBWEB_KEY_KICK,
+	XBWEB_KEY_PAUSE,
+	XBWEB_KEY_BACK,
+	XBWEB_KEY_SELECT
+};
+
+int
+XBWeb_SendKey (int action, int down)
+{
+	SDL_Event event;
+	SDL_Keycode sym;
+
+	switch (action) {
+	case XBWEB_KEY_UP:		sym = SDLK_UP;			break;
+	case XBWEB_KEY_DOWN:	sym = SDLK_DOWN;		break;
+	case XBWEB_KEY_LEFT:	sym = SDLK_LEFT;		break;
+	case XBWEB_KEY_RIGHT:	sym = SDLK_RIGHT;		break;
+	case XBWEB_KEY_STOP:	sym = SDLK_BACKSPACE;	break;
+	case XBWEB_KEY_BOMB:	sym = SDLK_RETURN;		break;
+	case XBWEB_KEY_KICK:	sym = SDLK_TAB;			break;
+	case XBWEB_KEY_PAUSE:	sym = SDLK_p;			break;
+	case XBWEB_KEY_BACK:	sym = SDLK_ESCAPE;		break;
+	case XBWEB_KEY_SELECT:	sym = SDLK_SPACE;		break;
+	default:
+		return 0;
+	}
+
+	SDL_zero (event);
+	event.type = down ? SDL_KEYDOWN : SDL_KEYUP;
+	event.key.state = down ? SDL_PRESSED : SDL_RELEASED;
+	event.key.keysym.sym = sym;
+	event.key.keysym.scancode = SDL_GetScancodeFromKey (sym);
+	event.key.keysym.mod = KMOD_NONE;
+	return SDL_PushEvent (&event) > 0;
+}
+
 void
 SDL_UpdateRect (SDL_Surface *surface, Sint32 x, Sint32 y, Uint32 w, Uint32 h)
 {

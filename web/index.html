@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <script type="importmap">
 {"imports":{
   "@trystero-p2p/nostr":"./vendor/trystero/nostr/index.mjs",
@@ -25,6 +25,9 @@
   }
   .screen.show { display: flex; }
   .panel { max-width: 640px; padding: 2em; text-align: left; }
+  /* Short phone screens: let the lobby scroll instead of clipping its top. */
+  #landing { align-items: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  #landing .panel { margin: auto; padding-bottom: max(2em, env(safe-area-inset-bottom)); }
   .panel h1 { margin: 0 0 0.3em; font-size: 2em; letter-spacing: 0.04em; }
   .panel p { margin: 0.6em 0; color: #ddd; }
   .panel .licence { margin-top: 1.2em; font-size: 12px; color: #888; }
@@ -142,10 +145,137 @@
     }
     .keyhint { position: static; transform: none; width: 48vw; max-width: 330px; }
   }
+
+  /* --- touch controls ------------------------------------------------- */
+  #play-area, #stage { display: contents; }
+  #touch { display: none; }
+
+  html.touch-ui, html.touch-ui body { height: 100%; overflow: hidden; }
+  html.touch-ui body { display: block; }
+  html.touch-ui #play-area {
+    display: grid; box-sizing: border-box;
+    width: 100vw; height: 100vh; height: 100dvh;
+    grid-template-columns: minmax(min-content, 1fr) minmax(0, 2.4fr) minmax(min-content, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: center; gap: 8px;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right))
+             max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+  }
+  /* landscape: pad | playfield | actions, system row at the bottom right */
+  html.touch-ui #pad     { grid-area: 1 / 1 / 3 / 2; }
+  html.touch-ui #stage   { grid-area: 1 / 2 / 3 / 3; }
+  html.touch-ui #actions { grid-area: 1 / 3 / 3 / 4; }
+  html.touch-ui #sys     { grid-area: 2 / 3 / 3 / 4; }
+  html.touch-ui #stage {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 0; min-height: 0; width: 100%; height: 100%;
+  }
+  html.touch-ui #touch { display: contents; }
+  html.touch-ui:not(.touch-ready) #touch { display: none; }
+  html.touch-ui #pad {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 6px; width: 100%; max-width: calc(3 * 64px + 12px);
+    align-self: center; justify-self: center;
+  }
+  html.touch-ui #actions {
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 12px; align-self: stretch; min-height: 0;
+  }
+  html.touch-ui #sys { display: flex; justify-content: center; align-items: flex-end; gap: 10px; }
+  html.touch-ui canvas { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+
+  html.touch-ui .pad-key {
+    aspect-ratio: 1; min-width: 44px; min-height: 44px; padding: 0;
+    font: 600 clamp(12px, 3.2vmin, 18px)/1 ui-monospace, monospace;
+    color: #ddd; background: #262626; border: 1px solid #555; border-radius: 10px;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.touch-ui .pad-key.pad-stop {
+    background: #332e17; border-color: #8a7a30; color: #ffd400; font-size: 10px;
+  }
+  html.touch-ui .pad-gap { visibility: hidden; }
+  html.touch-ui .touch-big {
+    width: 100%; min-height: 56px; height: clamp(56px, 19vh, 84px);
+    border-radius: 10px; font: 700 clamp(10px, 2.6vmin, 13px)/1.2 ui-monospace, monospace;
+    color: #ff8a8a; background: #3a1f1f; border: 2px solid #7a3b3b;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  html.touch-ui .touch-big[data-action="kick"] {
+    color: #ffd400; background: #332e17; border-color: #7a6a2b;
+  }
+  html.touch-ui .touch-small {
+    min-height: 44px; padding: 8px 14px; border-radius: 6px;
+    font: 600 10px/1 ui-monospace, monospace; letter-spacing: .08em;
+    color: #bbb; background: #222; border: 1px solid #555;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html.touch-ui #keyhints { display: none !important; }
+  html.touch-ui #status {
+    top: max(6px, env(safe-area-inset-top)); bottom: auto; left: 50%;
+    transform: translateX(-50%); white-space: nowrap;
+  }
+
+  @media (orientation: portrait) {
+    html.touch-ui #play-area {
+      grid-template-columns: minmax(min-content, 1.7fr) minmax(min-content, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-areas: "stage stage" "pad actions" "sys sys";
+      align-items: center;
+    }
+    html.touch-ui #stage {
+      grid-area: stage; aspect-ratio: 480 / 368; align-self: start; height: auto;
+    }
+    html.touch-ui #pad     { grid-area: pad; }
+    html.touch-ui #actions { grid-area: actions; align-self: center; padding-right: 0; }
+    html.touch-ui #sys {
+      grid-area: sys; align-self: end; justify-content: center; padding-top: 4px;
+    }
+  }
 </style>
 </head>
 <body>
-<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<script>
+  (function () {
+    var q = new URLSearchParams(location.search).get('touch');
+    var forcedOff = q === '0';
+    var forcedOn = q === '1';
+    var coarse = window.matchMedia('(any-pointer: coarse)').matches ||
+                 navigator.maxTouchPoints > 0;
+    if (forcedOn || (coarse && !forcedOff)) {
+      document.documentElement.classList.add('touch-ui');
+    }
+  })();
+</script>
+<div id="play-area">
+  <div id="stage">
+    <canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+  </div>
+  <div id="touch" aria-label="Touch controls">
+    <div id="pad">
+      <span class="pad-gap"></span>
+      <button class="pad-key" data-action="up" aria-label="Move up">&#9650;</button>
+      <span class="pad-gap"></span>
+      <button class="pad-key" data-action="left" aria-label="Move left">&#9664;</button>
+      <button class="pad-key pad-stop" data-action="stop" aria-label="Stop">STOP</button>
+      <button class="pad-key" data-action="right" aria-label="Move right">&#9654;</button>
+      <span class="pad-gap"></span>
+      <button class="pad-key" data-action="down" aria-label="Move down">&#9660;</button>
+      <span class="pad-gap"></span>
+    </div>
+    <div id="actions">
+      <button class="touch-big" data-action="bomb" aria-label="Drop bomb">BOMB</button>
+      <button class="touch-big" data-action="kick" aria-label="Kick">KICK</button>
+    </div>
+    <div id="sys">
+      <button class="touch-small" data-action="pause" aria-label="Pause">PAUSE</button>
+      <button class="touch-small" data-action="back" aria-label="Back">BACK</button>
+    </div>
+  </div>
+</div>
 <div id="status">ready</div>
 
 <div id="keyhints">
@@ -295,6 +425,166 @@
 
   document.getElementById('again').addEventListener('click', () => location.reload());
 
+  /* --- touch input ----------------------------------------------------- */
+  const TOUCH_ACTIONS = {
+    up: 0, down: 1, left: 2, right: 3, stop: 4, bomb: 5, kick: 6, pause: 7, back: 8,
+    select: 9,
+  };
+  const touchCounts = Object.create(null);
+  const touchLog = [];
+  const touchPadPointers = new Map();
+  const touchButtonPointers = new Map();
+
+  const XBTouch = globalThis.XBTouch = {
+    enabled: false,
+    log: touchLog,
+    press(name) { adjustTouch(name, 1); },
+    release(name) { adjustTouch(name, -1); },
+    active() {
+      return Object.keys(touchCounts).filter((name) => touchCounts[name] > 0).sort();
+    },
+  };
+
+  function sendTouchKey(name, down) {
+    if (!XBTouch.enabled) return;
+    if (typeof Module === 'undefined' || typeof Module._XBWeb_SendKey !== 'function') return;
+    /* In the engine's menus Kick acts as Select (Space); in play it kicks (Tab). */
+    let key = name;
+    if (name === 'kick' && typeof Module._XBWeb_IsMenu === 'function' &&
+        Module._XBWeb_IsMenu()) {
+      key = 'select';
+    }
+    const code = TOUCH_ACTIONS[key];
+    if (code === undefined) return;
+    if (Module._XBWeb_SendKey(code, down ? 1 : 0)) {
+      touchLog.push({ name, key, code, down, ts: Date.now() });
+      if (touchLog.length > 50) touchLog.shift();
+    }
+  }
+
+  function adjustTouch(name, delta) {
+    if (!XBTouch.enabled || !(name in TOUCH_ACTIONS)) return;
+    const count = (touchCounts[name] || 0) + delta;
+    if (count <= 0) {
+      if (touchCounts[name] > 0) sendTouchKey(name, false);
+      delete touchCounts[name];
+    } else {
+      if (!touchCounts[name]) sendTouchKey(name, true);
+      touchCounts[name] = count;
+    }
+  }
+
+  function releaseAllTouches() {
+    Object.keys(touchCounts).forEach((name) => {
+      if (touchCounts[name] > 0) sendTouchKey(name, false);
+    });
+    Object.keys(touchCounts).forEach((name) => delete touchCounts[name]);
+    touchPadPointers.clear();
+    touchButtonPointers.clear();
+  }
+
+  const padEl = document.getElementById('pad');
+
+  function padActionAt(clientX, clientY) {
+    const r = padEl.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    if (clientX < r.left || clientX >= r.right || clientY < r.top || clientY >= r.bottom) {
+      return null;
+    }
+    const col = Math.min(2, Math.floor((clientX - r.left) / (r.width / 3)));
+    const row = Math.min(2, Math.floor((clientY - r.top) / (r.height / 3)));
+    return [
+      [null, 'up', null],
+      ['left', 'stop', 'right'],
+      [null, 'down', null],
+    ][row][col];
+  }
+
+  function setPadAction(pointerId, name) {
+    if (!touchPadPointers.has(pointerId)) return;
+    const old = touchPadPointers.get(pointerId) || null;
+    if (old === name) return;
+    if (old) adjustTouch(old, -1);
+    if (name) adjustTouch(name, 1);
+    touchPadPointers.set(pointerId, name);
+  }
+
+  if (padEl) {
+    padEl.addEventListener('pointerdown', (event) => {
+      const name = padActionAt(event.clientX, event.clientY);
+      if (!name) return;
+      event.preventDefault();
+      try { padEl.setPointerCapture(event.pointerId); } catch (e) { /* synthetic pointer */ }
+      touchPadPointers.set(event.pointerId, null);
+      setPadAction(event.pointerId, name);
+    });
+    padEl.addEventListener('pointermove', (event) => {
+      if (!touchPadPointers.has(event.pointerId)) return;
+      event.preventDefault();
+      setPadAction(event.pointerId, padActionAt(event.clientX, event.clientY));
+    });
+    const endPadPointer = (event) => {
+      if (!touchPadPointers.has(event.pointerId)) return;
+      const old = touchPadPointers.get(event.pointerId);
+      if (old) adjustTouch(old, -1);
+      touchPadPointers.delete(event.pointerId);
+    };
+    padEl.addEventListener('pointerup', endPadPointer);
+    padEl.addEventListener('pointercancel', endPadPointer);
+    padEl.addEventListener('lostpointercapture', endPadPointer);
+  }
+
+  document.querySelectorAll('#actions [data-action], #sys [data-action]').forEach((button) => {
+    const name = button.dataset.action;
+    button.addEventListener('pointerdown', (event) => {
+      if (touchButtonPointers.has(event.pointerId)) return;
+      event.preventDefault();
+      try { button.setPointerCapture(event.pointerId); } catch (e) { /* synthetic pointer */ }
+      touchButtonPointers.set(event.pointerId, name);
+      adjustTouch(name, 1);
+    });
+    const endPointer = (event) => {
+      const held = touchButtonPointers.get(event.pointerId);
+      if (!held) return;
+      touchButtonPointers.delete(event.pointerId);
+      adjustTouch(held, -1);
+    };
+    button.addEventListener('pointerup', endPointer);
+    button.addEventListener('pointercancel', endPointer);
+    button.addEventListener('lostpointercapture', endPointer);
+  });
+
+  window.addEventListener('blur', releaseAllTouches);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') releaseAllTouches();
+  });
+
+  /* Engine menus are mouse-aware but SDL2 ignores raw touches, so a tap on the
+     playfield becomes the mouse event the menu already understands. */
+  const canvasEl = document.getElementById('canvas');
+  if (canvasEl) {
+    canvasEl.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'touch') return;
+      event.preventDefault();
+      canvasEl.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true, cancelable: true, button: 0, buttons: 0,
+        clientX: event.clientX, clientY: event.clientY,
+      }));
+      canvasEl.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles: true, cancelable: true, button: 0, buttons: 1,
+        clientX: event.clientX, clientY: event.clientY,
+      }));
+    });
+    canvasEl.addEventListener('pointerup', (event) => {
+      if (event.pointerType !== 'touch') return;
+      event.preventDefault();
+      canvasEl.dispatchEvent(new MouseEvent('mouseup', {
+        bubbles: true, cancelable: true, button: 0, buttons: 0,
+        clientX: event.clientX, clientY: event.clientY,
+      }));
+    });
+  }
+
   const CFG_ROOT = '/home/web_user/.xblast_tnt';
   const CFG_KEY = 'xblast:config:v2';
 
@@ -355,12 +645,17 @@
     onRuntimeInitialized: () => {
       console.log('xb: runtime ready');
       globalThis.__xbReady = true;
+      XBTouch.enabled = true;
+      document.documentElement.classList.add('touch-ready');
       restoreConfig();
       statusEl.textContent = '';
       overlayEl.classList.remove('show');
     },
     onExit: (code) => {
       console.log('xb: exit', code);
+      XBTouch.enabled = false;
+      releaseAllTouches();
+      document.documentElement.classList.remove('touch-ready');
       saveConfig();
       overlayEl.classList.add('show');
     }
