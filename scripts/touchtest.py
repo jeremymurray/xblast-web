@@ -66,9 +66,13 @@ def start_server():
 def wait_js(ws, expression, timeout=90):
     end = time.time() + timeout
     while time.time() < end:
-        result = ws.call(6, "Runtime.evaluate", {
-            "expression": expression, "returnByValue": True,
-        })
+        try:
+            result = ws.call(6, "Runtime.evaluate", {
+                "expression": expression, "returnByValue": True,
+            })
+        except RuntimeError:
+            time.sleep(0.2)          # the execution context is being replaced
+            continue
         if (result.get("result") or {}).get("value"):
             return
         time.sleep(0.2)
@@ -79,6 +83,10 @@ def js(ws, expression):
     result = ws.call(6, "Runtime.evaluate", {
         "expression": expression, "returnByValue": True,
     })
+    if result.get("exceptionDetails"):
+        details = result["exceptionDetails"]
+        text = details.get("exception", {}).get("description") or details.get("text")
+        raise AssertionError(f"{text} in {expression}")
     if (result.get("result") or {}).get("subtype") == "error":
         raise AssertionError(result["result"].get("description", expression))
     return (result.get("result") or {}).get("value")
@@ -115,6 +123,32 @@ def shot_hash(ws):
     return hashlib.sha256(base64.b64decode(data)).hexdigest()
 
 
+PHONE_PORTRAIT = {"width": 390, "height": 844, "deviceScaleFactor": 3, "mobile": True}
+PHONE_LANDSCAPE = {"width": 844, "height": 390, "deviceScaleFactor": 3, "mobile": True}
+DESKTOP = {"width": 1000, "height": 800, "deviceScaleFactor": 1, "mobile": False}
+
+
+def phone(ws, metrics, touch=True):
+    ws.call(40, "Emulation.setDeviceMetricsOverride", metrics)
+    ws.call(41, "Emulation.setTouchEmulationEnabled",
+            {"enabled": touch, "maxTouchPoints": 5})
+    ws.call(42, "Page.reload")
+    wait_js(ws, "document.readyState === 'complete' && !!document.getElementById('play')", 30)
+
+
+def rects(ws, *selectors):
+    expression = "JSON.stringify(Object.fromEntries(%s.map(s => { const r =" \
+                 " document.querySelector(s).getBoundingClientRect();" \
+                 " return [s.replace(/^#/, ''), {top:r.top, bottom:r.bottom, left:r.left," \
+                 " right:r.right, width:r.width, height:r.height}]; })))" \
+                 % json.dumps(list(selectors))
+    return json.loads(js(ws, expression))
+
+
+def center_x(rect):
+    return (rect["left"] + rect["right"]) / 2
+
+
 def check_bridge(ws):
     start_solo_ready(ws)
     dismiss_intro(ws)              # settle on the engine main menu
@@ -127,6 +161,66 @@ def check_bridge(ws):
               "overlay is already visible before sending the key")
     js(ws, "Module._XBWeb_SendKey(8, 1); Module._XBWeb_SendKey(8, 0); true")
     wait_js(ws, "document.getElementById('overlay').classList.contains('show')", 15)
+
+
+def check_layout_portrait(ws):
+    phone(ws, PHONE_PORTRAIT)
+    assert_js(ws, "document.documentElement.classList.contains('touch-ui')",
+              "touch mode did not activate on a phone viewport")
+    assert_js(ws, "getComputedStyle(document.getElementById('play-area')).display === 'grid'",
+              "the touch page grid is not active")
+    start_solo_ready(ws)
+    r = rects(ws, "#stage", "#pad", "#actions", "#sys")
+    width = js(ws, "innerWidth")
+    if not r["stage"]["top"] < r["pad"]["top"]:
+        raise AssertionError("the playfield is not pinned above the pad in portrait")
+    if not r["stage"]["bottom"] <= r["pad"]["top"] + 1:
+        raise AssertionError("the playfield overlaps the pad in portrait")
+    if not r["pad"]["right"] <= r["actions"]["left"] + 1:
+        raise AssertionError("the pad overlaps the actions in portrait")
+    if not abs(center_x(r["sys"]) - width / 2) < 2:
+        raise AssertionError("the system row is not centred in portrait")
+    if not r["sys"]["bottom"] >= r["actions"]["bottom"] - 1:
+        raise AssertionError("the system row is not at the bottom in portrait")
+
+
+def check_layout_landscape(ws):
+    phone(ws, PHONE_LANDSCAPE)
+    start_solo_ready(ws)
+    r = rects(ws, "#pad", "#stage", "#actions", "#sys")
+    if not r["pad"]["right"] <= r["stage"]["left"] + 1:
+        raise AssertionError("the pad overlaps the playfield in landscape")
+    if not r["stage"]["right"] <= r["actions"]["left"] + 1:
+        raise AssertionError("the actions overlap the playfield in landscape")
+    if not abs(center_x(r["sys"]) - center_x(r["actions"])) < 2:
+        raise AssertionError("the system row is not under the actions in landscape")
+
+
+def check_desktop_unchanged(ws):
+    phone(ws, DESKTOP, touch=False)
+    assert_js(ws, "!document.documentElement.classList.contains('touch-ui')",
+              "touch mode appeared on desktop")
+    assert_js(ws, "getComputedStyle(document.getElementById('play-area')).display === 'contents'",
+              "the desktop play area is not transparent")
+    assert_js(ws, "getComputedStyle(document.getElementById('stage')).display === 'contents'",
+              "the desktop stage box is not transparent")
+    assert_js(ws, "getComputedStyle(document.getElementById('touch')).display === 'none'",
+              "the touch controls are visible on desktop")
+
+
+def check_lobby_scroll(ws):
+    phone(ws, {"width": 390, "height": 600, "deviceScaleFactor": 2, "mobile": True})
+    assert_js(ws, "document.getElementById('landing').scrollHeight > "
+                  "document.getElementById('landing').clientHeight",
+              "the lobby does not scroll on a short screen")
+    js(ws, "document.getElementById('landing').scrollTop = 0; true")
+    assert_js(ws, "document.querySelector('#landing .panel h1').getBoundingClientRect().top >= 0",
+              "the top of the lobby is clipped")
+    js(ws, "document.getElementById('host').scrollIntoView({block: 'center'}); true")
+    time.sleep(0.2)
+    assert_js(ws, "(() => { const r = document.getElementById('host').getBoundingClientRect();"
+                  " return r.top >= 0 && r.bottom <= innerHeight + 1; })()",
+              "the host button cannot be reached by scrolling")
 
 
 def main():
@@ -156,6 +250,10 @@ def main():
         wait_js(ws, "document.readyState === 'complete' && !!document.getElementById('play')", 30)
 
         check_bridge(ws)
+        check_layout_portrait(ws)
+        check_layout_landscape(ws)
+        check_desktop_unchanged(ws)
+        check_lobby_scroll(ws)
         print("PASS: touch controls", flush=True)
     finally:
         proc.terminate()
