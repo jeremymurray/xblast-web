@@ -104,10 +104,24 @@ and WebRTC. The `.wasm` and `.data` files will not load from `file://`.
   menu, which reloads the page. Leaving a match returns to the menu but keeps
   the room.
 
+### Touch controls
+
+On a phone or tablet the on-screen controls appear automatically: a movement pad
+with a centre **Stop** on the left, **Bomb** above **Kick** on the right, and
+**Pause** and **Back** on the bottom edge. Landscape puts the playfield between
+the two clusters; portrait pins the playfield to the top with the controls below.
+On a touchscreen laptop use `?touch=1` to show them and `?touch=0` to hide them.
+They send the default web bindings (arrows, Return, Tab, BackSpace, P, Escape),
+so they do not follow a custom P1 keyboard mapping.
+
+**Back** is the engine's Escape: from the main menu it quits, and during a match
+it leaves the match, exactly like the keyboard.
+
 ## Test
 
 ```sh
 python3 scripts/playtest.py       # solo: start a game, move, drop a bomb
+python3 scripts/touchtest.py      # phone layouts + touch keys; builds web/dist
 python3 scripts/nettest_js.py     # transport: real WebRTC pages, up to seven peers
 python3 scripts/netplaytest.py    # three browsers: host + two guests, then a match
 python3 scripts/netplaytest.py --scenario six       # six players, heavy, opt-in
