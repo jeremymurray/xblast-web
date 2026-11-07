@@ -142,7 +142,7 @@ enum
 	XBWEB_KEY_RIGHT,
 	XBWEB_KEY_STOP,
 	XBWEB_KEY_BOMB,
-	XBWEB_KEY_KICK,
+	XBWEB_KEY_SPECIAL,
 	XBWEB_KEY_PAUSE,
 	XBWEB_KEY_BACK,
 	XBWEB_KEY_SELECT
@@ -161,7 +161,7 @@ XBWeb_SendKey (int action, int down)
 	case XBWEB_KEY_RIGHT:	sym = SDLK_RIGHT;		break;
 	case XBWEB_KEY_STOP:	sym = SDLK_BACKSPACE;	break;
 	case XBWEB_KEY_BOMB:	sym = SDLK_RETURN;		break;
-	case XBWEB_KEY_KICK:	sym = SDLK_TAB;			break;
+	case XBWEB_KEY_SPECIAL:	sym = SDLK_TAB;			break;
 	case XBWEB_KEY_PAUSE:	sym = SDLK_p;			break;
 	case XBWEB_KEY_BACK:	sym = SDLK_ESCAPE;		break;
 	case XBWEB_KEY_SELECT:	sym = SDLK_SPACE;		break;

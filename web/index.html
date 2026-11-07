@@ -202,7 +202,7 @@
     touch-action: none; user-select: none; -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
-  html.touch-ui .touch-big[data-action="kick"] {
+  html.touch-ui .touch-big[data-action="special"] {
     color: #ffd400; background: #332e17; border-color: #7a6a2b;
   }
   html.touch-ui .touch-small {
@@ -268,7 +268,7 @@
     </div>
     <div id="actions">
       <button class="touch-big" data-action="bomb" aria-label="Drop bomb">BOMB</button>
-      <button class="touch-big" data-action="kick" aria-label="Kick">KICK</button>
+      <button class="touch-big" data-action="special" aria-label="Special ability">SPECIAL</button>
     </div>
     <div id="sys">
       <button class="touch-small" data-action="pause" aria-label="Pause">PAUSE</button>
@@ -336,8 +336,10 @@
     </div>
     <dl>
       <dt>Menus</dt><dd>Tab / arrows to move, Space or Return to select</dd>
-      <dt>Left player</dt><dd>W A S D to move, Space to bomb, Shift to stop, Tab to kick</dd>
-      <dt>Right player</dt><dd>Arrow keys to move, Return to bomb</dd>
+      <dt>Left player</dt><dd>W A S D to move, Space to bomb, Shift to stop, Tab for the special</dd>
+      <dt>Right player</dt><dd>Arrow keys to move, Return to bomb, Tab for the special</dd>
+      <dt>Special / kick</dt><dd>Tab uses the level's special (detonate remote bombs, jump, ...).
+         Kicking is automatic with the kick extra: walk into a bomb.</dd>
       <dt>During a match</dt><dd>Esc leaves the match</dd>
     </dl>
     <p>The first click loads the game (about 20&nbsp;MB) and enables sound.</p>
@@ -427,7 +429,7 @@
 
   /* --- touch input ----------------------------------------------------- */
   const TOUCH_ACTIONS = {
-    up: 0, down: 1, left: 2, right: 3, stop: 4, bomb: 5, kick: 6, pause: 7, back: 8,
+    up: 0, down: 1, left: 2, right: 3, stop: 4, bomb: 5, special: 6, pause: 7, back: 8,
     select: 9,
   };
   const touchCounts = Object.create(null);
@@ -448,9 +450,10 @@
   function sendTouchKey(name, down) {
     if (!XBTouch.enabled) return;
     if (typeof Module === 'undefined' || typeof Module._XBWeb_SendKey !== 'function') return;
-    /* In the engine's menus Kick acts as Select (Space); in play it kicks (Tab). */
+    /* In menus Special acts as Select (Space); in play it sends the level's
+       special key (Tab): remote detonator, jump, teleport, and so on. */
     let key = name;
-    if (name === 'kick' && typeof Module._XBWeb_IsMenu === 'function' &&
+    if (name === 'special' && typeof Module._XBWeb_IsMenu === 'function' &&
         Module._XBWeb_IsMenu()) {
       key = 'select';
     }
@@ -1455,7 +1458,7 @@
         cap(8, 14, 32, b.keyUp, '', 22) + cap(44, 14, 32, b.keyLeft, '', 22) +
         cap(80, 14, 32, b.keyDown, '', 22) + cap(116, 14, 32, b.keyRight, '', 22) +
         cap(152, 14, 64, b.keyBomb, 'Bomb', 22) + cap(220, 14, 32, b.keyStop, 'Stop', 22) +
-        cap(256, 14, 36, b.keySpecial, 'Kick', 22) +
+        cap(256, 14, 36, b.keySpecial, 'Special', 22) +
         cap(8, 50, 32, b.keyAbort, 'Abort', 22) + cap(44, 50, 32, b.keyAbortCancel, 'Cancel', 22) +
         cap(80, 50, 32, b.keyPause, 'Pause', 22) +
         `</svg>`;
@@ -1466,7 +1469,7 @@
       cap(5, 50, 34, b.keyLeft) + cap(43, 50, 34, b.keyStop, 'Stop') + cap(81, 50, 34, b.keyRight) +
       cap(43, 90, 34, b.keyDown) +
       cap(5, 128, 110, b.keyBomb, 'Bomb') +
-      cap(5, 166, 52, b.keySpecial, 'Kick') + cap(63, 166, 52, b.keyAbort, 'Abort') +
+      cap(5, 166, 52, b.keySpecial, 'Special') + cap(63, 166, 52, b.keyAbort, 'Abort') +
       cap(5, 204, 52, b.keyAbortCancel, 'Cancel') + cap(63, 204, 52, b.keyPause, 'Pause') +
       `</svg>`;
   }

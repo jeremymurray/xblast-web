@@ -102,8 +102,10 @@ GPL-2.0-or-later.
   `html.touch-ready`. Touch sends the default web bindings, so a remapped P1
   keyboard layout is not mirrored. A playfield tap dispatches a synthetic
   mousemove/mousedown/mouseup, because the engine's menus are mouse-driven and
-  SDL2 ignores raw touches. In menus Kick sends Space (Select) instead of Tab;
-  Bomb stays Return. The setup screen needs two players before Start activates.
+  SDL2 ignores raw touches. In menus Special sends Space (Select) instead of Tab;
+  Bomb stays Return. Special is the level-defined Tab ability (remote detonator,
+  jump, ...); kicking is automatic with the kick extra. The setup screen needs
+  two players before Start activates.
   `scripts/touchtest.py` is the CDP check; a full touch-started match stays a
   manual acceptance step. The old `scripts/playtest.py` is stale because it
   never assigns two players (reproduced on the 0.6.2 baseline).

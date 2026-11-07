@@ -459,9 +459,9 @@ def check_touch_menus(ws):
     time.sleep(0.5)
     assert_js(ws, "Module._XBWeb_LocalPlayerCount() === 1",
               "the tap plus STOP did not assign a keyboard player")
-    js(ws, "XBTouch.press('kick'); XBTouch.release('kick'); true")   # Select
-    assert_js(ws, "XBTouch.log.slice(-2).some(e => e.name === 'kick' && e.key === 'select')",
-              "KICK did not send the menu select key")
+    js(ws, "XBTouch.press('special'); XBTouch.release('special'); true")   # Select
+    assert_js(ws, "XBTouch.log.slice(-2).some(e => e.name === 'special' && e.key === 'select')",
+              "SPECIAL did not send the menu select key")
 
 
 def main():

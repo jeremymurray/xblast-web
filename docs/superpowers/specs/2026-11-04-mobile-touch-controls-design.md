@@ -10,7 +10,7 @@ The page loads and renders on a phone, but the only input path is a keyboard.
 `web/index.html` owns the lobby and the Emscripten module, and the engine still
 reads SDL keyboard events in `engine/sdl_event.c`. Player 1's web defaults
 (`engine/cfg_control.c`, `__EMSCRIPTEN__` branch) are arrows for movement,
-BackSpace to stop, Return to bomb, Tab for the special/kick, P to pause and
+BackSpace to stop, Return to bomb, Tab for the level's special, P to pause and
 Escape to leave. The engine's own menus are keyboard-only too: arrows navigate,
 Return/Space select, Escape aborts, Tab/BackSpace step (`menuKeyTable`).
 
@@ -28,7 +28,7 @@ unchanged.
 ## 3. Goals
 
 1. On-screen controls that cover every action needed to start and play a match:
-   movement, stop, bomb, kick/special, pause, and back/leave.
+   movement, stop, bomb, special, pause, and back/leave.
 2. The controls drive the same engine input path as the keyboard, so menus,
    local play and netplay all work without engine game-logic changes.
 3. A landscape layout with the pad on the left, the playfield in the middle and
@@ -167,7 +167,7 @@ pause/back (centred, full width)
 | D-pad | up/down/left/right | Up/Down/Left/Right | navigate |
 | centre | stop | BackSpace | previous / change a combo |
 | BOMB | bomb | Return | default (Start) |
-| KICK | kick | Tab in play, Space in menus | select |
+| SPECIAL | special | Tab in play, Space in menus | select |
 | PAUSE | pause | P | none |
 | BACK | back | Escape | abort |
 
@@ -176,7 +176,7 @@ A tap on the playfield is translated into a synthetic
 mouse-aware and SDL2 forwards no mouse event for a raw touch. Tapping a menu item
 therefore selects it. The setup screen keeps the engine's rule that a local game
 needs two players before Start activates; the touch buttons can assign them
-(tap a combo, Stop cycles its value, Kick closes it).
+(tap a combo, Stop cycles its value, Special closes it).
 
 The codes are a small integer enum shared by `web/sdl_web.c` and the page.
 `XBWeb_SendKey` sets `state`, `keysym.sym` and `scancode` and returns whether
