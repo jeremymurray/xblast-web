@@ -276,6 +276,10 @@ with `XB_TEST_OFFLINE=1`). Both start Chromium with
 
 ## Known issues / notes
 
+- **Antialiased text (web only).** `engine/sdl_text.c` renders with
+  `TTF_RenderUTF8_Blended` and draws the outline by stamping blended glyphs, under
+  `__EMSCRIPTEN__`; desktop keeps the 1-bit `Solid` path. The canvas is still CSS-scaled
+  with `image-rendering: pixelated`, so non-integer scales leave some blockiness.
 - **TURN is optional and hoster/player supplied.** Without a relay, some NAT pairs cannot
   connect. Public Nostr relays are signalling only; they do not relay game traffic. The project's
   own deployment runs no TURN; `docs/hosting.md` covers self-hosting and the player override.
