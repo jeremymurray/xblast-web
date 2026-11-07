@@ -48,6 +48,78 @@ SDL_Surface *RenderSolidText (TTF_Font * font, const char *text, SDL_Color textC
 SDL_Surface *RenderOutlineText (TTF_Font * font, const char *text, SDL_Color textColor,
 								SDL_Color outlineColor, int length);
 
+#ifdef __EMSCRIPTEN__
+/*
+ * web port: antialiased text. The canvas is scaled by the browser, which
+ * makes 1-bit TTF_RenderUTF8_Solid glyphs look jagged. Blended glyphs carry
+ * alpha and are blitted with SDL_BLENDMODE_BLEND onto the ARGB screen.
+ */
+static SDL_Surface *
+WebRenderBlended (TTF_Font * font, const char *text, SDL_Color color)
+{
+	SDL_Surface *text_surface;
+
+	color.a = 0xFF;
+	text_surface = TTF_RenderUTF8_Blended (font, text, color);
+	if (text_surface == NULL) {
+		fprintf (stderr, "Error: TTF could not render font!\n" "Reason: %s\n", TTF_GetError ());
+		return NULL;
+	}
+	SDL_SetSurfaceBlendMode (text_surface, SDL_BLENDMODE_BLEND);
+	return text_surface;
+}
+
+/*
+ * web port: outline by stamping the blended glyphs in the outline colour
+ * over a disc of radius length-1 (the upstream outline reaches that far),
+ * then the text on top. The surface keeps the upstream size and offset.
+ */
+static SDL_Surface *
+WebRenderOutline (TTF_Font * font, const char *text, SDL_Color textColor,
+				  SDL_Color outlineColor, int length)
+{
+	SDL_Surface *text_surface, *outline_surface, *surface;
+	SDL_Rect rect;
+	int dx, dy, r = length > 0 ? length - 1 : 0;
+
+	text_surface = WebRenderBlended (font, text, textColor);
+	if (text_surface == NULL)
+		return NULL;
+	outline_surface = WebRenderBlended (font, text, outlineColor);
+	if (outline_surface == NULL) {
+		SDL_FreeSurface (text_surface);
+		return NULL;
+	}
+	surface = SDL_CreateRGBSurfaceWithFormat (0, text_surface->w + 2 * length,
+											  text_surface->h + 2 * length, 32,
+											  SDL_PIXELFORMAT_ARGB8888);
+	if (surface == NULL) {
+		fprintf (stderr, "Error: could not create surface!\n" "Reason: %s\n", SDL_GetError ());
+		SDL_FreeSurface (text_surface);
+		SDL_FreeSurface (outline_surface);
+		return NULL;
+	}
+	/* transparent, but with the outline's RGB so blended edges keep its hue */
+	SDL_FillRect (surface, NULL,
+				  SDL_MapRGBA (surface->format, outlineColor.r, outlineColor.g, outlineColor.b, 0));
+	for (dy = -r; dy <= r; dy++) {
+		for (dx = -r; dx <= r; dx++) {
+			if (dx * dx + dy * dy > r * r + 1)
+				continue;
+			rect.x = length + dx;
+			rect.y = length + dy;
+			SDL_BlitSurface (outline_surface, NULL, surface, &rect);
+		}
+	}
+	rect.x = rect.y = length;
+	SDL_BlitSurface (text_surface, NULL, surface, &rect);
+	SDL_SetSurfaceBlendMode (surface, SDL_BLENDMODE_BLEND);
+	SDL_FreeSurface (text_surface);
+	SDL_FreeSurface (outline_surface);
+	return surface;
+}
+#endif
+
 /*
  * load fonts struct by font name
  */
@@ -157,7 +229,12 @@ GUI_DrawSimpleTextbox (const char *text_in, unsigned flags, const BMRectangle * 
 		fgColor = SDL_COLOR_BLACK;
 		bgColor = SDL_COLOR_WHITE;
 	}
+#ifdef __EMSCRIPTEN__
+	/* web port: antialiased glyphs */
+	text_surface = WebRenderBlended (font, text, SDL_COLOR_YELLOW);
+#else
 	text_surface = TTF_RenderUTF8_Solid (font, text, SDL_COLOR_YELLOW);
+#endif
 	surface =
 		SDL_CreateRGBSurface (screen->flags, rect->w, rect->h, screen->format->BitsPerPixel,
 							  screen->format->Rmask, screen->format->Gmask,
@@ -362,6 +439,10 @@ RenderSolidText (TTF_Font * font, const char *text, SDL_Color textColor)
 	SDL_Surface *text_surface;
 	SDL_Surface *surface;
 
+#ifdef __EMSCRIPTEN__
+	/* web port: antialiased glyphs */
+	return WebRenderBlended (font, text, textColor);
+#endif
 	text_surface = TTF_RenderUTF8_Solid (font, text, textColor);
 	if (text_surface == NULL) {
 		fprintf (stderr, "Error: TTF could not render font!\n" "Reason: %s\n", TTF_GetError ());
@@ -396,6 +477,10 @@ RenderOutlineText (TTF_Font * font, const char *text, SDL_Color textColor,
 	SDL_Surface *surface = NULL;
 	SDL_Rect rect;
 
+#ifdef __EMSCRIPTEN__
+	/* web port: antialiased glyphs and outline */
+	return WebRenderOutline (font, text, textColor, outlineColor, length);
+#endif
 	// color cannot be exactly 0, since that's the colorkey
 	if (textColor.r == 0 && textColor.g == 0 && textColor.b == 0)
 		textColor.r = textColor.g = textColor.b = 1;
