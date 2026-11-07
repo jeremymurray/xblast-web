@@ -159,6 +159,10 @@ def center_x(rect):
     return (rect["left"] + rect["right"]) / 2
 
 
+def center_y(rect):
+    return (rect["top"] + rect["bottom"]) / 2
+
+
 ACTIVE_TOUCHES = {}
 
 
@@ -214,7 +218,9 @@ def rect_union(ws, selector):
     expression = ("(() => { const rs = [...document.querySelectorAll(%s)]"
                   ".map(e => e.getBoundingClientRect()); return JSON.stringify({"
                   "left: Math.min(...rs.map(r => r.left)),"
-                  "right: Math.max(...rs.map(r => r.right))}); })()"
+                  "right: Math.max(...rs.map(r => r.right)),"
+                  "top: Math.min(...rs.map(r => r.top)),"
+                  "bottom: Math.max(...rs.map(r => r.bottom))}); })()"
                   % json.dumps(selector))
     return json.loads(js(ws, expression))
 
@@ -279,6 +285,7 @@ def check_layout_portrait(ws):
     assert_js(ws, "getComputedStyle(document.getElementById('play-area')).display === 'grid'",
               "the touch page grid is not active")
     start_solo_ready(ws)
+    save_shot(ws, "layout-portrait")
     r = rects(ws, "#stage", "#pad", "#actions", "#sys")
     width = js(ws, "innerWidth")
     if not r["stage"]["top"] < r["pad"]["top"]:
@@ -297,15 +304,22 @@ def check_layout_landscape(ws):
     phone(ws, PHONE_LANDSCAPE)
     start_solo_ready(ws)
     r = rects(ws, "#pad", "#stage", "#actions", "#sys")
+    width = js(ws, "innerWidth")
     if not r["pad"]["right"] <= r["stage"]["left"] + 1:
         raise AssertionError("the pad overlaps the playfield in landscape")
     if not r["stage"]["right"] <= r["actions"]["left"] + 1:
         raise AssertionError("the actions overlap the playfield in landscape")
-    if not abs(center_x(r["sys"]) - center_x(r["actions"])) < 2:
-        raise AssertionError("the system row is not under the actions in landscape")
+    if not abs(center_x(r["sys"]) - width / 2) < 2:
+        raise AssertionError("the system row is not centred in landscape")
+    if not r["sys"]["top"] >= r["stage"]["bottom"] - 1:
+        raise AssertionError("the system row overlaps the playfield in landscape")
+    action_keys = rect_union(ws, "#actions [data-action]")
+    if not abs(center_y(action_keys) - center_y(r["pad"])) < 2:
+        raise AssertionError("Bomb/Special are not centred on the pad in landscape")
     for width, height in ((568, 320), (640, 360)):
         phone(ws, {"width": width, "height": height, "deviceScaleFactor": 2, "mobile": True})
         start_solo_ready(ws)
+        save_shot(ws, f"layout-landscape-{width}x{height}")
         pad = rect_union(ws, "#pad [data-action]")
         canvas = rects(ws, "#canvas")["canvas"]
         actions = rect_union(ws, "#actions [data-action]")
@@ -355,6 +369,15 @@ def check_input(ws):
               "a tap did not press down")
     assert_js(ws, "XBTouch.log.some(e => e.name === 'down' && e.down === false)",
               "a tap did not release down")
+
+    # abort/cancel are wired and present in the bottom row
+    assert_js(ws, "document.querySelectorAll('#sys [data-action]').length === 4",
+              "the bottom row is missing a system button")
+    js(ws, "XBTouch.press('abort'); XBTouch.release('abort');"
+          " XBTouch.press('cancel'); XBTouch.release('cancel'); true")
+    assert_js(ws, "XBTouch.log.slice(-4).some(e => e.name === 'abort')"
+                  " && XBTouch.log.slice(-4).some(e => e.name === 'cancel')",
+              "abort/cancel did not reach the bridge")
 
     # a thumb that leaves the pad and comes back keeps tracking
     pad = rects(ws, "#pad")["pad"]

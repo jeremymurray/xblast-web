@@ -145,7 +145,9 @@ enum
 	XBWEB_KEY_SPECIAL,
 	XBWEB_KEY_PAUSE,
 	XBWEB_KEY_BACK,
-	XBWEB_KEY_SELECT
+	XBWEB_KEY_SELECT,
+	XBWEB_KEY_ABORT,
+	XBWEB_KEY_ABORT_CANCEL
 };
 
 int
@@ -165,6 +167,8 @@ XBWeb_SendKey (int action, int down)
 	case XBWEB_KEY_PAUSE:	sym = SDLK_p;			break;
 	case XBWEB_KEY_BACK:	sym = SDLK_ESCAPE;		break;
 	case XBWEB_KEY_SELECT:	sym = SDLK_SPACE;		break;
+	case XBWEB_KEY_ABORT:	sym = SDLK_SLASH;		break;
+	case XBWEB_KEY_ABORT_CANCEL:	sym = SDLK_PERIOD;	break;
 	default:
 		return 0;
 	}

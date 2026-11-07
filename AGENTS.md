@@ -92,8 +92,8 @@ GPL-2.0-or-later.
 - **`EXIT_RUNTIME=1`** so quitting calls `Module.onExit` and the page can show
   the "Play again" overlay.
 - **Mobile touch controls (2026-11-04):** `web/sdl_web.c` exports
-  `XBWeb_SendKey(action, down)`, which pushes a real SDL key event for nine actions
-  (arrows, BackSpace, Return, Tab, P, Escape); this is preferred over synthetic
+  `XBWeb_SendKey(action, down)`, which pushes a real SDL key event for eleven actions
+  (arrows, BackSpace, Return, Tab, P, Escape, `/`, `.`, Space); this is preferred over synthetic
   `KeyboardEvent`s because SDL2 only forwards events with a valid `code` and legacy
   `keyCode`. The page's `#touch` layer is auto-shown on coarse pointers and
   `navigator.maxTouchPoints > 0`, with `?touch=1`/`?touch=0` overrides. Layout is a
@@ -104,8 +104,9 @@ GPL-2.0-or-later.
   mousemove/mousedown/mouseup, because the engine's menus are mouse-driven and
   SDL2 ignores raw touches. In menus Special sends Space (Select) instead of Tab;
   Bomb stays Return. Special is the level-defined Tab ability (remote detonator,
-  jump, ...); kicking is automatic with the kick extra. The setup screen needs
-  two players before Start activates.
+  jump, ...); kicking is automatic with the kick extra. The bottom row also has
+  Abort (`/`, level-abort vote) and Cancel (`.`, clears the vote). The setup
+  screen needs two players before Start activates.
   `scripts/touchtest.py` is the CDP check; a full touch-started match stays a
   manual acceptance step. The old `scripts/playtest.py` is stale because it
   never assigns two players (reproduced on the 0.6.2 baseline).

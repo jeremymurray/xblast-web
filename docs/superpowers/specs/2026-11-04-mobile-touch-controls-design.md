@@ -28,7 +28,7 @@ unchanged.
 ## 3. Goals
 
 1. On-screen controls that cover every action needed to start and play a match:
-   movement, stop, bomb, special, pause, and back/leave.
+   movement, stop, bomb, special, pause, level abort/cancel, and back/leave.
 2. The controls drive the same engine input path as the keyboard, so menus,
    local play and netplay all work without engine game-logic changes.
 3. A landscape layout with the pad on the left, the playfield in the middle and
@@ -133,10 +133,11 @@ again on `Module.onExit`, so no button can press into a dead runtime.
 
 ### 8.2 Layout
 
-`#play-area` is a three-area grid in landscape:
+`#play-area` is a three-area grid in landscape with a full-width system row:
 
 ```
 pad | playfield | actions
+pause  abort  cancel  back
 ```
 
 and in portrait:
@@ -152,8 +153,8 @@ pause/back (centred, full width)
 - Actions are equal-sized rectangles: BOMB above KICK, centred vertically on
   the pad's centre line. In portrait the column is flush to the right edge and
   the pad gets the wider column.
-- PAUSE and BACK sit on the bottom edge in both orientations; centred across
-  the full width in portrait.
+- PAUSE, ABORT, CANCEL and BACK sit on the bottom edge in both orientations,
+  centred across the full width.
 - Sizes use `dvh`/`vw` clamps with a 44 px minimum, and safe-area insets pad
   the page. `100dvh` is used with a `100vh` fallback.
 - The KEYHINTS overlay is hidden in touch mode. `#status` stays visible (moved
@@ -169,6 +170,8 @@ pause/back (centred, full width)
 | BOMB | bomb | Return | default (Start) |
 | SPECIAL | special | Tab in play, Space in menus | select |
 | PAUSE | pause | P | none |
+| ABORT | abort | `/` | none (level-abort vote) |
+| CANCEL | cancel | `.` | none (clears the vote) |
 | BACK | back | Escape | abort |
 
 A tap on the playfield is translated into a synthetic
