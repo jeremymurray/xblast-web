@@ -89,6 +89,9 @@ GPL-2.0-or-later.
 - **Web build skips screen fades** (`__EMSCRIPTEN__` in `sdl_pixmap.c`): the
   blocking `SDL_Delay` wipe stalls Asyncify and feels slow. Keep transitions
   instant until a non-blocking fade is implemented.
+- **Web text is antialiased** (`__EMSCRIPTEN__` in `sdl_text.c`): blended glyphs with
+  a stamped outline replace the 1-bit `Solid` rendering, which looked jagged once the
+  browser scaled the canvas.
 - **`EXIT_RUNTIME=1`** so quitting calls `Module.onExit` and the page can show
   the "Play again" overlay.
 - **Mobile touch controls (2026-11-04):** `web/sdl_web.c` exports
